@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { useGameState } from "@/lib/useGameState";
-import { ELEMENTS, getElement } from "@/lib/elements";
+import { ELEMENTS } from "@/lib/elements";
 import { rollEvent, type GameEvent } from "@/lib/events";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
