@@ -132,6 +132,37 @@
   --sidebar-ring: oklch(0.551 0.027 264.364);
 }
 
+:root {
+  --air: oklch(0.78 0.11 215);
+  --water: oklch(0.62 0.14 245);
+  --fire: oklch(0.66 0.2 35);
+  --arcane-glow: oklch(0.72 0.15 300);
+}
+
+.dark {
+  --background: oklch(0.16 0.03 275);
+  --foreground: oklch(0.96 0.01 270);
+  --card: oklch(0.21 0.035 275);
+  --card-foreground: oklch(0.96 0.01 270);
+  --primary: oklch(0.72 0.15 300);
+  --primary-foreground: oklch(0.16 0.03 275);
+  --muted: oklch(0.27 0.03 275);
+  --muted-foreground: oklch(0.78 0.02 270);
+  --border: oklch(0.4 0.04 280 / 40%);
+  --ring: oklch(0.72 0.15 300);
+  --air: oklch(0.82 0.11 215);
+  --water: oklch(0.72 0.14 245);
+  --fire: oklch(0.72 0.2 35);
+  --arcane-glow: oklch(0.78 0.16 300);
+}
+
+@theme inline {
+  --color-air: var(--air);
+  --color-water: var(--water);
+  --color-fire: var(--fire);
+  --color-arcane-glow: var(--arcane-glow);
+}
+
 @layer base {
   * {
     border-color: var(--color-border);
@@ -140,5 +171,12 @@
   body {
     background-color: var(--color-background);
     color: var(--color-foreground);
+  }
+
+  /* Strong, visible focus indicators for keyboard / switch users. */
+  :focus-visible {
+    outline: 3px solid var(--color-ring);
+    outline-offset: 3px;
+    border-radius: var(--radius-sm);
   }
 }
