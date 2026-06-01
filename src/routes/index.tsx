@@ -1,7 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 import { useGameState } from "@/lib/useGameState";
 import { ELEMENTS, getElement } from "@/lib/elements";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -101,15 +102,16 @@ function GameScreen({
 }) {
   const info = getElement(element);
   const headingRef = useRef<HTMLHeadingElement>(null);
-  const [announced, setAnnounced] = useState(false);
 
   useEffect(() => {
     headingRef.current?.focus();
-    setAnnounced(true);
   }, []);
 
+  // Fragments accumulate silently in the background — referenced to avoid unused warnings.
+  void fragments;
+
   return (
-    <main className="mx-auto flex min-h-screen max-w-2xl flex-col px-6 py-12">
+    <main className="mx-auto flex min-h-screen max-w-3xl flex-col px-6 py-12">
       <header>
         <h1
           ref={headingRef}
@@ -124,32 +126,26 @@ function GameScreen({
         <p className="mt-2 text-muted-foreground">{info.description}</p>
       </header>
 
-      <section
-        aria-labelledby="fragments-label"
-        className="mt-10 rounded-2xl border bg-card p-8 text-center"
-      >
-        <h2 id="fragments-label" className="text-sm font-medium uppercase tracking-wide text-muted-foreground">
-          {info.fragmentName}s gathered
-        </h2>
-        {/* Polite live region: VoiceOver announces the running total as it grows. */}
-        <p
-          className="mt-3 text-6xl font-bold tabular-nums text-foreground"
-          aria-live="polite"
-          aria-atomic="true"
-        >
-          <span className="sr-only">{fragments} {info.fragmentName}s</span>
-          <span aria-hidden="true">{fragments}</span>
-        </p>
-        <p className="mt-4 text-sm text-muted-foreground">
-          You gather one {info.fragmentName} every five seconds.
-        </p>
-      </section>
+      <Tabs defaultValue="home-base" className="mt-10">
+        <TabsList className="flex h-auto w-full flex-wrap justify-start gap-1">
+          {TABS.map((tab) => (
+            <TabsTrigger key={tab.value} value={tab.value}>
+              {tab.label}
+            </TabsTrigger>
+          ))}
+        </TabsList>
 
-      <p className="sr-only" role="status">
-        {announced
-          ? `You are now a ${info.name} mage. Fragments will accumulate automatically.`
-          : ""}
-      </p>
+        {TABS.map((tab) => (
+          <TabsContent key={tab.value} value={tab.value}>
+            <section
+              aria-label={tab.label}
+              className="rounded-2xl border bg-card p-8 text-muted-foreground"
+            >
+              <h2 className="text-lg font-medium text-foreground">{tab.label}</h2>
+            </section>
+          </TabsContent>
+        ))}
+      </Tabs>
 
       <div className="mt-8">
         <button
@@ -163,3 +159,13 @@ function GameScreen({
     </main>
   );
 }
+
+const TABS = [
+  { value: "home-base", label: "Home Base" },
+  { value: "resources", label: "Resources" },
+  { value: "fragments-and-crystals", label: "Fragments and Crystals" },
+  { value: "places", label: "Places" },
+  { value: "stable", label: "Stable" },
+  { value: "menagerie", label: "Menagerie" },
+  { value: "stats", label: "Stats" },
+] as const;
