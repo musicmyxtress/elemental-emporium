@@ -103,14 +103,11 @@ function ChooseElementScreen({
 
 function GameScreen({
   fragments,
-  element,
   onReset,
 }: {
   fragments: number;
-  element: (typeof ELEMENTS)[number]["id"];
   onReset: () => void;
 }) {
-  const info = getElement(element);
   const headingRef = useRef<HTMLHeadingElement>(null);
 
   useEffect(() => {
