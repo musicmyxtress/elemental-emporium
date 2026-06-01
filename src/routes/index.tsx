@@ -51,7 +51,7 @@ function Index() {
     return <ChooseElementScreen onChoose={chooseElement} />;
   }
 
-  return <GameScreen fragments={state.fragments} element={state.element} onReset={reset} />;
+  return <GameScreen fragments={state.fragments} onReset={reset} />;
 }
 
 function ChooseElementScreen({
