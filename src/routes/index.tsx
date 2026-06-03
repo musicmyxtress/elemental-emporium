@@ -63,9 +63,11 @@ function Index() {
 
   return (
     <GameScreen
-      discoveredPlaces={state.discoveredPlaces}
+      state={state}
       onDiscoverPlace={discoverPlace}
       onApplyEvent={applyEvent}
+      onAddResource={addResource}
+      onUnlockLava={unlockLava}
       onReset={reset}
     />
   );
