@@ -356,6 +356,9 @@ function DiscoveryDialog({
           <DialogTitle>{title}</DialogTitle>
           <DialogDescription>{text}</DialogDescription>
         </DialogHeader>
+        {discovery?.kind === "place" && (
+          <PlaceActions place={discovery.place} onCollect={onCollect} />
+        )}
         <DialogFooter>
           <Button type="button" onClick={onDismiss}>
             Okay
