@@ -132,14 +132,18 @@ type Discovery =
   | { kind: "nothing" };
 
 function GameScreen({
-  discoveredPlaces,
+  state,
   onDiscoverPlace,
   onApplyEvent,
+  onAddResource,
+  onUnlockLava,
   onReset,
 }: {
-  discoveredPlaces: string[];
+  state: GameState;
   onDiscoverPlace: (placeId: string) => void;
-  onApplyEvent: (effect: (s: import("@/lib/useGameState").GameState) => import("@/lib/useGameState").GameState) => void;
+  onApplyEvent: (effect: (s: GameState) => GameState) => void;
+  onAddResource: (resource: ResourceKey, amount: number) => void;
+  onUnlockLava: () => void;
   onReset: () => void;
 }) {
   const headingRef = useRef<HTMLHeadingElement>(null);
@@ -151,7 +155,7 @@ function GameScreen({
   const [discovery, setDiscovery] = useState<Discovery | null>(null);
 
   function handleExplore() {
-    const place = rollUndiscoveredPlace(discoveredPlaces);
+    const place = rollUndiscoveredPlace(state.discoveredPlaces);
     const event = rollEvent();
 
     // Build a list of possible outcomes and pick one at random.
@@ -167,10 +171,17 @@ function GameScreen({
     const chosen = outcomes[Math.floor(Math.random() * outcomes.length)];
     if (chosen.kind === "place") {
       onDiscoverPlace(chosen.place.id);
+      if (chosen.place.unlocksLava) onUnlockLava();
     } else if (chosen.kind === "event" && chosen.event.apply) {
       onApplyEvent(chosen.event.apply);
     }
     setDiscovery(chosen);
+  }
+
+  function handleCollect(action: PlaceAction) {
+    const amount = rollActionReward(action, state);
+    onAddResource(action.resource, amount);
+    return amount;
   }
 
   return (
@@ -205,7 +216,10 @@ function GameScreen({
             >
               <h2 className="text-lg font-medium text-foreground">{tab.label}</h2>
               {tab.value === "places" && (
-                <PlacesPanel discoveredPlaces={discoveredPlaces} />
+                <PlacesPanel
+                  discoveredPlaces={state.discoveredPlaces}
+                  onCollect={handleCollect}
+                />
               )}
             </section>
           </TabsContent>
@@ -222,12 +236,68 @@ function GameScreen({
         </button>
       </div>
 
-      <DiscoveryDialog discovery={discovery} onDismiss={() => setDiscovery(null)} />
+      <DiscoveryDialog
+        discovery={discovery}
+        onCollect={handleCollect}
+        onDismiss={() => setDiscovery(null)}
+      />
     </main>
   );
 }
 
-function PlacesPanel({ discoveredPlaces }: { discoveredPlaces: string[] }) {
+const RESOURCE_LABELS: Record<ResourceKey, string> = {
+  water: "water fragments",
+  stone: "stone fragments",
+  lava: "lava fragments",
+};
+
+/**
+ * Renders the action buttons for a place. Used both on first discovery (in the
+ * dialog) and when revisiting a place from the Places tab. Reports the collected
+ * amount through an aria-live region so screen readers announce the result.
+ */
+function PlaceActions({
+  place,
+  onCollect,
+}: {
+  place: Place;
+  onCollect: (action: PlaceAction) => number;
+}) {
+  const [result, setResult] = useState<string>("");
+
+  if (place.actions.length === 0) return null;
+
+  return (
+    <div className="mt-4 flex flex-col gap-3">
+      <div className="flex flex-wrap gap-2">
+        {place.actions.map((action) => (
+          <Button
+            key={action.id}
+            type="button"
+            variant="secondary"
+            onClick={() => {
+              const amount = onCollect(action);
+              setResult(`You collected ${amount} ${RESOURCE_LABELS[action.resource]}.`);
+            }}
+          >
+            {action.label}
+          </Button>
+        ))}
+      </div>
+      <p role="status" aria-live="polite" className="min-h-5 text-sm text-foreground">
+        {result}
+      </p>
+    </div>
+  );
+}
+
+function PlacesPanel({
+  discoveredPlaces,
+  onCollect,
+}: {
+  discoveredPlaces: string[];
+  onCollect: (action: PlaceAction) => number;
+}) {
   const places = discoveredPlaces
     .map((id) => getPlace(id))
     .filter((p): p is Place => Boolean(p));
