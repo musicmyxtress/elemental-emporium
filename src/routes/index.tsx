@@ -2,7 +2,8 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { useGameState } from "@/lib/useGameState";
 import { ELEMENTS } from "@/lib/elements";
-import { rollEvent, type GameEvent } from "@/lib/events";
+import { rollEvent, type RandomEvent } from "@/lib/events";
+import { getPlace, rollUndiscoveredPlace, type Place } from "@/lib/places";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Dialog,
@@ -35,7 +36,7 @@ export const Route = createFileRoute("/")({
 });
 
 function Index() {
-  const { state, hydrated, chooseElement, reset } = useGameState();
+  const { state, hydrated, chooseElement, discoverPlace, applyEvent, reset } = useGameState();
 
   if (!hydrated) {
     return (
@@ -51,7 +52,14 @@ function Index() {
     return <ChooseElementScreen onChoose={chooseElement} />;
   }
 
-  return <GameScreen fragments={state.fragments} onReset={reset} />;
+  return (
+    <GameScreen
+      discoveredPlaces={state.discoveredPlaces}
+      onDiscoverPlace={discoverPlace}
+      onApplyEvent={applyEvent}
+      onReset={reset}
+    />
+  );
 }
 
 function ChooseElementScreen({
@@ -101,11 +109,20 @@ function ChooseElementScreen({
   );
 }
 
+type Discovery =
+  | { kind: "place"; place: Place }
+  | { kind: "event"; event: RandomEvent }
+  | { kind: "nothing" };
+
 function GameScreen({
-  fragments,
+  discoveredPlaces,
+  onDiscoverPlace,
+  onApplyEvent,
   onReset,
 }: {
-  fragments: number;
+  discoveredPlaces: string[];
+  onDiscoverPlace: (placeId: string) => void;
+  onApplyEvent: (effect: (s: import("@/lib/useGameState").GameState) => import("@/lib/useGameState").GameState) => void;
   onReset: () => void;
 }) {
   const headingRef = useRef<HTMLHeadingElement>(null);
@@ -114,20 +131,29 @@ function GameScreen({
     headingRef.current?.focus();
   }, []);
 
-  // Fragments accumulate silently in the background — referenced to avoid unused warnings.
-  void fragments;
-
-  const [activeEvent, setActiveEvent] = useState<GameEvent | null>(null);
-  const [noEvent, setNoEvent] = useState(false);
+  const [discovery, setDiscovery] = useState<Discovery | null>(null);
 
   function handleExplore() {
+    const place = rollUndiscoveredPlace(discoveredPlaces);
     const event = rollEvent();
-    if (event) {
-      setActiveEvent(event);
-    } else {
-      // No places or events have been added yet.
-      setNoEvent(true);
+
+    // Build a list of possible outcomes and pick one at random.
+    const outcomes: Discovery[] = [];
+    if (place) outcomes.push({ kind: "place", place });
+    if (event) outcomes.push({ kind: "event", event });
+
+    if (outcomes.length === 0) {
+      setDiscovery({ kind: "nothing" });
+      return;
     }
+
+    const chosen = outcomes[Math.floor(Math.random() * outcomes.length)];
+    if (chosen.kind === "place") {
+      onDiscoverPlace(chosen.place.id);
+    } else if (chosen.kind === "event" && chosen.event.apply) {
+      onApplyEvent(chosen.event.apply);
+    }
+    setDiscovery(chosen);
   }
 
   return (
@@ -161,6 +187,9 @@ function GameScreen({
               className="rounded-2xl border bg-card p-8 text-muted-foreground"
             >
               <h2 className="text-lg font-medium text-foreground">{tab.label}</h2>
+              {tab.value === "places" && (
+                <PlacesPanel discoveredPlaces={discoveredPlaces} />
+              )}
             </section>
           </TabsContent>
         ))}
@@ -176,39 +205,64 @@ function GameScreen({
         </button>
       </div>
 
-      <EventDialog
-        event={activeEvent}
-        noEvent={noEvent}
-        onDismiss={() => {
-          setActiveEvent(null);
-          setNoEvent(false);
-        }}
-      />
+      <DiscoveryDialog discovery={discovery} onDismiss={() => setDiscovery(null)} />
     </main>
   );
 }
 
-function EventDialog({
-  event,
-  noEvent,
+function PlacesPanel({ discoveredPlaces }: { discoveredPlaces: string[] }) {
+  const places = discoveredPlaces
+    .map((id) => getPlace(id))
+    .filter((p): p is Place => Boolean(p));
+
+  if (places.length === 0) {
+    return (
+      <p className="mt-3 text-sm">
+        You have not discovered any places yet. Explore to find them.
+      </p>
+    );
+  }
+
+  return (
+    <ul className="mt-4 grid gap-3" role="list">
+      {places.map((place) => (
+        <li
+          key={place.id}
+          className="rounded-xl border bg-background p-4 text-left"
+        >
+          <h3 className="text-base font-medium text-foreground">{place.name}</h3>
+          <p className="mt-1 text-sm text-muted-foreground">{place.description}</p>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+function DiscoveryDialog({
+  discovery,
   onDismiss,
 }: {
-  event: GameEvent | null;
-  noEvent: boolean;
+  discovery: Discovery | null;
   onDismiss: () => void;
 }) {
-  const open = event !== null || noEvent;
+  const open = discovery !== null;
+
+  let title = "Nothing stirs";
+  let text = "You explore for a while, but find nothing of note this time.";
+  if (discovery?.kind === "place") {
+    title = `You discovered ${discovery.place.name}`;
+    text = discovery.place.description;
+  } else if (discovery?.kind === "event") {
+    title = discovery.event.title;
+    text = discovery.event.text;
+  }
 
   return (
     <Dialog open={open} onOpenChange={(next) => (!next ? onDismiss() : undefined)}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>{event ? event.title : "Nothing stirs"}</DialogTitle>
-          <DialogDescription>
-            {event
-              ? event.text
-              : "You explore for a while, but find nothing of note this time."}
-          </DialogDescription>
+          <DialogTitle>{title}</DialogTitle>
+          <DialogDescription>{text}</DialogDescription>
         </DialogHeader>
         <DialogFooter>
           <Button type="button" onClick={onDismiss}>
