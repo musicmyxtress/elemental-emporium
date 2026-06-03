@@ -5,12 +5,16 @@ export type Element = "air" | "water" | "fire";
 export interface GameState {
   element: Element | null;
   fragments: number;
+  /** Ids of places the player has discovered. Places are discovered once. */
+  discoveredPlaces: string[];
 }
 
 const STORAGE_KEY = "mage-incremental-rpg-v1";
 
+const INITIAL_STATE: GameState = { element: null, fragments: 0, discoveredPlaces: [] };
+
 function loadState(): GameState {
-  if (typeof window === "undefined") return { element: null, fragments: 0 };
+  if (typeof window === "undefined") return INITIAL_STATE;
   try {
     const raw = window.localStorage.getItem(STORAGE_KEY);
     if (raw) {
@@ -22,13 +26,18 @@ function loadState(): GameState {
           parsed.element === null) &&
         typeof parsed.fragments === "number"
       ) {
-        return parsed;
+        return {
+          ...parsed,
+          discoveredPlaces: Array.isArray(parsed.discoveredPlaces)
+            ? parsed.discoveredPlaces
+            : [],
+        };
       }
     }
   } catch {
     // ignore corrupt storage
   }
-  return { element: null, fragments: 0 };
+  return INITIAL_STATE;
 }
 
 export const FRAGMENT_INTERVAL_MS = 5000;
