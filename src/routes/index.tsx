@@ -319,6 +319,7 @@ function PlacesPanel({
         >
           <h3 className="text-base font-medium text-foreground">{place.name}</h3>
           <p className="mt-1 text-sm text-muted-foreground">{place.description}</p>
+          <PlaceActions place={place} onCollect={onCollect} />
         </li>
       ))}
     </ul>
