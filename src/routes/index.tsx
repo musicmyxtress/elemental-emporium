@@ -328,9 +328,11 @@ function PlacesPanel({
 
 function DiscoveryDialog({
   discovery,
+  onCollect,
   onDismiss,
 }: {
   discovery: Discovery | null;
+  onCollect: (action: PlaceAction) => number;
   onDismiss: () => void;
 }) {
   const open = discovery !== null;
@@ -339,7 +341,9 @@ function DiscoveryDialog({
   let text = "You explore for a while, but find nothing of note this time.";
   if (discovery?.kind === "place") {
     title = `You discovered ${discovery.place.name}`;
-    text = discovery.place.description;
+    text = discovery.place.unlocksLava
+      ? `${discovery.place.description} You have unlocked the element of lava.`
+      : discovery.place.description;
   } else if (discovery?.kind === "event") {
     title = discovery.event.title;
     text = discovery.event.text;
