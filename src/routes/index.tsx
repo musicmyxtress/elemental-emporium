@@ -2,7 +2,8 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { useGameState } from "@/lib/useGameState";
 import { ELEMENTS } from "@/lib/elements";
-import { rollEvent, type GameEvent } from "@/lib/events";
+import { rollEvent, type RandomEvent } from "@/lib/events";
+import { PLACES, getPlace, rollUndiscoveredPlace, type Place } from "@/lib/places";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Dialog,
