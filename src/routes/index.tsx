@@ -36,7 +36,7 @@ export const Route = createFileRoute("/")({
 });
 
 function Index() {
-  const { state, hydrated, chooseElement, reset } = useGameState();
+  const { state, hydrated, chooseElement, discoverPlace, applyEvent, reset } = useGameState();
 
   if (!hydrated) {
     return (
