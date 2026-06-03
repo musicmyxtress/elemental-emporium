@@ -43,7 +43,7 @@ function loadState(): GameState {
 export const FRAGMENT_INTERVAL_MS = 5000;
 
 export function useGameState() {
-  const [state, setState] = useState<GameState>({ element: null, fragments: 0 });
+  const [state, setState] = useState<GameState>(INITIAL_STATE);
   const [hydrated, setHydrated] = useState(false);
 
   // Hydrate from localStorage on the client only (avoids SSR mismatch).
@@ -78,9 +78,23 @@ export function useGameState() {
     setState((prev) => ({ ...prev, element }));
   }, []);
 
-  const reset = useCallback(() => {
-    setState({ element: null, fragments: 0 });
+  /** Records a discovered place (no-op if already discovered). */
+  const discoverPlace = useCallback((placeId: string) => {
+    setState((prev) =>
+      prev.discoveredPlaces.includes(placeId)
+        ? prev
+        : { ...prev, discoveredPlaces: [...prev.discoveredPlaces, placeId] },
+    );
   }, []);
 
-  return { state, hydrated, chooseElement, reset };
+  /** Applies a random event's effect to the current state. */
+  const applyEvent = useCallback((effect: (s: GameState) => GameState) => {
+    setState((prev) => effect(prev));
+  }, []);
+
+  const reset = useCallback(() => {
+    setState(INITIAL_STATE);
+  }, []);
+
+  return { state, hydrated, chooseElement, discoverPlace, applyEvent, reset };
 }
