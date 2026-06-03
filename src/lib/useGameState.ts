@@ -2,23 +2,36 @@ import { useState, useEffect, useCallback, useRef } from "react";
 
 export type Element = "air" | "water" | "fire";
 
+/** Keys for the various resources the player can collect from places. */
+export type ResourceKey = "water" | "stone" | "lava";
+
 export interface GameState {
   element: Element | null;
   fragments: number;
   /** Ids of places the player has discovered. Places are discovered once. */
   discoveredPlaces: string[];
+  /** Resource fragment counts collected from place actions. */
+  resources: Record<ResourceKey, number>;
+  /** Whether the player has unlocked the lava element (via the volcano). */
+  lavaUnlocked: boolean;
 }
 
 const STORAGE_KEY = "mage-incremental-rpg-v1";
 
-const INITIAL_STATE: GameState = { element: null, fragments: 0, discoveredPlaces: [] };
+const INITIAL_STATE: GameState = {
+  element: null,
+  fragments: 0,
+  discoveredPlaces: [],
+  resources: { water: 0, stone: 0, lava: 0 },
+  lavaUnlocked: false,
+};
 
 function loadState(): GameState {
   if (typeof window === "undefined") return INITIAL_STATE;
   try {
     const raw = window.localStorage.getItem(STORAGE_KEY);
     if (raw) {
-      const parsed = JSON.parse(raw) as GameState;
+      const parsed = JSON.parse(raw) as Partial<GameState>;
       if (
         (parsed.element === "air" ||
           parsed.element === "water" ||
@@ -27,10 +40,17 @@ function loadState(): GameState {
         typeof parsed.fragments === "number"
       ) {
         return {
-          ...parsed,
+          element: parsed.element ?? null,
+          fragments: parsed.fragments,
           discoveredPlaces: Array.isArray(parsed.discoveredPlaces)
             ? parsed.discoveredPlaces
             : [],
+          resources: {
+            water: parsed.resources?.water ?? 0,
+            stone: parsed.resources?.stone ?? 0,
+            lava: parsed.resources?.lava ?? 0,
+          },
+          lavaUnlocked: Boolean(parsed.lavaUnlocked),
         };
       }
     }
@@ -92,9 +112,31 @@ export function useGameState() {
     setState((prev) => effect(prev));
   }, []);
 
+  /** Adds an amount of a resource to the player's totals. */
+  const addResource = useCallback((resource: ResourceKey, amount: number) => {
+    setState((prev) => ({
+      ...prev,
+      resources: { ...prev.resources, [resource]: prev.resources[resource] + amount },
+    }));
+  }, []);
+
+  /** Unlocks the lava element for the remainder of the game. */
+  const unlockLava = useCallback(() => {
+    setState((prev) => (prev.lavaUnlocked ? prev : { ...prev, lavaUnlocked: true }));
+  }, []);
+
   const reset = useCallback(() => {
     setState(INITIAL_STATE);
   }, []);
 
-  return { state, hydrated, chooseElement, discoverPlace, applyEvent, reset };
+  return {
+    state,
+    hydrated,
+    chooseElement,
+    discoverPlace,
+    applyEvent,
+    addResource,
+    unlockLava,
+    reset,
+  };
 }

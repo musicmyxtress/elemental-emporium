@@ -1,9 +1,15 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
-import { useGameState } from "@/lib/useGameState";
+import { useGameState, type GameState, type ResourceKey } from "@/lib/useGameState";
 import { ELEMENTS } from "@/lib/elements";
 import { rollEvent, type RandomEvent } from "@/lib/events";
-import { getPlace, rollUndiscoveredPlace, type Place } from "@/lib/places";
+import {
+  getPlace,
+  rollUndiscoveredPlace,
+  rollActionReward,
+  type Place,
+  type PlaceAction,
+} from "@/lib/places";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Dialog,
@@ -36,7 +42,16 @@ export const Route = createFileRoute("/")({
 });
 
 function Index() {
-  const { state, hydrated, chooseElement, discoverPlace, applyEvent, reset } = useGameState();
+  const {
+    state,
+    hydrated,
+    chooseElement,
+    discoverPlace,
+    applyEvent,
+    addResource,
+    unlockLava,
+    reset,
+  } = useGameState();
 
   if (!hydrated) {
     return (
@@ -54,9 +69,11 @@ function Index() {
 
   return (
     <GameScreen
-      discoveredPlaces={state.discoveredPlaces}
+      state={state}
       onDiscoverPlace={discoverPlace}
       onApplyEvent={applyEvent}
+      onAddResource={addResource}
+      onUnlockLava={unlockLava}
       onReset={reset}
     />
   );
@@ -115,14 +132,18 @@ type Discovery =
   | { kind: "nothing" };
 
 function GameScreen({
-  discoveredPlaces,
+  state,
   onDiscoverPlace,
   onApplyEvent,
+  onAddResource,
+  onUnlockLava,
   onReset,
 }: {
-  discoveredPlaces: string[];
+  state: GameState;
   onDiscoverPlace: (placeId: string) => void;
-  onApplyEvent: (effect: (s: import("@/lib/useGameState").GameState) => import("@/lib/useGameState").GameState) => void;
+  onApplyEvent: (effect: (s: GameState) => GameState) => void;
+  onAddResource: (resource: ResourceKey, amount: number) => void;
+  onUnlockLava: () => void;
   onReset: () => void;
 }) {
   const headingRef = useRef<HTMLHeadingElement>(null);
@@ -134,7 +155,7 @@ function GameScreen({
   const [discovery, setDiscovery] = useState<Discovery | null>(null);
 
   function handleExplore() {
-    const place = rollUndiscoveredPlace(discoveredPlaces);
+    const place = rollUndiscoveredPlace(state.discoveredPlaces);
     const event = rollEvent();
 
     // Build a list of possible outcomes and pick one at random.
@@ -150,10 +171,17 @@ function GameScreen({
     const chosen = outcomes[Math.floor(Math.random() * outcomes.length)];
     if (chosen.kind === "place") {
       onDiscoverPlace(chosen.place.id);
+      if (chosen.place.unlocksLava) onUnlockLava();
     } else if (chosen.kind === "event" && chosen.event.apply) {
       onApplyEvent(chosen.event.apply);
     }
     setDiscovery(chosen);
+  }
+
+  function handleCollect(action: PlaceAction) {
+    const amount = rollActionReward(action, state);
+    onAddResource(action.resource, amount);
+    return amount;
   }
 
   return (
@@ -188,7 +216,10 @@ function GameScreen({
             >
               <h2 className="text-lg font-medium text-foreground">{tab.label}</h2>
               {tab.value === "places" && (
-                <PlacesPanel discoveredPlaces={discoveredPlaces} />
+                <PlacesPanel
+                  discoveredPlaces={state.discoveredPlaces}
+                  onCollect={handleCollect}
+                />
               )}
             </section>
           </TabsContent>
@@ -205,12 +236,68 @@ function GameScreen({
         </button>
       </div>
 
-      <DiscoveryDialog discovery={discovery} onDismiss={() => setDiscovery(null)} />
+      <DiscoveryDialog
+        discovery={discovery}
+        onCollect={handleCollect}
+        onDismiss={() => setDiscovery(null)}
+      />
     </main>
   );
 }
 
-function PlacesPanel({ discoveredPlaces }: { discoveredPlaces: string[] }) {
+const RESOURCE_LABELS: Record<ResourceKey, string> = {
+  water: "water fragments",
+  stone: "stone fragments",
+  lava: "lava fragments",
+};
+
+/**
+ * Renders the action buttons for a place. Used both on first discovery (in the
+ * dialog) and when revisiting a place from the Places tab. Reports the collected
+ * amount through an aria-live region so screen readers announce the result.
+ */
+function PlaceActions({
+  place,
+  onCollect,
+}: {
+  place: Place;
+  onCollect: (action: PlaceAction) => number;
+}) {
+  const [result, setResult] = useState<string>("");
+
+  if (place.actions.length === 0) return null;
+
+  return (
+    <div className="mt-4 flex flex-col gap-3">
+      <div className="flex flex-wrap gap-2">
+        {place.actions.map((action) => (
+          <Button
+            key={action.id}
+            type="button"
+            variant="secondary"
+            onClick={() => {
+              const amount = onCollect(action);
+              setResult(`You collected ${amount} ${RESOURCE_LABELS[action.resource]}.`);
+            }}
+          >
+            {action.label}
+          </Button>
+        ))}
+      </div>
+      <p role="status" aria-live="polite" className="min-h-5 text-sm text-foreground">
+        {result}
+      </p>
+    </div>
+  );
+}
+
+function PlacesPanel({
+  discoveredPlaces,
+  onCollect,
+}: {
+  discoveredPlaces: string[];
+  onCollect: (action: PlaceAction) => number;
+}) {
   const places = discoveredPlaces
     .map((id) => getPlace(id))
     .filter((p): p is Place => Boolean(p));
@@ -232,6 +319,7 @@ function PlacesPanel({ discoveredPlaces }: { discoveredPlaces: string[] }) {
         >
           <h3 className="text-base font-medium text-foreground">{place.name}</h3>
           <p className="mt-1 text-sm text-muted-foreground">{place.description}</p>
+          <PlaceActions place={place} onCollect={onCollect} />
         </li>
       ))}
     </ul>
@@ -240,9 +328,11 @@ function PlacesPanel({ discoveredPlaces }: { discoveredPlaces: string[] }) {
 
 function DiscoveryDialog({
   discovery,
+  onCollect,
   onDismiss,
 }: {
   discovery: Discovery | null;
+  onCollect: (action: PlaceAction) => number;
   onDismiss: () => void;
 }) {
   const open = discovery !== null;
@@ -251,7 +341,9 @@ function DiscoveryDialog({
   let text = "You explore for a while, but find nothing of note this time.";
   if (discovery?.kind === "place") {
     title = `You discovered ${discovery.place.name}`;
-    text = discovery.place.description;
+    text = discovery.place.unlocksLava
+      ? `${discovery.place.description} You have unlocked the element of lava.`
+      : discovery.place.description;
   } else if (discovery?.kind === "event") {
     title = discovery.event.title;
     text = discovery.event.text;
@@ -264,6 +356,13 @@ function DiscoveryDialog({
           <DialogTitle>{title}</DialogTitle>
           <DialogDescription>{text}</DialogDescription>
         </DialogHeader>
+        {discovery?.kind === "place" && (
+          <PlaceActions
+            key={discovery.place.id}
+            place={discovery.place}
+            onCollect={onCollect}
+          />
+        )}
         <DialogFooter>
           <Button type="button" onClick={onDismiss}>
             Okay
