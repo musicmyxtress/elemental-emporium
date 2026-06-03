@@ -52,7 +52,14 @@ function Index() {
     return <ChooseElementScreen onChoose={chooseElement} />;
   }
 
-  return <GameScreen fragments={state.fragments} onReset={reset} />;
+  return (
+    <GameScreen
+      discoveredPlaces={state.discoveredPlaces}
+      onDiscoverPlace={discoverPlace}
+      onApplyEvent={applyEvent}
+      onReset={reset}
+    />
+  );
 }
 
 function ChooseElementScreen({
