@@ -134,6 +134,8 @@ function ChooseElementScreen({
 type Discovery =
   | { kind: "place"; place: Place }
   | { kind: "locked-place"; place: Place }
+  | { kind: "creature"; creature: Creature }
+  | { kind: "locked-creature"; creature: Creature }
   | { kind: "event"; event: RandomEvent }
   | { kind: "nothing" };
 
@@ -142,11 +144,13 @@ function GameScreen({
   resources,
   placeCooldowns,
   shelvedPlaces,
+  shelvedCreatures,
   unlockedElements,
   elementLevels,
   elementXp,
   onDiscoverPlace,
   onShelvePlace,
+  onShelveCreature,
   onApplyEvent,
   onCollectFromPlace,
   onReset,
@@ -155,11 +159,13 @@ function GameScreen({
   resources: Record<string, number>;
   placeCooldowns: Record<string, number>;
   shelvedPlaces: Record<string, number>;
+  shelvedCreatures: Record<string, number>;
   unlockedElements: string[];
   elementLevels: GameState["elementLevels"];
   elementXp: GameState["elementXp"];
   onDiscoverPlace: (placeId: string) => void;
   onShelvePlace: (placeId: string, rarity: number) => void;
+  onShelveCreature: (creatureId: string, rarity: number) => void;
   onApplyEvent: (effect: (s: GameState) => GameState) => void;
   onCollectFromPlace: (placeId: string) => CollectResult;
   onReset: () => void;
@@ -175,6 +181,7 @@ function GameScreen({
   function handleExplore() {
     const place = rollUndiscoveredPlace(discoveredPlaces, shelvedPlaces);
     const event = rollEvent();
+    const creature = rollCreature(shelvedCreatures);
 
     const outcomes: Discovery[] = [];
     if (place) {
@@ -182,6 +189,13 @@ function GameScreen({
       const locked = elementId !== undefined && !unlockedElements.includes(elementId);
       outcomes.push(
         locked ? { kind: "locked-place", place } : { kind: "place", place },
+      );
+    }
+    if (creature) {
+      const elementId = creature.elementProduction.element;
+      const locked = !unlockedElements.includes(elementId);
+      outcomes.push(
+        locked ? { kind: "locked-creature", creature } : { kind: "creature", creature },
       );
     }
     if (event) outcomes.push({ kind: "event", event });
@@ -197,16 +211,27 @@ function GameScreen({
     } else if (chosen.kind === "event" && chosen.event.apply) {
       onApplyEvent(chosen.event.apply);
     }
-    // Locked-place discoveries are NOT added to discoveredPlaces; the player
-    // must choose to study it, which shelves it instead.
+    // Locked-place / locked-creature / creature outcomes are not auto-recorded;
+    // the player must pick a follow-up action in the dialog.
     setDiscovery(chosen);
   }
 
   function handleStudy() {
-    if (discovery?.kind !== "locked-place") return;
-    onShelvePlace(discovery.place.id, discovery.place.rarity);
+    if (discovery?.kind === "locked-place") {
+      onShelvePlace(discovery.place.id, discovery.place.rarity);
+    } else if (discovery?.kind === "locked-creature") {
+      onShelveCreature(discovery.creature.id, discovery.creature.rarity);
+    }
     setDiscovery(null);
   }
+
+  // Creature actions are stubbed for now — fight, tame, and leave-alone all
+  // dismiss the encounter without changing state. Real mechanics will be wired
+  // up when combat and the menagerie are implemented.
+  function handleCreatureAction() {
+    setDiscovery(null);
+  }
+
 
 
   return (
