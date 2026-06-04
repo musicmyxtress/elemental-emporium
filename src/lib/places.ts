@@ -74,7 +74,7 @@ export const PLACES: Place[] = [
     description: "A restless volcano glowing with molten light. You can collect lava fragments here.",
     rarity: 3,
     resource: { id: "lava-fragment", label: "lava fragment" },
-    cooldownMs: 15_000,
+    cooldownMs: 30_000,
   },
 ];
 
