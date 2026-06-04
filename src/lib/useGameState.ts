@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { getPlace } from "./places";
-import { xpToNextLevel } from "./elements";
+import { xpToNextLevel, fragmentResourceId, FRAGMENTS_PER_CRYSTAL } from "./elements";
 
 export type Element = "air" | "earth" | "fire" | "water";
 
