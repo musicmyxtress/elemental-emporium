@@ -1,12 +1,13 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
-import { useGameState, type CollectResult, type GameState, BUILDING_COSTS } from "@/lib/useGameState";
+import { useGameState, type CollectResult, type GameState, BUILDING_COSTS, APPRENTICE_LEVEL } from "@/lib/useGameState";
 import {
   ELEMENTS,
   ALL_ELEMENT_INFO,
   FRAGMENTS_PER_CRYSTAL,
   fragmentResourceId,
   xpToNextLevel,
+  getElementInfo,
 } from "@/lib/elements";
 
 import { rollEvent, type RandomEvent } from "@/lib/events";
@@ -66,6 +67,8 @@ function Index() {
     spendCrystals,
     tameCreature,
     buildBuilding,
+    acknowledgeApprentice,
+    graduateApprentice,
     reset,
   } = useGameState();
 
@@ -80,11 +83,28 @@ function Index() {
   }
 
   if (!state.element) {
-    return <ChooseElementScreen onChoose={chooseElement} />;
+    // Generation 1 picks from the four starter elements. Later generations
+    // (apprentices who have graduated) may master any element previously
+    // unlocked.
+    const isApprentice = state.generation > 1;
+    const availableIds = isApprentice
+      ? state.unlockedElements
+      : ELEMENTS.map((e) => e.id);
+    return (
+      <ChooseElementScreen
+        onChoose={chooseElement}
+        availableElementIds={availableIds}
+        isApprentice={isApprentice}
+        generation={state.generation}
+      />
+    );
   }
 
   return (
     <GameScreen
+      element={state.element}
+      generation={state.generation}
+      apprenticeAcknowledged={state.apprenticeAcknowledged}
       discoveredPlaces={state.discoveredPlaces}
       resources={state.resources}
       crystals={state.crystals}
@@ -106,6 +126,8 @@ function Index() {
       onSpendCrystals={spendCrystals}
       onTameCreature={tameCreature}
       onBuildBuilding={buildBuilding}
+      onAcknowledgeApprentice={acknowledgeApprentice}
+      onGraduateApprentice={graduateApprentice}
       elementLevels={state.elementLevels}
       elementXp={state.elementXp}
       onReset={reset}
@@ -118,14 +140,39 @@ function Index() {
 
 function ChooseElementScreen({
   onChoose,
+  availableElementIds,
+  isApprentice = false,
+  generation = 1,
 }: {
-  onChoose: (e: (typeof ELEMENTS)[number]["id"]) => void;
+  onChoose: (e: string) => void;
+  availableElementIds?: string[];
+  isApprentice?: boolean;
+  generation?: number;
 }) {
   const headingRef = useRef<HTMLHeadingElement>(null);
 
   useEffect(() => {
     headingRef.current?.focus();
   }, []);
+
+  // Build the candidate option list. For the original mage, use the four
+  // starter ELEMENTS (full info). For apprentices, derive from the unlocked
+  // element ids using ALL_ELEMENT_INFO.
+  const options = availableElementIds
+    ? availableElementIds
+        .map((id) => {
+          const starter = ELEMENTS.find((e) => e.id === id);
+          if (starter) return { id, name: starter.name, emoji: starter.emoji, description: starter.description };
+          const info = getElementInfo(id);
+          if (!info) return null;
+          return { id, name: info.name, emoji: info.emoji, description: `Master the ${info.name.toLowerCase()} element.` };
+        })
+        .filter((x): x is { id: string; name: string; emoji: string; description: string } => Boolean(x))
+    : ELEMENTS.map((el) => ({ id: el.id, name: el.name, emoji: el.emoji, description: el.description }));
+
+  const heading = isApprentice
+    ? `You are the new apprentice, generation ${generation}. Your master sent you out into the world to build your own emporium. Which of your unlocked elements will you specialize in?`
+    : "Welcome young mage. In you studies you have grown an affinity to an element. What element do you specialize in?";
 
   return (
     <main className="mx-auto flex min-h-screen max-w-2xl flex-col justify-center px-6 py-12">
@@ -134,14 +181,13 @@ function ChooseElementScreen({
         tabIndex={-1}
         className="text-2xl font-semibold leading-relaxed text-foreground sm:text-3xl"
       >
-        Welcome young mage. In you studies you have grown an affinity to an element. What element do
-        you specialize in?
+        {heading}
       </h1>
 
       <fieldset className="mt-10 border-0 p-0">
         <legend className="sr-only">Choose your specialized element</legend>
         <ul className="grid gap-4 sm:grid-cols-3" role="list">
-          {ELEMENTS.map((el) => (
+          {options.map((el) => (
             <li key={el.id}>
               <button
                 type="button"
@@ -172,6 +218,9 @@ type Discovery =
   | { kind: "nothing" };
 
 function GameScreen({
+  element,
+  generation,
+  apprenticeAcknowledged,
   discoveredPlaces,
   resources,
   crystals,
@@ -195,8 +244,13 @@ function GameScreen({
   onSpendCrystals,
   onTameCreature,
   onBuildBuilding,
+  onAcknowledgeApprentice,
+  onGraduateApprentice,
   onReset,
 }: {
+  element: string;
+  generation: number;
+  apprenticeAcknowledged: boolean;
   discoveredPlaces: string[];
   resources: Record<string, number>;
   crystals: Record<string, number>;
@@ -220,6 +274,8 @@ function GameScreen({
   onSpendCrystals: (elementId: string, amount: number) => boolean;
   onTameCreature: (creatureId: string) => void;
   onBuildBuilding: (buildingId: string) => boolean;
+  onAcknowledgeApprentice: () => void;
+  onGraduateApprentice: (creatureId: string) => boolean;
   onReset: () => void;
 }) {
   const headingRef = useRef<HTMLHeadingElement>(null);
@@ -357,9 +413,14 @@ function GameScreen({
               )}
               {tab.value === "home-base" && (
                 <HomeBasePanel
+                  masteredElement={element}
+                  masteredLevel={elementLevels[element] ?? 0}
+                  generation={generation}
+                  tamedCreatures={tamedCreatures}
                   resources={resources}
                   buildings={buildings}
                   onBuildBuilding={onBuildBuilding}
+                  onGraduateApprentice={onGraduateApprentice}
                 />
               )}
               {tab.value === "stable" && (
@@ -417,11 +478,53 @@ function GameScreen({
         onTame={handleTame}
         onDismiss={() => setDiscovery(null)}
       />
+      <ApprenticeArrivalDialog
+        open={(elementLevels[element] ?? 0) >= APPRENTICE_LEVEL && !apprenticeAcknowledged}
+        masteredElement={element}
+        onAcknowledge={onAcknowledgeApprentice}
+      />
       <div role="status" aria-live="polite" className="sr-only">
         {creatureAnnouncement}
       </div>
     </main>
 
+  );
+}
+
+function ApprenticeArrivalDialog({
+  open,
+  masteredElement,
+  onAcknowledge,
+}: {
+  open: boolean;
+  masteredElement: string;
+  onAcknowledge: () => void;
+}) {
+  const masteredName = getElementInfo(masteredElement)?.name ?? masteredElement;
+  return (
+    <Dialog open={open} onOpenChange={(next) => (!next ? onAcknowledge() : undefined)}>
+      <DialogContent
+        onPointerDownOutside={(e) => e.preventDefault()}
+        onEscapeKeyDown={(e) => e.preventDefault()}
+        onInteractOutside={(e) => e.preventDefault()}
+      >
+        <DialogHeader>
+          <DialogTitle>A young person seeks your guidance</DialogTitle>
+          <DialogDescription>
+            Word of your skill with {masteredName} has spread. A young person arrives at your door
+            and asks to become your apprentice. You agree. From now on, an Apprentice section will
+            appear on your Home Base with a Graduate button. When you graduate them, you will gift
+            them a creature and fragments of your mastered element, and take their point of view as
+            the next generation.
+          </DialogDescription>
+        </DialogHeader>
+        <DialogFooter>
+          <Button type="button" onClick={onAcknowledge}>
+            Okay
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -843,15 +946,27 @@ function DiscoveryDialog({
 
 
 function HomeBasePanel({
+  masteredElement,
+  masteredLevel,
+  generation,
+  tamedCreatures,
   resources,
   buildings,
   onBuildBuilding,
+  onGraduateApprentice,
 }: {
+  masteredElement: string;
+  masteredLevel: number;
+  generation: number;
+  tamedCreatures: string[];
   resources: Record<string, number>;
   buildings: string[];
   onBuildBuilding: (buildingId: string) => boolean;
+  onGraduateApprentice: (creatureId: string) => boolean;
 }) {
   const [announcement, setAnnouncement] = useState("");
+  const [graduateOpen, setGraduateOpen] = useState(false);
+  const [selectedCreatureId, setSelectedCreatureId] = useState<string | null>(null);
 
   const stableBuilt = buildings.includes("stable");
   const stableCosts = BUILDING_COSTS.stable;
@@ -875,11 +990,71 @@ function HomeBasePanel({
   const wood = resources["wood"] ?? 0;
   const stone = resources["stone"] ?? 0;
 
+  const hasApprentice = masteredLevel >= APPRENTICE_LEVEL;
+  const masteredInfo = getElementInfo(masteredElement);
+  const masteredName = masteredInfo?.name ?? masteredElement;
+
+  // Eligible creatures to gift: tamed creatures whose production element
+  // matches the player's mastered element. Group by template id with counts.
+  const eligible = tamedCreatures
+    .map((id) => ({ id, creature: getCreature(id) }))
+    .filter((x): x is { id: string; creature: Creature } =>
+      Boolean(x.creature) && x.creature!.elementProduction.element === masteredElement,
+    );
+  const eligibleGroups = new Map<string, { creature: Creature; count: number }>();
+  for (const { id, creature } of eligible) {
+    const existing = eligibleGroups.get(id);
+    if (existing) existing.count += 1;
+    else eligibleGroups.set(id, { creature, count: 1 });
+  }
+
+  function openGraduate() {
+    setSelectedCreatureId(eligibleGroups.size > 0 ? Array.from(eligibleGroups.keys())[0] : null);
+    setGraduateOpen(true);
+  }
+
+  function confirmGraduate() {
+    if (!selectedCreatureId) return;
+    const ok = onGraduateApprentice(selectedCreatureId);
+    if (ok) {
+      setGraduateOpen(false);
+      // After graduation the parent unmounts this panel; no further state needed.
+    } else {
+      setAnnouncement("Could not graduate the apprentice.");
+    }
+  }
+
   return (
     <>
-      <h3 className="mt-3 text-base font-medium text-foreground">Resources</h3>
+      <p className="mt-1 text-sm text-muted-foreground">
+        Generation {generation}. You are mastering {masteredName} (level {masteredLevel}).
+      </p>
+
+      <h3 className="mt-6 text-base font-medium text-foreground">Resources</h3>
       <p className="mt-1 text-sm text-foreground">Wood: {wood}</p>
-      <p className="text-sm text-foreground">stone: {stone}</p>
+      <p className="text-sm text-foreground">Stone: {stone}</p>
+
+      {hasApprentice && (
+        <>
+          <h3 className="mt-6 text-base font-medium text-foreground">Apprentice</h3>
+          <p className="mt-1 text-sm text-muted-foreground">
+            A young person has come to study under you. When you graduate them, you will gift them
+            one of your {masteredName} creatures and {masteredLevel * 10} {masteredName.toLowerCase()} fragments,
+            then send them out to found their own emporium. You will take their point of view as the
+            next generation. Unlocked elements and discovered places carry over; everything else does not.
+          </p>
+          <div className="mt-3">
+            <Button
+              type="button"
+              size="sm"
+              onClick={openGraduate}
+              aria-label="Graduate the apprentice"
+            >
+              Graduate apprentice
+            </Button>
+          </div>
+        </>
+      )}
 
       <p className="mt-6 text-sm text-muted-foreground">
         Construct buildings to expand what you can do. Each building unlocks a new tab.
@@ -911,6 +1086,63 @@ function HomeBasePanel({
           </div>
         </li>
       </ul>
+
+      <Dialog open={graduateOpen} onOpenChange={(next) => (!next ? setGraduateOpen(false) : undefined)}>
+        <DialogContent
+          onPointerDownOutside={(e) => e.preventDefault()}
+          onEscapeKeyDown={(e) => e.preventDefault()}
+          onInteractOutside={(e) => e.preventDefault()}
+        >
+          <DialogHeader>
+            <DialogTitle>Graduate your apprentice</DialogTitle>
+            <DialogDescription>
+              Choose one of your tamed {masteredName} creatures to give to your apprentice. They will
+              also receive {masteredLevel * 10} {masteredName.toLowerCase()} fragments. After graduation
+              you will take the apprentice's point of view.
+            </DialogDescription>
+          </DialogHeader>
+          {eligibleGroups.size === 0 ? (
+            <p className="text-sm text-muted-foreground">
+              You have no tamed {masteredName} creatures to gift. Tame one first.
+            </p>
+          ) : (
+            <fieldset className="grid gap-2">
+              <legend className="sr-only">Choose a creature</legend>
+              {Array.from(eligibleGroups.entries()).map(([id, { creature, count }]) => (
+                <label
+                  key={id}
+                  className="flex cursor-pointer items-center gap-3 rounded-lg border bg-background p-3 text-sm text-foreground"
+                >
+                  <input
+                    type="radio"
+                    name="graduate-creature"
+                    value={id}
+                    checked={selectedCreatureId === id}
+                    onChange={() => setSelectedCreatureId(id)}
+                  />
+                  <span>
+                    {creature.name}
+                    {count > 1 ? ` (you have ${count})` : ""}
+                  </span>
+                </label>
+              ))}
+            </fieldset>
+          )}
+          <DialogFooter className="flex flex-wrap gap-2 sm:flex-row">
+            <Button type="button" variant="outline" onClick={() => setGraduateOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              onClick={confirmGraduate}
+              disabled={!selectedCreatureId}
+            >
+              Graduate
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <div role="status" aria-live="polite" className="sr-only">
         {announcement}
       </div>
