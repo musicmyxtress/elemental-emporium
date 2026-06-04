@@ -181,6 +181,9 @@ function loadState(): GameState {
           tamedCreatures: Array.isArray(parsed.tamedCreatures)
             ? parsed.tamedCreatures.filter((x): x is string => typeof x === "string")
             : [],
+          discoveredElements: Array.isArray(parsed.discoveredElements)
+            ? parsed.discoveredElements.filter((x): x is string => typeof x === "string")
+            : STARTER_UNLOCKED_ELEMENTS,
         };
 
 
