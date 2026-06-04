@@ -904,15 +904,27 @@ function DiscoveryDialog({
 
 
 function HomeBasePanel({
+  masteredElement,
+  masteredLevel,
+  generation,
+  tamedCreatures,
   resources,
   buildings,
   onBuildBuilding,
+  onGraduateApprentice,
 }: {
+  masteredElement: string;
+  masteredLevel: number;
+  generation: number;
+  tamedCreatures: string[];
   resources: Record<string, number>;
   buildings: string[];
   onBuildBuilding: (buildingId: string) => boolean;
+  onGraduateApprentice: (creatureId: string) => boolean;
 }) {
   const [announcement, setAnnouncement] = useState("");
+  const [graduateOpen, setGraduateOpen] = useState(false);
+  const [selectedCreatureId, setSelectedCreatureId] = useState<string | null>(null);
 
   const stableBuilt = buildings.includes("stable");
   const stableCosts = BUILDING_COSTS.stable;
@@ -936,11 +948,71 @@ function HomeBasePanel({
   const wood = resources["wood"] ?? 0;
   const stone = resources["stone"] ?? 0;
 
+  const hasApprentice = masteredLevel >= APPRENTICE_LEVEL;
+  const masteredInfo = getElementInfo(masteredElement);
+  const masteredName = masteredInfo?.name ?? masteredElement;
+
+  // Eligible creatures to gift: tamed creatures whose production element
+  // matches the player's mastered element. Group by template id with counts.
+  const eligible = tamedCreatures
+    .map((id) => ({ id, creature: getCreature(id) }))
+    .filter((x): x is { id: string; creature: Creature } =>
+      Boolean(x.creature) && x.creature!.elementProduction.element === masteredElement,
+    );
+  const eligibleGroups = new Map<string, { creature: Creature; count: number }>();
+  for (const { id, creature } of eligible) {
+    const existing = eligibleGroups.get(id);
+    if (existing) existing.count += 1;
+    else eligibleGroups.set(id, { creature, count: 1 });
+  }
+
+  function openGraduate() {
+    setSelectedCreatureId(eligibleGroups.size > 0 ? Array.from(eligibleGroups.keys())[0] : null);
+    setGraduateOpen(true);
+  }
+
+  function confirmGraduate() {
+    if (!selectedCreatureId) return;
+    const ok = onGraduateApprentice(selectedCreatureId);
+    if (ok) {
+      setGraduateOpen(false);
+      // After graduation the parent unmounts this panel; no further state needed.
+    } else {
+      setAnnouncement("Could not graduate the apprentice.");
+    }
+  }
+
   return (
     <>
-      <h3 className="mt-3 text-base font-medium text-foreground">Resources</h3>
+      <p className="mt-1 text-sm text-muted-foreground">
+        Generation {generation}. You are mastering {masteredName} (level {masteredLevel}).
+      </p>
+
+      <h3 className="mt-6 text-base font-medium text-foreground">Resources</h3>
       <p className="mt-1 text-sm text-foreground">Wood: {wood}</p>
-      <p className="text-sm text-foreground">stone: {stone}</p>
+      <p className="text-sm text-foreground">Stone: {stone}</p>
+
+      {hasApprentice && (
+        <>
+          <h3 className="mt-6 text-base font-medium text-foreground">Apprentice</h3>
+          <p className="mt-1 text-sm text-muted-foreground">
+            A young person has come to study under you. When you graduate them, you will gift them
+            one of your {masteredName} creatures and {masteredLevel * 10} {masteredName.toLowerCase()} fragments,
+            then send them out to found their own emporium. You will take their point of view as the
+            next generation. Unlocked elements and discovered places carry over; everything else does not.
+          </p>
+          <div className="mt-3">
+            <Button
+              type="button"
+              size="sm"
+              onClick={openGraduate}
+              aria-label="Graduate the apprentice"
+            >
+              Graduate apprentice
+            </Button>
+          </div>
+        </>
+      )}
 
       <p className="mt-6 text-sm text-muted-foreground">
         Construct buildings to expand what you can do. Each building unlocks a new tab.
@@ -972,6 +1044,63 @@ function HomeBasePanel({
           </div>
         </li>
       </ul>
+
+      <Dialog open={graduateOpen} onOpenChange={(next) => (!next ? setGraduateOpen(false) : undefined)}>
+        <DialogContent
+          onPointerDownOutside={(e) => e.preventDefault()}
+          onEscapeKeyDown={(e) => e.preventDefault()}
+          onInteractOutside={(e) => e.preventDefault()}
+        >
+          <DialogHeader>
+            <DialogTitle>Graduate your apprentice</DialogTitle>
+            <DialogDescription>
+              Choose one of your tamed {masteredName} creatures to give to your apprentice. They will
+              also receive {masteredLevel * 10} {masteredName.toLowerCase()} fragments. After graduation
+              you will take the apprentice's point of view.
+            </DialogDescription>
+          </DialogHeader>
+          {eligibleGroups.size === 0 ? (
+            <p className="text-sm text-muted-foreground">
+              You have no tamed {masteredName} creatures to gift. Tame one first.
+            </p>
+          ) : (
+            <fieldset className="grid gap-2">
+              <legend className="sr-only">Choose a creature</legend>
+              {Array.from(eligibleGroups.entries()).map(([id, { creature, count }]) => (
+                <label
+                  key={id}
+                  className="flex cursor-pointer items-center gap-3 rounded-lg border bg-background p-3 text-sm text-foreground"
+                >
+                  <input
+                    type="radio"
+                    name="graduate-creature"
+                    value={id}
+                    checked={selectedCreatureId === id}
+                    onChange={() => setSelectedCreatureId(id)}
+                  />
+                  <span>
+                    {creature.name}
+                    {count > 1 ? ` (you have ${count})` : ""}
+                  </span>
+                </label>
+              ))}
+            </fieldset>
+          )}
+          <DialogFooter className="flex flex-wrap gap-2 sm:flex-row">
+            <Button type="button" variant="outline" onClick={() => setGraduateOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              onClick={confirmGraduate}
+              disabled={!selectedCreatureId}
+            >
+              Graduate
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <div role="status" aria-live="polite" className="sr-only">
         {announcement}
       </div>
