@@ -168,6 +168,12 @@ function loadState(): GameState {
             parsed.shelvedCreatures && typeof parsed.shelvedCreatures === "object"
               ? (parsed.shelvedCreatures as Record<string, number>)
               : {},
+          buildings: Array.isArray(parsed.buildings)
+            ? parsed.buildings.filter((x): x is string => typeof x === "string")
+            : [],
+          tamedCreatures: Array.isArray(parsed.tamedCreatures)
+            ? parsed.tamedCreatures.filter((x): x is string => typeof x === "string")
+            : [],
         };
 
 
