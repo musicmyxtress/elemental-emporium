@@ -87,6 +87,8 @@ const INITIAL_STATE: GameState = {
   placeCooldowns: {},
   shelvedPlaces: {},
   shelvedCreatures: {},
+  buildings: [],
+  tamedCreatures: [],
 };
 
 
