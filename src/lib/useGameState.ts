@@ -114,9 +114,20 @@ function loadState(): GameState {
         if (parsed.element && elementLevels[parsed.element] < 1) {
           elementLevels[parsed.element] = 1;
         }
+        const baseResources: Record<string, number> =
+          parsed.resources && typeof parsed.resources === "object"
+            ? { ...(parsed.resources as Record<string, number>) }
+            : {};
+        // Migrate: fold the legacy passive `fragments` scalar into the
+        // mastered element's fragment resource so all fragment math lives in
+        // one place going forward.
+        if (parsed.element && typeof parsed.fragments === "number" && parsed.fragments > 0) {
+          const key = fragmentResourceId(parsed.element);
+          baseResources[key] = (baseResources[key] ?? 0) + parsed.fragments;
+        }
         return {
           element: parsed.element ?? null,
-          fragments: parsed.fragments,
+          fragments: 0,
           elementLevels,
           elementXp: sanitizeRecord(parsed.elementXp),
           unlockedElements: Array.isArray(parsed.unlockedElements)
@@ -125,9 +136,10 @@ function loadState(): GameState {
           discoveredPlaces: Array.isArray(parsed.discoveredPlaces)
             ? parsed.discoveredPlaces
             : [],
-          resources:
-            parsed.resources && typeof parsed.resources === "object"
-              ? (parsed.resources as Record<string, number>)
+          resources: baseResources,
+          crystals:
+            parsed.crystals && typeof parsed.crystals === "object"
+              ? (parsed.crystals as Record<string, number>)
               : {},
           placeCooldowns:
             parsed.placeCooldowns && typeof parsed.placeCooldowns === "object"
@@ -142,6 +154,8 @@ function loadState(): GameState {
               ? (parsed.shelvedCreatures as Record<string, number>)
               : {},
         };
+
+
 
       }
     }
