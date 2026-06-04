@@ -1,7 +1,14 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { useGameState, type CollectResult, type GameState } from "@/lib/useGameState";
-import { ELEMENTS, xpToNextLevel } from "@/lib/elements";
+import {
+  ELEMENTS,
+  ALL_ELEMENT_INFO,
+  FRAGMENTS_PER_CRYSTAL,
+  fragmentResourceId,
+  xpToNextLevel,
+} from "@/lib/elements";
+
 import { rollEvent, type RandomEvent } from "@/lib/events";
 import { getPlace, rollUndiscoveredPlace, type Place } from "@/lib/places";
 import { rollCreature, type Creature } from "@/lib/creatures";
