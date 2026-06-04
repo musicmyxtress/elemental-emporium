@@ -413,9 +413,14 @@ function GameScreen({
               )}
               {tab.value === "home-base" && (
                 <HomeBasePanel
+                  masteredElement={element}
+                  masteredLevel={elementLevels[element] ?? 0}
+                  generation={generation}
+                  tamedCreatures={tamedCreatures}
                   resources={resources}
                   buildings={buildings}
                   onBuildBuilding={onBuildBuilding}
+                  onGraduateApprentice={onGraduateApprentice}
                 />
               )}
               {tab.value === "stable" && (
