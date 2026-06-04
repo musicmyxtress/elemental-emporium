@@ -54,6 +54,7 @@ function Index() {
     collectFromPlace,
     shelvePlace,
     shelveCreature,
+    unlockElement,
     convertFragmentsToCrystal,
     spendCrystals,
     reset,
