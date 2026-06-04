@@ -43,6 +43,7 @@ function Index() {
     discoverPlace,
     applyEvent,
     collectFromPlace,
+    shelvePlace,
     reset,
   } = useGameState();
 
@@ -65,7 +66,10 @@ function Index() {
       discoveredPlaces={state.discoveredPlaces}
       resources={state.resources}
       placeCooldowns={state.placeCooldowns}
+      shelvedPlaces={state.shelvedPlaces}
+      unlockedElements={state.unlockedElements}
       onDiscoverPlace={discoverPlace}
+      onShelvePlace={shelvePlace}
       onApplyEvent={applyEvent}
       onCollectFromPlace={collectFromPlace}
       elementLevels={state.elementLevels}
@@ -74,6 +78,7 @@ function Index() {
     />
   );
 }
+
 
 function ChooseElementScreen({
   onChoose,
