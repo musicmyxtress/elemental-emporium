@@ -633,13 +633,17 @@ function describeCreature(creature: Creature): string {
 
 function DiscoveryDialog({
   discovery,
+  crystals,
   onStudy,
-  onCreatureAction,
+  onFightOrLeave,
+  onTame,
   onDismiss,
 }: {
   discovery: Discovery | null;
+  crystals: Record<string, number>;
   onStudy: () => void;
-  onCreatureAction: () => void;
+  onFightOrLeave: () => void;
+  onTame: () => void;
   onDismiss: () => void;
 }) {
   const open = discovery !== null;
@@ -663,6 +667,13 @@ function DiscoveryDialog({
     text = discovery.event.text;
   }
 
+  // Compute tame cost / affordability for live creature encounters.
+  const tameCost =
+    discovery?.kind === "creature" ? discovery.creature.rarity * 2 : 0;
+  const tameElement =
+    discovery?.kind === "creature" ? discovery.creature.elementProduction.element : "";
+  const tameAvailable = (crystals[tameElement] ?? 0) >= tameCost;
+
   return (
     <Dialog open={open} onOpenChange={(next) => (!next ? onDismiss() : undefined)}>
       <DialogContent>
@@ -681,20 +692,29 @@ function DiscoveryDialog({
               <Button type="button" onClick={onStudy}>
                 Study
               </Button>
-              <Button type="button" variant="outline" onClick={onCreatureAction}>
+              <Button type="button" variant="outline" onClick={onFightOrLeave}>
                 Leave alone
               </Button>
             </>
           )}
           {discovery?.kind === "creature" && (
             <>
-              <Button type="button" onClick={onCreatureAction}>
+              <Button type="button" onClick={onFightOrLeave}>
                 Fight
               </Button>
-              <Button type="button" onClick={onCreatureAction}>
-                Tame
+              <Button
+                type="button"
+                onClick={onTame}
+                disabled={!tameAvailable}
+                aria-label={
+                  tameAvailable
+                    ? `Tame for ${tameCost} ${tameElement} crystals`
+                    : `Tame requires ${tameCost} ${tameElement} crystals — not enough`
+                }
+              >
+                Tame ({tameCost} {tameElement} crystals)
               </Button>
-              <Button type="button" variant="outline" onClick={onCreatureAction}>
+              <Button type="button" variant="outline" onClick={onFightOrLeave}>
                 Leave alone
               </Button>
             </>
@@ -711,6 +731,7 @@ function DiscoveryDialog({
     </Dialog>
   );
 }
+
 
 
 
