@@ -342,6 +342,7 @@ function GameScreen({
       <DiscoveryDialog
         discovery={discovery}
         crystals={crystals}
+        unlockedElements={unlockedElements}
         onStudy={handleStudy}
         onFightOrLeave={handleFightOrLeave}
         onTame={handleTame}
