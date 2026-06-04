@@ -480,17 +480,28 @@ function StatsPanel({
   );
 }
 
+function describeCreature(creature: Creature): string {
+  const genderLabel = creature.gender === "male" ? "male" : "female";
+  const magicLabel = creature.magical ? "magical" : "non-magical";
+  const produces = `${creature.elementProduction.element} (${creature.elementProduction.amount}/tick)`;
+  const consumes = creature.elementConsumption
+    ? ` and consumes ${creature.elementConsumption.element} (${creature.elementConsumption.amount}/tick)`
+    : "";
+  return `A ${genderLabel}, ${magicLabel} creature that produces ${produces}${consumes}.`;
+}
+
 function DiscoveryDialog({
   discovery,
   onStudy,
+  onCreatureAction,
   onDismiss,
 }: {
   discovery: Discovery | null;
   onStudy: () => void;
+  onCreatureAction: () => void;
   onDismiss: () => void;
 }) {
   const open = discovery !== null;
-  const isLocked = discovery?.kind === "locked-place";
 
   let title = "Nothing stirs";
   let text = "You explore for a while, but find nothing of note this time.";
@@ -500,6 +511,12 @@ function DiscoveryDialog({
   } else if (discovery?.kind === "locked-place") {
     title = `You came across ${discovery.place.name}`;
     text = `${discovery.place.description} You have not yet unlocked the magic of this place, so you cannot draw on it. You may study it from a distance and move on.`;
+  } else if (discovery?.kind === "creature") {
+    title = `You encountered ${discovery.creature.name}`;
+    text = `${discovery.creature.description} ${describeCreature(discovery.creature)}`;
+  } else if (discovery?.kind === "locked-creature") {
+    title = `You encountered ${discovery.creature.name}`;
+    text = `${discovery.creature.description} ${describeCreature(discovery.creature)} You have not yet unlocked its element, so you cannot engage with it directly.`;
   } else if (discovery?.kind === "event") {
     title = discovery.event.title;
     text = discovery.event.text;
@@ -512,12 +529,38 @@ function DiscoveryDialog({
           <DialogTitle>{title}</DialogTitle>
           <DialogDescription>{text}</DialogDescription>
         </DialogHeader>
-        <DialogFooter>
-          {isLocked ? (
+        <DialogFooter className="flex flex-wrap gap-2 sm:flex-row">
+          {discovery?.kind === "locked-place" && (
             <Button type="button" onClick={onStudy}>
               Study and move on
             </Button>
-          ) : (
+          )}
+          {discovery?.kind === "locked-creature" && (
+            <>
+              <Button type="button" onClick={onStudy}>
+                Study
+              </Button>
+              <Button type="button" variant="outline" onClick={onCreatureAction}>
+                Leave alone
+              </Button>
+            </>
+          )}
+          {discovery?.kind === "creature" && (
+            <>
+              <Button type="button" onClick={onCreatureAction}>
+                Fight
+              </Button>
+              <Button type="button" onClick={onCreatureAction}>
+                Tame
+              </Button>
+              <Button type="button" variant="outline" onClick={onCreatureAction}>
+                Leave alone
+              </Button>
+            </>
+          )}
+          {(discovery?.kind === "place" ||
+            discovery?.kind === "event" ||
+            discovery?.kind === "nothing") && (
             <Button type="button" onClick={onDismiss}>
               Okay
             </Button>
@@ -527,6 +570,7 @@ function DiscoveryDialog({
     </Dialog>
   );
 }
+
 
 
 const TABS = [
