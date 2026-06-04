@@ -17,15 +17,31 @@ export interface GameState {
   elementLevels: ElementRecord<number>;
   /** XP accumulated toward the next level in each element. */
   elementXp: ElementRecord<number>;
+  /**
+   * Element ids the player has unlocked (i.e. can gain fragments of). All four
+   * starter elements are unlocked by default; others (plant, lava, time,
+   * light, darkness, ...) must be unlocked later through gameplay.
+   */
+  unlockedElements: string[];
   /** Ids of places the player has discovered. Places are discovered once. */
   discoveredPlaces: string[];
   /** Map of resource id -> amount the player owns. */
   resources: Record<string, number>;
   /** Map of place id -> timestamp (ms) of the last collection at that place. */
   placeCooldowns: Record<string, number>;
+  /**
+   * Map of place id -> timestamp (ms) at which the place becomes eligible to
+   * appear in exploration again. Set when the player studies a place whose
+   * element they have not unlocked.
+   */
+  shelvedPlaces: Record<string, number>;
 }
 
 const STORAGE_KEY = "mage-incremental-rpg-v1";
+
+/** Elements unlocked by every newly-created character. */
+export const STARTER_UNLOCKED_ELEMENTS: string[] = ["air", "earth", "fire", "water"];
+
 
 function zeroLevels(): ElementRecord<number> {
   return { air: 0, earth: 0, fire: 0, water: 0 };
