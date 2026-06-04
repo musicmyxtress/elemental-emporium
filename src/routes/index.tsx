@@ -462,7 +462,7 @@ function PlacesPanel({
   function handleCollect(place: Place) {
     const result = onCollectFromPlace(place.id);
     if (result.ok) {
-      setAnnouncement(`Collected 1 ${result.resourceLabel} from ${place.name}.`);
+      setAnnouncement(`Collected ${result.resourceLabel} from ${place.name}.`);
     } else if (result.remainingMs !== undefined) {
       const secs = Math.ceil(result.remainingMs / 1000);
       setAnnouncement(`${place.name} is on cooldown. ${secs} seconds remaining.`);
