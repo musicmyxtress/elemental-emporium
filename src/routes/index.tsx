@@ -150,6 +150,7 @@ type Discovery =
 function GameScreen({
   discoveredPlaces,
   resources,
+  crystals,
   placeCooldowns,
   shelvedPlaces,
   shelvedCreatures,
@@ -161,10 +162,13 @@ function GameScreen({
   onShelveCreature,
   onApplyEvent,
   onCollectFromPlace,
+  onConvertFragments,
+  onSpendCrystals,
   onReset,
 }: {
   discoveredPlaces: string[];
   resources: Record<string, number>;
+  crystals: Record<string, number>;
   placeCooldowns: Record<string, number>;
   shelvedPlaces: Record<string, number>;
   shelvedCreatures: Record<string, number>;
@@ -176,6 +180,8 @@ function GameScreen({
   onShelveCreature: (creatureId: string, rarity: number) => void;
   onApplyEvent: (effect: (s: GameState) => GameState) => void;
   onCollectFromPlace: (placeId: string) => CollectResult;
+  onConvertFragments: (elementId: string) => boolean;
+  onSpendCrystals: (elementId: string, amount: number) => boolean;
   onReset: () => void;
 }) {
   const headingRef = useRef<HTMLHeadingElement>(null);
@@ -185,6 +191,7 @@ function GameScreen({
   }, []);
 
   const [discovery, setDiscovery] = useState<Discovery | null>(null);
+  const [creatureAnnouncement, setCreatureAnnouncement] = useState("");
 
   function handleExplore() {
     const place = rollUndiscoveredPlace(discoveredPlaces, shelvedPlaces);
@@ -219,8 +226,6 @@ function GameScreen({
     } else if (chosen.kind === "event" && chosen.event.apply) {
       onApplyEvent(chosen.event.apply);
     }
-    // Locked-place / locked-creature / creature outcomes are not auto-recorded;
-    // the player must pick a follow-up action in the dialog.
     setDiscovery(chosen);
   }
 
@@ -233,14 +238,25 @@ function GameScreen({
     setDiscovery(null);
   }
 
-  // Creature actions are stubbed for now — fight, tame, and leave-alone all
-  // dismiss the encounter without changing state. Real mechanics will be wired
-  // up when combat and the menagerie are implemented.
-  function handleCreatureAction() {
+  // Fight and leave-alone remain stubs until combat is implemented.
+  function handleFightOrLeave() {
     setDiscovery(null);
   }
 
-
+  function handleTame() {
+    if (discovery?.kind !== "creature") return;
+    const c = discovery.creature;
+    const cost = c.rarity * 2;
+    const ok = onSpendCrystals(c.elementProduction.element, cost);
+    if (!ok) {
+      setCreatureAnnouncement(
+        `Not enough ${c.elementProduction.element} crystals to tame ${c.name}. ${cost} required.`,
+      );
+      return;
+    }
+    setCreatureAnnouncement(`Tamed ${c.name} for ${cost} ${c.elementProduction.element} crystals.`);
+    setDiscovery(null);
+  }
 
   return (
     <main className="mx-auto flex min-h-screen max-w-3xl flex-col px-6 py-12">
@@ -281,6 +297,14 @@ function GameScreen({
                 />
               )}
               {tab.value === "resources" && <ResourcesPanel resources={resources} />}
+              {tab.value === "fragments-and-crystals" && (
+                <FragmentsAndCrystalsPanel
+                  resources={resources}
+                  crystals={crystals}
+                  unlockedElements={unlockedElements}
+                  onConvertFragments={onConvertFragments}
+                />
+              )}
               {tab.value === "stats" && (
                 <StatsPanel elementLevels={elementLevels} elementXp={elementXp} />
               )}
@@ -288,6 +312,7 @@ function GameScreen({
           </TabsContent>
         ))}
       </Tabs>
+
 
       <div className="mt-8">
         <button
