@@ -533,11 +533,13 @@ function FragmentsAndCrystalsPanel({
   resources,
   crystals,
   unlockedElements,
+  discoveredElements,
   onConvertFragments,
 }: {
   resources: Record<string, number>;
   crystals: Record<string, number>;
   unlockedElements: string[];
+  discoveredElements: string[];
   onConvertFragments: (elementId: string) => boolean;
 }) {
   const [announcement, setAnnouncement] = useState("");
@@ -551,75 +553,102 @@ function FragmentsAndCrystalsPanel({
     );
   }
 
+  const unlocked = ALL_ELEMENT_INFO.filter((el) => unlockedElements.includes(el.id));
+  const discoveredOnly = ALL_ELEMENT_INFO.filter(
+    (el) => !unlockedElements.includes(el.id) && discoveredElements.includes(el.id),
+  );
+
+  function renderElement(el: (typeof ALL_ELEMENT_INFO)[number], isUnlocked: boolean) {
+    const fragments = resources[fragmentResourceId(el.id)] ?? 0;
+    const crystalCount = crystals[el.id] ?? 0;
+    const canConvert = fragments >= FRAGMENTS_PER_CRYSTAL;
+    return (
+      <li
+        key={el.id}
+        className="rounded-xl border bg-background p-4 text-left"
+      >
+        <div className="flex flex-wrap items-baseline justify-between gap-2">
+          <h3 className="text-base font-medium text-foreground">
+            <span aria-hidden="true" className="mr-2">
+              {el.emoji}
+            </span>
+            {el.name}
+          </h3>
+          {!isUnlocked && (
+            <span className="text-xs uppercase tracking-wide text-muted-foreground">
+              Locked
+            </span>
+          )}
+        </div>
+        {isUnlocked ? (
+          <>
+            <dl className="mt-2 grid grid-cols-2 gap-2 text-sm text-foreground">
+              <div>
+                <dt className="text-xs text-muted-foreground">Fragments</dt>
+                <dd
+                  className="font-medium tabular-nums"
+                  aria-label={`${fragments} ${el.name} fragments`}
+                >
+                  {fragments}
+                </dd>
+              </div>
+              <div>
+                <dt className="text-xs text-muted-foreground">Crystals</dt>
+                <dd
+                  className="font-medium tabular-nums"
+                  aria-label={`${crystalCount} ${el.name} crystals`}
+                >
+                  {crystalCount}
+                </dd>
+              </div>
+            </dl>
+            <div className="mt-3">
+              <Button
+                type="button"
+                size="sm"
+                onClick={() => handleConvert(el.id, el.name.toLowerCase())}
+                disabled={!canConvert}
+                aria-label={
+                  canConvert
+                    ? `Convert ${FRAGMENTS_PER_CRYSTAL} ${el.name} fragments into 1 ${el.name} crystal`
+                    : `Need ${FRAGMENTS_PER_CRYSTAL} ${el.name} fragments to forge a crystal`
+                }
+              >
+                Forge crystal ({FRAGMENTS_PER_CRYSTAL} fragments)
+              </Button>
+            </div>
+          </>
+        ) : (
+          <p className="mt-2 text-sm text-muted-foreground">
+            Study a place or creature of this element to unlock its fragments.
+          </p>
+        )}
+      </li>
+    );
+  }
+
   return (
     <>
       <p className="mt-3 text-sm">
         {FRAGMENTS_PER_CRYSTAL} fragments forge 1 crystal of the same element. Crystals are also
         the currency for taming creatures (a creature's rarity times two).
       </p>
-      <ul className="mt-4 grid gap-3" role="list">
-        {ALL_ELEMENT_INFO.map((el) => {
-          const fragments = resources[fragmentResourceId(el.id)] ?? 0;
-          const crystalCount = crystals[el.id] ?? 0;
-          const unlocked = unlockedElements.includes(el.id);
-          const canConvert = fragments >= FRAGMENTS_PER_CRYSTAL;
-          return (
-            <li
-              key={el.id}
-              className="rounded-xl border bg-background p-4 text-left"
-            >
-              <div className="flex flex-wrap items-baseline justify-between gap-2">
-                <h3 className="text-base font-medium text-foreground">
-                  <span aria-hidden="true" className="mr-2">
-                    {el.emoji}
-                  </span>
-                  {el.name}
-                </h3>
-                {!unlocked && (
-                  <span className="text-xs uppercase tracking-wide text-muted-foreground">
-                    Locked
-                  </span>
-                )}
-              </div>
-              <dl className="mt-2 grid grid-cols-2 gap-2 text-sm text-foreground">
-                <div>
-                  <dt className="text-xs text-muted-foreground">Fragments</dt>
-                  <dd
-                    className="font-medium tabular-nums"
-                    aria-label={`${fragments} ${el.name} fragments`}
-                  >
-                    {fragments}
-                  </dd>
-                </div>
-                <div>
-                  <dt className="text-xs text-muted-foreground">Crystals</dt>
-                  <dd
-                    className="font-medium tabular-nums"
-                    aria-label={`${crystalCount} ${el.name} crystals`}
-                  >
-                    {crystalCount}
-                  </dd>
-                </div>
-              </dl>
-              <div className="mt-3">
-                <Button
-                  type="button"
-                  size="sm"
-                  onClick={() => handleConvert(el.id, el.name.toLowerCase())}
-                  disabled={!canConvert}
-                  aria-label={
-                    canConvert
-                      ? `Convert ${FRAGMENTS_PER_CRYSTAL} ${el.name} fragments into 1 ${el.name} crystal`
-                      : `Need ${FRAGMENTS_PER_CRYSTAL} ${el.name} fragments to forge a crystal`
-                  }
-                >
-                  Forge crystal ({FRAGMENTS_PER_CRYSTAL} fragments)
-                </Button>
-              </div>
-            </li>
-          );
-        })}
-      </ul>
+
+      {unlocked.length > 0 && (
+        <ul className="mt-4 grid gap-3" role="list">
+          {unlocked.map((el) => renderElement(el, true))}
+        </ul>
+      )}
+
+      {discoveredOnly.length > 0 && (
+        <>
+          <h3 className="mt-6 text-base font-medium text-foreground">Discovered</h3>
+          <ul className="mt-3 grid gap-3" role="list">
+            {discoveredOnly.map((el) => renderElement(el, false))}
+          </ul>
+        </>
+      )}
+
       <div role="status" aria-live="polite" className="sr-only">
         {announcement}
       </div>
