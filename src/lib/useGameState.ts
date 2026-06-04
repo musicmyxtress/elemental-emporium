@@ -127,7 +127,12 @@ function loadState(): GameState {
             parsed.shelvedPlaces && typeof parsed.shelvedPlaces === "object"
               ? (parsed.shelvedPlaces as Record<string, number>)
               : {},
+          shelvedCreatures:
+            parsed.shelvedCreatures && typeof parsed.shelvedCreatures === "object"
+              ? (parsed.shelvedCreatures as Record<string, number>)
+              : {},
         };
+
       }
     }
   } catch {
