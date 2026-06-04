@@ -140,14 +140,39 @@ function Index() {
 
 function ChooseElementScreen({
   onChoose,
+  availableElementIds,
+  isApprentice = false,
+  generation = 1,
 }: {
-  onChoose: (e: (typeof ELEMENTS)[number]["id"]) => void;
+  onChoose: (e: string) => void;
+  availableElementIds?: string[];
+  isApprentice?: boolean;
+  generation?: number;
 }) {
   const headingRef = useRef<HTMLHeadingElement>(null);
 
   useEffect(() => {
     headingRef.current?.focus();
   }, []);
+
+  // Build the candidate option list. For the original mage, use the four
+  // starter ELEMENTS (full info). For apprentices, derive from the unlocked
+  // element ids using ALL_ELEMENT_INFO.
+  const options = availableElementIds
+    ? availableElementIds
+        .map((id) => {
+          const starter = ELEMENTS.find((e) => e.id === id);
+          if (starter) return { id, name: starter.name, emoji: starter.emoji, description: starter.description };
+          const info = getElementInfo(id);
+          if (!info) return null;
+          return { id, name: info.name, emoji: info.emoji, description: `Master the ${info.name.toLowerCase()} element.` };
+        })
+        .filter((x): x is { id: string; name: string; emoji: string; description: string } => Boolean(x))
+    : ELEMENTS.map((el) => ({ id: el.id, name: el.name, emoji: el.emoji, description: el.description }));
+
+  const heading = isApprentice
+    ? `You are the new apprentice, generation ${generation}. Your master sent you out into the world to build your own emporium. Which of your unlocked elements will you specialize in?`
+    : "Welcome young mage. In you studies you have grown an affinity to an element. What element do you specialize in?";
 
   return (
     <main className="mx-auto flex min-h-screen max-w-2xl flex-col justify-center px-6 py-12">
@@ -156,14 +181,13 @@ function ChooseElementScreen({
         tabIndex={-1}
         className="text-2xl font-semibold leading-relaxed text-foreground sm:text-3xl"
       >
-        Welcome young mage. In you studies you have grown an affinity to an element. What element do
-        you specialize in?
+        {heading}
       </h1>
 
       <fieldset className="mt-10 border-0 p-0">
         <legend className="sr-only">Choose your specialized element</legend>
         <ul className="grid gap-4 sm:grid-cols-3" role="list">
-          {ELEMENTS.map((el) => (
+          {options.map((el) => (
             <li key={el.id}>
               <button
                 type="button"
