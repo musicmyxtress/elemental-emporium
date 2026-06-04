@@ -68,6 +68,8 @@ function Index() {
       onDiscoverPlace={discoverPlace}
       onApplyEvent={applyEvent}
       onCollectFromPlace={collectFromPlace}
+      elementLevels={state.elementLevels}
+      elementXp={state.elementXp}
       onReset={reset}
     />
   );
