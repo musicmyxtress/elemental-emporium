@@ -458,7 +458,106 @@ function ResourcesPanel({ resources }: { resources: Record<string, number> }) {
   );
 }
 
+function FragmentsAndCrystalsPanel({
+  resources,
+  crystals,
+  unlockedElements,
+  onConvertFragments,
+}: {
+  resources: Record<string, number>;
+  crystals: Record<string, number>;
+  unlockedElements: string[];
+  onConvertFragments: (elementId: string) => boolean;
+}) {
+  const [announcement, setAnnouncement] = useState("");
+
+  function handleConvert(elementId: string, label: string) {
+    const ok = onConvertFragments(elementId);
+    setAnnouncement(
+      ok
+        ? `Converted ${FRAGMENTS_PER_CRYSTAL} ${label} fragments into 1 ${label} crystal.`
+        : `Not enough ${label} fragments. ${FRAGMENTS_PER_CRYSTAL} required.`,
+    );
+  }
+
+  return (
+    <>
+      <p className="mt-3 text-sm">
+        {FRAGMENTS_PER_CRYSTAL} fragments forge 1 crystal of the same element. Crystals are also
+        the currency for taming creatures (a creature's rarity times two).
+      </p>
+      <ul className="mt-4 grid gap-3" role="list">
+        {ALL_ELEMENT_INFO.map((el) => {
+          const fragments = resources[fragmentResourceId(el.id)] ?? 0;
+          const crystalCount = crystals[el.id] ?? 0;
+          const unlocked = unlockedElements.includes(el.id);
+          const canConvert = fragments >= FRAGMENTS_PER_CRYSTAL;
+          return (
+            <li
+              key={el.id}
+              className="rounded-xl border bg-background p-4 text-left"
+            >
+              <div className="flex flex-wrap items-baseline justify-between gap-2">
+                <h3 className="text-base font-medium text-foreground">
+                  <span aria-hidden="true" className="mr-2">
+                    {el.emoji}
+                  </span>
+                  {el.name}
+                </h3>
+                {!unlocked && (
+                  <span className="text-xs uppercase tracking-wide text-muted-foreground">
+                    Locked
+                  </span>
+                )}
+              </div>
+              <dl className="mt-2 grid grid-cols-2 gap-2 text-sm text-foreground">
+                <div>
+                  <dt className="text-xs text-muted-foreground">Fragments</dt>
+                  <dd
+                    className="font-medium tabular-nums"
+                    aria-label={`${fragments} ${el.name} fragments`}
+                  >
+                    {fragments}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="text-xs text-muted-foreground">Crystals</dt>
+                  <dd
+                    className="font-medium tabular-nums"
+                    aria-label={`${crystalCount} ${el.name} crystals`}
+                  >
+                    {crystalCount}
+                  </dd>
+                </div>
+              </dl>
+              <div className="mt-3">
+                <Button
+                  type="button"
+                  size="sm"
+                  onClick={() => handleConvert(el.id, el.name.toLowerCase())}
+                  disabled={!canConvert}
+                  aria-label={
+                    canConvert
+                      ? `Convert ${FRAGMENTS_PER_CRYSTAL} ${el.name} fragments into 1 ${el.name} crystal`
+                      : `Need ${FRAGMENTS_PER_CRYSTAL} ${el.name} fragments to forge a crystal`
+                  }
+                >
+                  Forge crystal ({FRAGMENTS_PER_CRYSTAL} fragments)
+                </Button>
+              </div>
+            </li>
+          );
+        })}
+      </ul>
+      <div role="status" aria-live="polite" className="sr-only">
+        {announcement}
+      </div>
+    </>
+  );
+}
+
 function StatsPanel({
+
   elementLevels,
   elementXp,
 }: {
