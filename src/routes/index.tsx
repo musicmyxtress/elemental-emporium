@@ -169,6 +169,7 @@ function GameScreen({
   onDiscoverPlace,
   onShelvePlace,
   onShelveCreature,
+  onUnlockElement,
   onApplyEvent,
   onCollectFromPlace,
   onConvertFragments,
