@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
-import { useGameState } from "@/lib/useGameState";
+import { useGameState, type CollectResult } from "@/lib/useGameState";
 import { ELEMENTS } from "@/lib/elements";
 import { rollEvent, type RandomEvent } from "@/lib/events";
 import { getPlace, rollUndiscoveredPlace, type Place } from "@/lib/places";
@@ -36,7 +36,15 @@ export const Route = createFileRoute("/")({
 });
 
 function Index() {
-  const { state, hydrated, chooseElement, discoverPlace, applyEvent, reset } = useGameState();
+  const {
+    state,
+    hydrated,
+    chooseElement,
+    discoverPlace,
+    applyEvent,
+    collectFromPlace,
+    reset,
+  } = useGameState();
 
   if (!hydrated) {
     return (
@@ -55,8 +63,11 @@ function Index() {
   return (
     <GameScreen
       discoveredPlaces={state.discoveredPlaces}
+      resources={state.resources}
+      placeCooldowns={state.placeCooldowns}
       onDiscoverPlace={discoverPlace}
       onApplyEvent={applyEvent}
+      onCollectFromPlace={collectFromPlace}
       onReset={reset}
     />
   );
@@ -116,13 +127,19 @@ type Discovery =
 
 function GameScreen({
   discoveredPlaces,
+  resources,
+  placeCooldowns,
   onDiscoverPlace,
   onApplyEvent,
+  onCollectFromPlace,
   onReset,
 }: {
   discoveredPlaces: string[];
+  resources: Record<string, number>;
+  placeCooldowns: Record<string, number>;
   onDiscoverPlace: (placeId: string) => void;
   onApplyEvent: (effect: (s: import("@/lib/useGameState").GameState) => import("@/lib/useGameState").GameState) => void;
+  onCollectFromPlace: (placeId: string) => CollectResult;
   onReset: () => void;
 }) {
   const headingRef = useRef<HTMLHeadingElement>(null);
@@ -137,7 +154,6 @@ function GameScreen({
     const place = rollUndiscoveredPlace(discoveredPlaces);
     const event = rollEvent();
 
-    // Build a list of possible outcomes and pick one at random.
     const outcomes: Discovery[] = [];
     if (place) outcomes.push({ kind: "place", place });
     if (event) outcomes.push({ kind: "event", event });
@@ -188,8 +204,13 @@ function GameScreen({
             >
               <h2 className="text-lg font-medium text-foreground">{tab.label}</h2>
               {tab.value === "places" && (
-                <PlacesPanel discoveredPlaces={discoveredPlaces} />
+                <PlacesPanel
+                  discoveredPlaces={discoveredPlaces}
+                  placeCooldowns={placeCooldowns}
+                  onCollectFromPlace={onCollectFromPlace}
+                />
               )}
+              {tab.value === "resources" && <ResourcesPanel resources={resources} />}
             </section>
           </TabsContent>
         ))}
@@ -210,10 +231,29 @@ function GameScreen({
   );
 }
 
-function PlacesPanel({ discoveredPlaces }: { discoveredPlaces: string[] }) {
+function PlacesPanel({
+  discoveredPlaces,
+  placeCooldowns,
+  onCollectFromPlace,
+}: {
+  discoveredPlaces: string[];
+  placeCooldowns: Record<string, number>;
+  onCollectFromPlace: (placeId: string) => CollectResult;
+}) {
   const places = discoveredPlaces
     .map((id) => getPlace(id))
     .filter((p): p is Place => Boolean(p));
+
+  // Tick once per second so cooldown countdowns update.
+  const [, setTick] = useState(0);
+  useEffect(() => {
+    const hasCooldown = places.some((p) => p.cooldownMs > 0);
+    if (!hasCooldown) return;
+    const id = setInterval(() => setTick((t) => t + 1), 1000);
+    return () => clearInterval(id);
+  }, [places]);
+
+  const [announcement, setAnnouncement] = useState("");
 
   if (places.length === 0) {
     return (
@@ -223,15 +263,79 @@ function PlacesPanel({ discoveredPlaces }: { discoveredPlaces: string[] }) {
     );
   }
 
+  function handleCollect(place: Place) {
+    const result = onCollectFromPlace(place.id);
+    if (result.ok) {
+      setAnnouncement(`Collected 1 ${result.resourceLabel} from ${place.name}.`);
+    } else if (result.remainingMs !== undefined) {
+      const secs = Math.ceil(result.remainingMs / 1000);
+      setAnnouncement(`${place.name} is on cooldown. ${secs} seconds remaining.`);
+    }
+  }
+
+  const now = Date.now();
+
   return (
-    <ul className="mt-4 grid gap-3" role="list">
-      {places.map((place) => (
+    <>
+      <ul className="mt-4 grid gap-3" role="list">
+        {places.map((place) => {
+          const last = placeCooldowns[place.id] ?? 0;
+          const remaining = place.cooldownMs > 0 ? Math.max(0, place.cooldownMs - (now - last)) : 0;
+          const onCooldown = remaining > 0;
+          const secs = Math.ceil(remaining / 1000);
+          return (
+            <li
+              key={place.id}
+              className="rounded-xl border bg-background p-4 text-left"
+            >
+              <h3 className="text-base font-medium text-foreground">{place.name}</h3>
+              <p className="mt-1 text-sm text-muted-foreground">{place.description}</p>
+              <div className="mt-3 flex flex-wrap items-center gap-3">
+                <Button
+                  type="button"
+                  size="sm"
+                  onClick={() => handleCollect(place)}
+                  disabled={onCooldown}
+                  aria-label={
+                    onCooldown
+                      ? `Collect ${place.resource.label} from ${place.name}, on cooldown, ${secs} seconds remaining`
+                      : `Collect ${place.resource.label} from ${place.name}`
+                  }
+                >
+                  {onCooldown ? `Ready in ${secs}s` : `Collect ${place.resource.label}`}
+                </Button>
+              </div>
+            </li>
+          );
+        })}
+      </ul>
+      <div role="status" aria-live="polite" className="sr-only">
+        {announcement}
+      </div>
+    </>
+  );
+}
+
+function ResourcesPanel({ resources }: { resources: Record<string, number> }) {
+  const entries = Object.entries(resources).filter(([, n]) => n > 0);
+
+  if (entries.length === 0) {
+    return (
+      <p className="mt-3 text-sm">
+        You have no resources yet. Discover places and collect from them.
+      </p>
+    );
+  }
+
+  return (
+    <ul className="mt-4 grid gap-2" role="list">
+      {entries.map(([id, amount]) => (
         <li
-          key={place.id}
-          className="rounded-xl border bg-background p-4 text-left"
+          key={id}
+          className="flex items-center justify-between rounded-lg border bg-background px-4 py-2 text-sm text-foreground"
         >
-          <h3 className="text-base font-medium text-foreground">{place.name}</h3>
-          <p className="mt-1 text-sm text-muted-foreground">{place.description}</p>
+          <span>{id.replace(/-/g, " ")}</span>
+          <span className="font-medium tabular-nums">{amount}</span>
         </li>
       ))}
     </ul>
