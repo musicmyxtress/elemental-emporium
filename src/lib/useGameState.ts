@@ -70,10 +70,12 @@ const INITIAL_STATE: GameState = {
   unlockedElements: STARTER_UNLOCKED_ELEMENTS,
   discoveredPlaces: [],
   resources: {},
+  crystals: {},
   placeCooldowns: {},
   shelvedPlaces: {},
   shelvedCreatures: {},
 };
+
 
 
 
