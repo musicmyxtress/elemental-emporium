@@ -373,10 +373,32 @@ export function useGameState() {
    */
   const unlockElement = useCallback((elementId: string) => {
     setState((prev) => {
-      if (prev.unlockedElements.includes(elementId)) return prev;
+      const alreadyUnlocked = prev.unlockedElements.includes(elementId);
+      const alreadyDiscovered = prev.discoveredElements.includes(elementId);
+      if (alreadyUnlocked && alreadyDiscovered) return prev;
       return {
         ...prev,
-        unlockedElements: [...prev.unlockedElements, elementId],
+        unlockedElements: alreadyUnlocked
+          ? prev.unlockedElements
+          : [...prev.unlockedElements, elementId],
+        discoveredElements: alreadyDiscovered
+          ? prev.discoveredElements
+          : [...prev.discoveredElements, elementId],
+      };
+    });
+  }, []);
+
+  /**
+   * Marks an element as discovered (encountered during exploration). No-op if
+   * already discovered. Discovery does not grant fragment collection; the
+   * element must still be unlocked via study to be useful.
+   */
+  const discoverElement = useCallback((elementId: string) => {
+    setState((prev) => {
+      if (prev.discoveredElements.includes(elementId)) return prev;
+      return {
+        ...prev,
+        discoveredElements: [...prev.discoveredElements, elementId],
       };
     });
   }, []);
