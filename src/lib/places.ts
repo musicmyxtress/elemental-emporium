@@ -76,6 +76,38 @@ export const PLACES: Place[] = [
     resource: { id: "lava-fragment", label: "lava fragment" },
     cooldownMs: 30_000,
   },
+  {
+    id: "ember-grove",
+    name: "Ember grove",
+    description: "A grove of trees that perpetually smolder with embers. You can collect fire fragments here.",
+    rarity: 1,
+    resource: { id: "fire-fragment", label: "fire fragment" },
+    cooldownMs: 10_000,
+  },
+  {
+    id: "time-vortex",
+    name: "Time vortex",
+    description: "A swirling tear in reality where moments pass in reverse. You can collect time fragments here.",
+    rarity: 6,
+    resource: { id: "time-fragment", label: "time fragment" },
+    cooldownMs: 60_000,
+  },
+  {
+    id: "rainbow-bridge",
+    name: "Rainbow bridge",
+    description: "An arch of prismatic light stretching across the sky. You can collect light fragments here.",
+    rarity: 7,
+    resource: { id: "light-fragment", label: "light fragment" },
+    cooldownMs: 70_000,
+  },
+  {
+    id: "infinite-void",
+    name: "Infinite void",
+    description: "A pocket of absolute nothingness that devours all light. You can collect darkness fragments here.",
+    rarity: 7,
+    resource: { id: "darkness-fragment", label: "darkness fragment" },
+    cooldownMs: 70_000,
+  },
 ];
 
 /** Looks up a place by id, or returns undefined when not found. */
