@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { getPlace } from "./places";
-import { xpToNextLevel } from "./elements";
+import { xpToNextLevel, fragmentResourceId, FRAGMENTS_PER_CRYSTAL } from "./elements";
 
 export type Element = "air" | "earth" | "fire" | "water";
 
@@ -11,8 +11,13 @@ export type ElementRecord<T> = Record<Element, T>;
 export interface GameState {
   /** The element the player mastered at character creation. */
   element: Element | null;
-  /** Passive fragments of the mastered element accumulated over time. */
+  /**
+   * Legacy passive-fragment counter for the mastered element. New code stores
+   * passive fragments directly in `resources[<element>-fragment]`; this field
+   * is kept only so older saves can be migrated on load. Always 0 after load.
+   */
   fragments: number;
+
   /** Current level in each element. The mastered element starts at 1; others at 0. */
   elementLevels: ElementRecord<number>;
   /** XP accumulated toward the next level in each element. */
@@ -27,7 +32,10 @@ export interface GameState {
   discoveredPlaces: string[];
   /** Map of resource id -> amount the player owns. */
   resources: Record<string, number>;
+  /** Map of element id -> number of crystals of that element the player owns. */
+  crystals: Record<string, number>;
   /** Map of place id -> timestamp (ms) of the last collection at that place. */
+
   placeCooldowns: Record<string, number>;
   /**
    * Map of place id -> timestamp (ms) at which the place becomes eligible to
@@ -62,10 +70,12 @@ const INITIAL_STATE: GameState = {
   unlockedElements: STARTER_UNLOCKED_ELEMENTS,
   discoveredPlaces: [],
   resources: {},
+  crystals: {},
   placeCooldowns: {},
   shelvedPlaces: {},
   shelvedCreatures: {},
 };
+
 
 
 
@@ -104,9 +114,20 @@ function loadState(): GameState {
         if (parsed.element && elementLevels[parsed.element] < 1) {
           elementLevels[parsed.element] = 1;
         }
+        const baseResources: Record<string, number> =
+          parsed.resources && typeof parsed.resources === "object"
+            ? { ...(parsed.resources as Record<string, number>) }
+            : {};
+        // Migrate: fold the legacy passive `fragments` scalar into the
+        // mastered element's fragment resource so all fragment math lives in
+        // one place going forward.
+        if (parsed.element && typeof parsed.fragments === "number" && parsed.fragments > 0) {
+          const key = fragmentResourceId(parsed.element);
+          baseResources[key] = (baseResources[key] ?? 0) + parsed.fragments;
+        }
         return {
           element: parsed.element ?? null,
-          fragments: parsed.fragments,
+          fragments: 0,
           elementLevels,
           elementXp: sanitizeRecord(parsed.elementXp),
           unlockedElements: Array.isArray(parsed.unlockedElements)
@@ -115,9 +136,10 @@ function loadState(): GameState {
           discoveredPlaces: Array.isArray(parsed.discoveredPlaces)
             ? parsed.discoveredPlaces
             : [],
-          resources:
-            parsed.resources && typeof parsed.resources === "object"
-              ? (parsed.resources as Record<string, number>)
+          resources: baseResources,
+          crystals:
+            parsed.crystals && typeof parsed.crystals === "object"
+              ? (parsed.crystals as Record<string, number>)
               : {},
           placeCooldowns:
             parsed.placeCooldowns && typeof parsed.placeCooldowns === "object"
@@ -132,6 +154,8 @@ function loadState(): GameState {
               ? (parsed.shelvedCreatures as Record<string, number>)
               : {},
         };
+
+
 
       }
     }
@@ -200,13 +224,21 @@ export function useGameState() {
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   useEffect(() => {
     if (!state.element) return;
+    const masteredElement = state.element;
     intervalRef.current = setInterval(() => {
-      setState((prev) => ({ ...prev, fragments: prev.fragments + 1 }));
+      setState((prev) => {
+        const key = fragmentResourceId(masteredElement);
+        return {
+          ...prev,
+          resources: { ...prev.resources, [key]: (prev.resources[key] ?? 0) + 1 },
+        };
+      });
     }, FRAGMENT_INTERVAL_MS);
     return () => {
       if (intervalRef.current) clearInterval(intervalRef.current);
     };
   }, [state.element]);
+
 
   const chooseElement = useCallback((element: Element) => {
     setState((prev) => {
@@ -304,6 +336,49 @@ export function useGameState() {
     }));
   }, []);
 
+  /**
+   * Converts 100 fragments of the given element into 1 crystal of that
+   * element. Returns true on success, or false when the player does not have
+   * enough fragments to convert.
+   */
+  const convertFragmentsToCrystal = useCallback((elementId: string): boolean => {
+    const key = fragmentResourceId(elementId);
+    let ok = false;
+    setState((prev) => {
+      const have = prev.resources[key] ?? 0;
+      if (have < FRAGMENTS_PER_CRYSTAL) return prev;
+      ok = true;
+      return {
+        ...prev,
+        resources: { ...prev.resources, [key]: have - FRAGMENTS_PER_CRYSTAL },
+        crystals: {
+          ...prev.crystals,
+          [elementId]: (prev.crystals[elementId] ?? 0) + 1,
+        },
+      };
+    });
+    return ok;
+  }, []);
+
+  /**
+   * Spends crystals of a given element. Returns true on success, or false
+   * when the player does not have enough crystals.
+   */
+  const spendCrystals = useCallback((elementId: string, amount: number): boolean => {
+    if (amount <= 0) return true;
+    let ok = false;
+    setState((prev) => {
+      const have = prev.crystals[elementId] ?? 0;
+      if (have < amount) return prev;
+      ok = true;
+      return {
+        ...prev,
+        crystals: { ...prev.crystals, [elementId]: have - amount },
+      };
+    });
+    return ok;
+  }, []);
+
   const reset = useCallback(() => {
     setState(INITIAL_STATE);
   }, []);
@@ -318,8 +393,10 @@ export function useGameState() {
     gainElementXp,
     shelvePlace,
     shelveCreature,
-
+    convertFragmentsToCrystal,
+    spendCrystals,
     reset,
   };
 }
+
 

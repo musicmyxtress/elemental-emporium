@@ -1,7 +1,14 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { useGameState, type CollectResult, type GameState } from "@/lib/useGameState";
-import { ELEMENTS, xpToNextLevel } from "@/lib/elements";
+import {
+  ELEMENTS,
+  ALL_ELEMENT_INFO,
+  FRAGMENTS_PER_CRYSTAL,
+  fragmentResourceId,
+  xpToNextLevel,
+} from "@/lib/elements";
+
 import { rollEvent, type RandomEvent } from "@/lib/events";
 import { getPlace, rollUndiscoveredPlace, type Place } from "@/lib/places";
 import { rollCreature, type Creature } from "@/lib/creatures";
@@ -47,6 +54,8 @@ function Index() {
     collectFromPlace,
     shelvePlace,
     shelveCreature,
+    convertFragmentsToCrystal,
+    spendCrystals,
     reset,
   } = useGameState();
 
@@ -68,6 +77,7 @@ function Index() {
     <GameScreen
       discoveredPlaces={state.discoveredPlaces}
       resources={state.resources}
+      crystals={state.crystals}
       placeCooldowns={state.placeCooldowns}
       shelvedPlaces={state.shelvedPlaces}
       shelvedCreatures={state.shelvedCreatures}
@@ -77,12 +87,15 @@ function Index() {
       onShelveCreature={shelveCreature}
       onApplyEvent={applyEvent}
       onCollectFromPlace={collectFromPlace}
+      onConvertFragments={convertFragmentsToCrystal}
+      onSpendCrystals={spendCrystals}
       elementLevels={state.elementLevels}
       elementXp={state.elementXp}
       onReset={reset}
     />
   );
 }
+
 
 
 
@@ -144,6 +157,7 @@ type Discovery =
 function GameScreen({
   discoveredPlaces,
   resources,
+  crystals,
   placeCooldowns,
   shelvedPlaces,
   shelvedCreatures,
@@ -155,10 +169,13 @@ function GameScreen({
   onShelveCreature,
   onApplyEvent,
   onCollectFromPlace,
+  onConvertFragments,
+  onSpendCrystals,
   onReset,
 }: {
   discoveredPlaces: string[];
   resources: Record<string, number>;
+  crystals: Record<string, number>;
   placeCooldowns: Record<string, number>;
   shelvedPlaces: Record<string, number>;
   shelvedCreatures: Record<string, number>;
@@ -170,6 +187,8 @@ function GameScreen({
   onShelveCreature: (creatureId: string, rarity: number) => void;
   onApplyEvent: (effect: (s: GameState) => GameState) => void;
   onCollectFromPlace: (placeId: string) => CollectResult;
+  onConvertFragments: (elementId: string) => boolean;
+  onSpendCrystals: (elementId: string, amount: number) => boolean;
   onReset: () => void;
 }) {
   const headingRef = useRef<HTMLHeadingElement>(null);
@@ -179,6 +198,7 @@ function GameScreen({
   }, []);
 
   const [discovery, setDiscovery] = useState<Discovery | null>(null);
+  const [creatureAnnouncement, setCreatureAnnouncement] = useState("");
 
   function handleExplore() {
     const place = rollUndiscoveredPlace(discoveredPlaces, shelvedPlaces);
@@ -213,8 +233,6 @@ function GameScreen({
     } else if (chosen.kind === "event" && chosen.event.apply) {
       onApplyEvent(chosen.event.apply);
     }
-    // Locked-place / locked-creature / creature outcomes are not auto-recorded;
-    // the player must pick a follow-up action in the dialog.
     setDiscovery(chosen);
   }
 
@@ -227,14 +245,25 @@ function GameScreen({
     setDiscovery(null);
   }
 
-  // Creature actions are stubbed for now — fight, tame, and leave-alone all
-  // dismiss the encounter without changing state. Real mechanics will be wired
-  // up when combat and the menagerie are implemented.
-  function handleCreatureAction() {
+  // Fight and leave-alone remain stubs until combat is implemented.
+  function handleFightOrLeave() {
     setDiscovery(null);
   }
 
-
+  function handleTame() {
+    if (discovery?.kind !== "creature") return;
+    const c = discovery.creature;
+    const cost = c.rarity * 2;
+    const ok = onSpendCrystals(c.elementProduction.element, cost);
+    if (!ok) {
+      setCreatureAnnouncement(
+        `Not enough ${c.elementProduction.element} crystals to tame ${c.name}. ${cost} required.`,
+      );
+      return;
+    }
+    setCreatureAnnouncement(`Tamed ${c.name} for ${cost} ${c.elementProduction.element} crystals.`);
+    setDiscovery(null);
+  }
 
   return (
     <main className="mx-auto flex min-h-screen max-w-3xl flex-col px-6 py-12">
@@ -275,6 +304,14 @@ function GameScreen({
                 />
               )}
               {tab.value === "resources" && <ResourcesPanel resources={resources} />}
+              {tab.value === "fragments-and-crystals" && (
+                <FragmentsAndCrystalsPanel
+                  resources={resources}
+                  crystals={crystals}
+                  unlockedElements={unlockedElements}
+                  onConvertFragments={onConvertFragments}
+                />
+              )}
               {tab.value === "stats" && (
                 <StatsPanel elementLevels={elementLevels} elementXp={elementXp} />
               )}
@@ -282,6 +319,7 @@ function GameScreen({
           </TabsContent>
         ))}
       </Tabs>
+
 
       <div className="mt-8">
         <button
@@ -295,13 +333,17 @@ function GameScreen({
 
       <DiscoveryDialog
         discovery={discovery}
+        crystals={crystals}
         onStudy={handleStudy}
-        onCreatureAction={handleCreatureAction}
+        onFightOrLeave={handleFightOrLeave}
+        onTame={handleTame}
         onDismiss={() => setDiscovery(null)}
       />
-
-
+      <div role="status" aria-live="polite" className="sr-only">
+        {creatureAnnouncement}
+      </div>
     </main>
+
   );
 }
 
@@ -416,7 +458,106 @@ function ResourcesPanel({ resources }: { resources: Record<string, number> }) {
   );
 }
 
+function FragmentsAndCrystalsPanel({
+  resources,
+  crystals,
+  unlockedElements,
+  onConvertFragments,
+}: {
+  resources: Record<string, number>;
+  crystals: Record<string, number>;
+  unlockedElements: string[];
+  onConvertFragments: (elementId: string) => boolean;
+}) {
+  const [announcement, setAnnouncement] = useState("");
+
+  function handleConvert(elementId: string, label: string) {
+    const ok = onConvertFragments(elementId);
+    setAnnouncement(
+      ok
+        ? `Converted ${FRAGMENTS_PER_CRYSTAL} ${label} fragments into 1 ${label} crystal.`
+        : `Not enough ${label} fragments. ${FRAGMENTS_PER_CRYSTAL} required.`,
+    );
+  }
+
+  return (
+    <>
+      <p className="mt-3 text-sm">
+        {FRAGMENTS_PER_CRYSTAL} fragments forge 1 crystal of the same element. Crystals are also
+        the currency for taming creatures (a creature's rarity times two).
+      </p>
+      <ul className="mt-4 grid gap-3" role="list">
+        {ALL_ELEMENT_INFO.map((el) => {
+          const fragments = resources[fragmentResourceId(el.id)] ?? 0;
+          const crystalCount = crystals[el.id] ?? 0;
+          const unlocked = unlockedElements.includes(el.id);
+          const canConvert = fragments >= FRAGMENTS_PER_CRYSTAL;
+          return (
+            <li
+              key={el.id}
+              className="rounded-xl border bg-background p-4 text-left"
+            >
+              <div className="flex flex-wrap items-baseline justify-between gap-2">
+                <h3 className="text-base font-medium text-foreground">
+                  <span aria-hidden="true" className="mr-2">
+                    {el.emoji}
+                  </span>
+                  {el.name}
+                </h3>
+                {!unlocked && (
+                  <span className="text-xs uppercase tracking-wide text-muted-foreground">
+                    Locked
+                  </span>
+                )}
+              </div>
+              <dl className="mt-2 grid grid-cols-2 gap-2 text-sm text-foreground">
+                <div>
+                  <dt className="text-xs text-muted-foreground">Fragments</dt>
+                  <dd
+                    className="font-medium tabular-nums"
+                    aria-label={`${fragments} ${el.name} fragments`}
+                  >
+                    {fragments}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="text-xs text-muted-foreground">Crystals</dt>
+                  <dd
+                    className="font-medium tabular-nums"
+                    aria-label={`${crystalCount} ${el.name} crystals`}
+                  >
+                    {crystalCount}
+                  </dd>
+                </div>
+              </dl>
+              <div className="mt-3">
+                <Button
+                  type="button"
+                  size="sm"
+                  onClick={() => handleConvert(el.id, el.name.toLowerCase())}
+                  disabled={!canConvert}
+                  aria-label={
+                    canConvert
+                      ? `Convert ${FRAGMENTS_PER_CRYSTAL} ${el.name} fragments into 1 ${el.name} crystal`
+                      : `Need ${FRAGMENTS_PER_CRYSTAL} ${el.name} fragments to forge a crystal`
+                  }
+                >
+                  Forge crystal ({FRAGMENTS_PER_CRYSTAL} fragments)
+                </Button>
+              </div>
+            </li>
+          );
+        })}
+      </ul>
+      <div role="status" aria-live="polite" className="sr-only">
+        {announcement}
+      </div>
+    </>
+  );
+}
+
 function StatsPanel({
+
   elementLevels,
   elementXp,
 }: {
@@ -492,13 +633,17 @@ function describeCreature(creature: Creature): string {
 
 function DiscoveryDialog({
   discovery,
+  crystals,
   onStudy,
-  onCreatureAction,
+  onFightOrLeave,
+  onTame,
   onDismiss,
 }: {
   discovery: Discovery | null;
+  crystals: Record<string, number>;
   onStudy: () => void;
-  onCreatureAction: () => void;
+  onFightOrLeave: () => void;
+  onTame: () => void;
   onDismiss: () => void;
 }) {
   const open = discovery !== null;
@@ -522,6 +667,13 @@ function DiscoveryDialog({
     text = discovery.event.text;
   }
 
+  // Compute tame cost / affordability for live creature encounters.
+  const tameCost =
+    discovery?.kind === "creature" ? discovery.creature.rarity * 2 : 0;
+  const tameElement =
+    discovery?.kind === "creature" ? discovery.creature.elementProduction.element : "";
+  const tameAvailable = (crystals[tameElement] ?? 0) >= tameCost;
+
   return (
     <Dialog open={open} onOpenChange={(next) => (!next ? onDismiss() : undefined)}>
       <DialogContent>
@@ -540,20 +692,29 @@ function DiscoveryDialog({
               <Button type="button" onClick={onStudy}>
                 Study
               </Button>
-              <Button type="button" variant="outline" onClick={onCreatureAction}>
+              <Button type="button" variant="outline" onClick={onFightOrLeave}>
                 Leave alone
               </Button>
             </>
           )}
           {discovery?.kind === "creature" && (
             <>
-              <Button type="button" onClick={onCreatureAction}>
+              <Button type="button" onClick={onFightOrLeave}>
                 Fight
               </Button>
-              <Button type="button" onClick={onCreatureAction}>
-                Tame
+              <Button
+                type="button"
+                onClick={onTame}
+                disabled={!tameAvailable}
+                aria-label={
+                  tameAvailable
+                    ? `Tame for ${tameCost} ${tameElement} crystals`
+                    : `Tame requires ${tameCost} ${tameElement} crystals — not enough`
+                }
+              >
+                Tame ({tameCost} {tameElement} crystals)
               </Button>
-              <Button type="button" variant="outline" onClick={onCreatureAction}>
+              <Button type="button" variant="outline" onClick={onFightOrLeave}>
                 Leave alone
               </Button>
             </>
@@ -570,6 +731,7 @@ function DiscoveryDialog({
     </Dialog>
   );
 }
+
 
 
 
