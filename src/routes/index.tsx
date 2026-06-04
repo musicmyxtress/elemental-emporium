@@ -478,11 +478,53 @@ function GameScreen({
         onTame={handleTame}
         onDismiss={() => setDiscovery(null)}
       />
+      <ApprenticeArrivalDialog
+        open={(elementLevels[element] ?? 0) >= APPRENTICE_LEVEL && !apprenticeAcknowledged}
+        masteredElement={element}
+        onAcknowledge={onAcknowledgeApprentice}
+      />
       <div role="status" aria-live="polite" className="sr-only">
         {creatureAnnouncement}
       </div>
     </main>
 
+  );
+}
+
+function ApprenticeArrivalDialog({
+  open,
+  masteredElement,
+  onAcknowledge,
+}: {
+  open: boolean;
+  masteredElement: string;
+  onAcknowledge: () => void;
+}) {
+  const masteredName = getElementInfo(masteredElement)?.name ?? masteredElement;
+  return (
+    <Dialog open={open} onOpenChange={(next) => (!next ? onAcknowledge() : undefined)}>
+      <DialogContent
+        onPointerDownOutside={(e) => e.preventDefault()}
+        onEscapeKeyDown={(e) => e.preventDefault()}
+        onInteractOutside={(e) => e.preventDefault()}
+      >
+        <DialogHeader>
+          <DialogTitle>A young person seeks your guidance</DialogTitle>
+          <DialogDescription>
+            Word of your skill with {masteredName} has spread. A young person arrives at your door
+            and asks to become your apprentice. You agree. From now on, an Apprentice section will
+            appear on your Home Base with a Graduate button. When you graduate them, you will gift
+            them a creature and fragments of your mastered element, and take their point of view as
+            the next generation.
+          </DialogDescription>
+        </DialogHeader>
+        <DialogFooter>
+          <Button type="button" onClick={onAcknowledge}>
+            Okay
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 
