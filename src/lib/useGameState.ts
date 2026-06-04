@@ -52,10 +52,13 @@ const INITIAL_STATE: GameState = {
   fragments: 0,
   elementLevels: zeroLevels(),
   elementXp: zeroLevels(),
+  unlockedElements: STARTER_UNLOCKED_ELEMENTS,
   discoveredPlaces: [],
   resources: {},
   placeCooldowns: {},
+  shelvedPlaces: {},
 };
+
 
 function isElement(value: unknown): value is Element {
   return (
