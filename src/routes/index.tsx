@@ -63,6 +63,8 @@ function Index() {
     unlockElement,
     convertFragmentsToCrystal,
     spendCrystals,
+    tameCreature,
+    buildBuilding,
     reset,
   } = useGameState();
 
@@ -89,6 +91,8 @@ function Index() {
       shelvedPlaces={state.shelvedPlaces}
       shelvedCreatures={state.shelvedCreatures}
       unlockedElements={state.unlockedElements}
+      buildings={state.buildings}
+      tamedCreatures={state.tamedCreatures}
       onDiscoverPlace={discoverPlace}
       onShelvePlace={shelvePlace}
       onShelveCreature={shelveCreature}
@@ -97,6 +101,8 @@ function Index() {
       onCollectFromPlace={collectFromPlace}
       onConvertFragments={convertFragmentsToCrystal}
       onSpendCrystals={spendCrystals}
+      onTameCreature={tameCreature}
+      onBuildBuilding={buildBuilding}
       elementLevels={state.elementLevels}
       elementXp={state.elementXp}
       onReset={reset}
