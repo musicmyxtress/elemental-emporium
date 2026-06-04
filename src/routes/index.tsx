@@ -449,18 +449,24 @@ function StatsPanel({
 
 function DiscoveryDialog({
   discovery,
+  onStudy,
   onDismiss,
 }: {
   discovery: Discovery | null;
+  onStudy: () => void;
   onDismiss: () => void;
 }) {
   const open = discovery !== null;
+  const isLocked = discovery?.kind === "locked-place";
 
   let title = "Nothing stirs";
   let text = "You explore for a while, but find nothing of note this time.";
   if (discovery?.kind === "place") {
     title = `You discovered ${discovery.place.name}`;
     text = discovery.place.description;
+  } else if (discovery?.kind === "locked-place") {
+    title = `You came across ${discovery.place.name}`;
+    text = `${discovery.place.description} You have not yet unlocked the magic of this place, so you cannot draw on it. You may study it from a distance and move on.`;
   } else if (discovery?.kind === "event") {
     title = discovery.event.title;
     text = discovery.event.text;
@@ -474,14 +480,21 @@ function DiscoveryDialog({
           <DialogDescription>{text}</DialogDescription>
         </DialogHeader>
         <DialogFooter>
-          <Button type="button" onClick={onDismiss}>
-            Okay
-          </Button>
+          {isLocked ? (
+            <Button type="button" onClick={onStudy}>
+              Study and move on
+            </Button>
+          ) : (
+            <Button type="button" onClick={onDismiss}>
+              Okay
+            </Button>
+          )}
         </DialogFooter>
       </DialogContent>
     </Dialog>
   );
 }
+
 
 const TABS = [
   { value: "home-base", label: "Home Base" },
