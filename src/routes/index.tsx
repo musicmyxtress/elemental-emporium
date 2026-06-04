@@ -11,7 +11,12 @@ import {
 
 import { rollEvent, type RandomEvent } from "@/lib/events";
 import { getPlace, rollUndiscoveredPlace, type Place } from "@/lib/places";
-import { rollCreature, type Creature } from "@/lib/creatures";
+import {
+  rollCreature,
+  getProductionAmount,
+  getConsumptionAmount,
+  type Creature,
+} from "@/lib/creatures";
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
