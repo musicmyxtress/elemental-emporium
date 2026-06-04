@@ -365,8 +365,10 @@ function GameScreen({
                   resources={resources}
                   crystals={crystals}
                   unlockedElements={unlockedElements}
+                  discoveredElements={discoveredElements}
                   onConvertFragments={onConvertFragments}
                 />
+
               )}
               {tab.value === "stats" && (
                 <StatsPanel elementLevels={elementLevels} elementXp={elementXp} />
