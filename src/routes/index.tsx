@@ -355,7 +355,6 @@ function GameScreen({
                   onCollectFromPlace={onCollectFromPlace}
                 />
               )}
-              {tab.value === "resources" && <ResourcesPanel resources={resources} />}
               {tab.value === "home-base" && (
                 <HomeBasePanel
                   resources={resources}
@@ -512,31 +511,6 @@ function PlacesPanel({
   );
 }
 
-function ResourcesPanel({ resources }: { resources: Record<string, number> }) {
-  const entries = Object.entries(resources).filter(([, n]) => n > 0);
-
-  if (entries.length === 0) {
-    return (
-      <p className="mt-3 text-sm">
-        You have no resources yet. Discover places and collect from them.
-      </p>
-    );
-  }
-
-  return (
-    <ul className="mt-4 grid gap-2" role="list">
-      {entries.map(([id, amount]) => (
-        <li
-          key={id}
-          className="flex items-center justify-between rounded-lg border bg-background px-4 py-2 text-sm text-foreground"
-        >
-          <span>{id.replace(/-/g, " ")}</span>
-          <span className="font-medium tabular-nums">{amount}</span>
-        </li>
-      ))}
-    </ul>
-  );
-}
 
 function FragmentsAndCrystalsPanel({
   resources,
@@ -1077,7 +1051,6 @@ function StablePanel({
 
 const TABS = [
   { value: "home-base", label: "Home Base" },
-  { value: "resources", label: "Resources" },
   { value: "fragments-and-crystals", label: "Fragments and Crystals" },
   { value: "places", label: "Places" },
   { value: "stable", label: "Stable" },
