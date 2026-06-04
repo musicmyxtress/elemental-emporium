@@ -70,10 +70,16 @@ function loadState(): GameState {
         (isElement(parsed.element) || parsed.element === null) &&
         typeof parsed.fragments === "number"
       ) {
+        const elementLevels = sanitizeRecord(parsed.elementLevels);
+        // Migrate: if a mastered element exists but has no level recorded,
+        // grant it level 1 to match the new mechanic.
+        if (parsed.element && elementLevels[parsed.element] < 1) {
+          elementLevels[parsed.element] = 1;
+        }
         return {
           element: parsed.element ?? null,
           fragments: parsed.fragments,
-          elementLevels: sanitizeRecord(parsed.elementLevels),
+          elementLevels,
           elementXp: sanitizeRecord(parsed.elementXp),
           discoveredPlaces: Array.isArray(parsed.discoveredPlaces)
             ? parsed.discoveredPlaces
