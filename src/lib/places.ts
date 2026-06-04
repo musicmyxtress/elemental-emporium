@@ -3,7 +3,14 @@ export interface PlaceResource {
   id: string;
   /** Human-readable label, singular, used in announcements ("1 wood"). */
   label: string;
+  /**
+   * Optional element id this resource belongs to. When set, the player must
+   * have this element unlocked to collect the resource. Unsetting it (e.g.
+   * wood, stone) means the resource is non-elemental and always collectable.
+   */
+  element?: string;
 }
+
 
 export interface Place {
   id: string;
