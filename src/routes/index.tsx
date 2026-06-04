@@ -43,6 +43,7 @@ function Index() {
     discoverPlace,
     applyEvent,
     collectFromPlace,
+    shelvePlace,
     reset,
   } = useGameState();
 
@@ -65,7 +66,10 @@ function Index() {
       discoveredPlaces={state.discoveredPlaces}
       resources={state.resources}
       placeCooldowns={state.placeCooldowns}
+      shelvedPlaces={state.shelvedPlaces}
+      unlockedElements={state.unlockedElements}
       onDiscoverPlace={discoverPlace}
+      onShelvePlace={shelvePlace}
       onApplyEvent={applyEvent}
       onCollectFromPlace={collectFromPlace}
       elementLevels={state.elementLevels}
@@ -74,6 +78,7 @@ function Index() {
     />
   );
 }
+
 
 function ChooseElementScreen({
   onChoose,
@@ -124,6 +129,7 @@ function ChooseElementScreen({
 
 type Discovery =
   | { kind: "place"; place: Place }
+  | { kind: "locked-place"; place: Place }
   | { kind: "event"; event: RandomEvent }
   | { kind: "nothing" };
 
@@ -131,9 +137,12 @@ function GameScreen({
   discoveredPlaces,
   resources,
   placeCooldowns,
+  shelvedPlaces,
+  unlockedElements,
   elementLevels,
   elementXp,
   onDiscoverPlace,
+  onShelvePlace,
   onApplyEvent,
   onCollectFromPlace,
   onReset,
@@ -141,9 +150,12 @@ function GameScreen({
   discoveredPlaces: string[];
   resources: Record<string, number>;
   placeCooldowns: Record<string, number>;
+  shelvedPlaces: Record<string, number>;
+  unlockedElements: string[];
   elementLevels: GameState["elementLevels"];
   elementXp: GameState["elementXp"];
   onDiscoverPlace: (placeId: string) => void;
+  onShelvePlace: (placeId: string, rarity: number) => void;
   onApplyEvent: (effect: (s: GameState) => GameState) => void;
   onCollectFromPlace: (placeId: string) => CollectResult;
   onReset: () => void;
@@ -157,11 +169,17 @@ function GameScreen({
   const [discovery, setDiscovery] = useState<Discovery | null>(null);
 
   function handleExplore() {
-    const place = rollUndiscoveredPlace(discoveredPlaces);
+    const place = rollUndiscoveredPlace(discoveredPlaces, shelvedPlaces);
     const event = rollEvent();
 
     const outcomes: Discovery[] = [];
-    if (place) outcomes.push({ kind: "place", place });
+    if (place) {
+      const elementId = place.resource.element;
+      const locked = elementId !== undefined && !unlockedElements.includes(elementId);
+      outcomes.push(
+        locked ? { kind: "locked-place", place } : { kind: "place", place },
+      );
+    }
     if (event) outcomes.push({ kind: "event", event });
 
     if (outcomes.length === 0) {
@@ -175,8 +193,17 @@ function GameScreen({
     } else if (chosen.kind === "event" && chosen.event.apply) {
       onApplyEvent(chosen.event.apply);
     }
+    // Locked-place discoveries are NOT added to discoveredPlaces; the player
+    // must choose to study it, which shelves it instead.
     setDiscovery(chosen);
   }
+
+  function handleStudy() {
+    if (discovery?.kind !== "locked-place") return;
+    onShelvePlace(discovery.place.id, discovery.place.rarity);
+    setDiscovery(null);
+  }
+
 
   return (
     <main className="mx-auto flex min-h-screen max-w-3xl flex-col px-6 py-12">
@@ -235,7 +262,12 @@ function GameScreen({
         </button>
       </div>
 
-      <DiscoveryDialog discovery={discovery} onDismiss={() => setDiscovery(null)} />
+      <DiscoveryDialog
+        discovery={discovery}
+        onStudy={handleStudy}
+        onDismiss={() => setDiscovery(null)}
+      />
+
     </main>
   );
 }
@@ -417,18 +449,24 @@ function StatsPanel({
 
 function DiscoveryDialog({
   discovery,
+  onStudy,
   onDismiss,
 }: {
   discovery: Discovery | null;
+  onStudy: () => void;
   onDismiss: () => void;
 }) {
   const open = discovery !== null;
+  const isLocked = discovery?.kind === "locked-place";
 
   let title = "Nothing stirs";
   let text = "You explore for a while, but find nothing of note this time.";
   if (discovery?.kind === "place") {
     title = `You discovered ${discovery.place.name}`;
     text = discovery.place.description;
+  } else if (discovery?.kind === "locked-place") {
+    title = `You came across ${discovery.place.name}`;
+    text = `${discovery.place.description} You have not yet unlocked the magic of this place, so you cannot draw on it. You may study it from a distance and move on.`;
   } else if (discovery?.kind === "event") {
     title = discovery.event.title;
     text = discovery.event.text;
@@ -442,14 +480,21 @@ function DiscoveryDialog({
           <DialogDescription>{text}</DialogDescription>
         </DialogHeader>
         <DialogFooter>
-          <Button type="button" onClick={onDismiss}>
-            Okay
-          </Button>
+          {isLocked ? (
+            <Button type="button" onClick={onStudy}>
+              Study and move on
+            </Button>
+          ) : (
+            <Button type="button" onClick={onDismiss}>
+              Okay
+            </Button>
+          )}
         </DialogFooter>
       </DialogContent>
     </Dialog>
   );
 }
+
 
 const TABS = [
   { value: "home-base", label: "Home Base" },

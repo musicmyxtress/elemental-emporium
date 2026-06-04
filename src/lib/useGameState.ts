@@ -17,15 +17,31 @@ export interface GameState {
   elementLevels: ElementRecord<number>;
   /** XP accumulated toward the next level in each element. */
   elementXp: ElementRecord<number>;
+  /**
+   * Element ids the player has unlocked (i.e. can gain fragments of). All four
+   * starter elements are unlocked by default; others (plant, lava, time,
+   * light, darkness, ...) must be unlocked later through gameplay.
+   */
+  unlockedElements: string[];
   /** Ids of places the player has discovered. Places are discovered once. */
   discoveredPlaces: string[];
   /** Map of resource id -> amount the player owns. */
   resources: Record<string, number>;
   /** Map of place id -> timestamp (ms) of the last collection at that place. */
   placeCooldowns: Record<string, number>;
+  /**
+   * Map of place id -> timestamp (ms) at which the place becomes eligible to
+   * appear in exploration again. Set when the player studies a place whose
+   * element they have not unlocked.
+   */
+  shelvedPlaces: Record<string, number>;
 }
 
 const STORAGE_KEY = "mage-incremental-rpg-v1";
+
+/** Elements unlocked by every newly-created character. */
+export const STARTER_UNLOCKED_ELEMENTS: string[] = ["air", "earth", "fire", "water"];
+
 
 function zeroLevels(): ElementRecord<number> {
   return { air: 0, earth: 0, fire: 0, water: 0 };
@@ -36,10 +52,13 @@ const INITIAL_STATE: GameState = {
   fragments: 0,
   elementLevels: zeroLevels(),
   elementXp: zeroLevels(),
+  unlockedElements: STARTER_UNLOCKED_ELEMENTS,
   discoveredPlaces: [],
   resources: {},
   placeCooldowns: {},
+  shelvedPlaces: {},
 };
+
 
 function isElement(value: unknown): value is Element {
   return (
@@ -81,6 +100,9 @@ function loadState(): GameState {
           fragments: parsed.fragments,
           elementLevels,
           elementXp: sanitizeRecord(parsed.elementXp),
+          unlockedElements: Array.isArray(parsed.unlockedElements)
+            ? parsed.unlockedElements.filter((x): x is string => typeof x === "string")
+            : STARTER_UNLOCKED_ELEMENTS,
           discoveredPlaces: Array.isArray(parsed.discoveredPlaces)
             ? parsed.discoveredPlaces
             : [],
@@ -92,11 +114,16 @@ function loadState(): GameState {
             parsed.placeCooldowns && typeof parsed.placeCooldowns === "object"
               ? (parsed.placeCooldowns as Record<string, number>)
               : {},
+          shelvedPlaces:
+            parsed.shelvedPlaces && typeof parsed.shelvedPlaces === "object"
+              ? (parsed.shelvedPlaces as Record<string, number>)
+              : {},
         };
       }
     }
   } catch {
     // ignore corrupt storage
+
   }
   return INITIAL_STATE;
 }
@@ -235,6 +262,20 @@ export function useGameState() {
     return { ok: true, resourceLabel: place.resource.label };
   }, [state.placeCooldowns]);
 
+  /**
+   * Shelves a place for `rarity` hours, removing it from the exploration pool
+   * during that window. Used when the player studies a place whose element is
+   * not yet unlocked; the place is dismissed without being discovered.
+   */
+  const shelvePlace = useCallback((placeId: string, rarity: number) => {
+    const hours = Math.max(1, rarity);
+    const until = Date.now() + hours * 60 * 60 * 1000;
+    setState((prev) => ({
+      ...prev,
+      shelvedPlaces: { ...prev.shelvedPlaces, [placeId]: until },
+    }));
+  }, []);
+
   const reset = useCallback(() => {
     setState(INITIAL_STATE);
   }, []);
@@ -247,6 +288,8 @@ export function useGameState() {
     applyEvent,
     collectFromPlace,
     gainElementXp,
+    shelvePlace,
     reset,
   };
 }
+

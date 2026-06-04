@@ -3,7 +3,14 @@ export interface PlaceResource {
   id: string;
   /** Human-readable label, singular, used in announcements ("1 wood"). */
   label: string;
+  /**
+   * Optional element id this resource belongs to. When set, the player must
+   * have this element unlocked to collect the resource. Unsetting it (e.g.
+   * wood, stone) means the resource is non-elemental and always collectable.
+   */
+  element?: string;
 }
+
 
 export interface Place {
   id: string;
@@ -49,7 +56,7 @@ export const PLACES: Place[] = [
     name: "Mountain",
     description: "A towering peak humming with deep magic. You can collect earth fragments here.",
     rarity: 1,
-    resource: { id: "earth-fragment", label: "earth fragment" },
+    resource: { id: "earth-fragment", label: "earth fragment", element: "earth" },
     cooldownMs: 10_000,
   },
   {
@@ -57,7 +64,7 @@ export const PLACES: Place[] = [
     name: "Flowing stream",
     description: "A clear stream winding through mossy stones. You can collect water fragments here.",
     rarity: 1,
-    resource: { id: "water-fragment", label: "water fragment" },
+    resource: { id: "water-fragment", label: "water fragment", element: "water" },
     cooldownMs: 10_000,
   },
   {
@@ -65,7 +72,7 @@ export const PLACES: Place[] = [
     name: "Grassy plains",
     description: "Wide plains rippling with wildflowers and herbs. You can collect plant fragments here.",
     rarity: 3,
-    resource: { id: "plant-fragment", label: "plant fragment" },
+    resource: { id: "plant-fragment", label: "plant fragment", element: "plant" },
     cooldownMs: 30_000,
   },
   {
@@ -73,7 +80,7 @@ export const PLACES: Place[] = [
     name: "Volcano",
     description: "A restless volcano glowing with molten light. You can collect lava fragments here.",
     rarity: 3,
-    resource: { id: "lava-fragment", label: "lava fragment" },
+    resource: { id: "lava-fragment", label: "lava fragment", element: "lava" },
     cooldownMs: 30_000,
   },
   {
@@ -81,7 +88,7 @@ export const PLACES: Place[] = [
     name: "Ember grove",
     description: "A grove of trees that perpetually smolder with embers. You can collect fire fragments here.",
     rarity: 1,
-    resource: { id: "fire-fragment", label: "fire fragment" },
+    resource: { id: "fire-fragment", label: "fire fragment", element: "fire" },
     cooldownMs: 10_000,
   },
   {
@@ -89,7 +96,7 @@ export const PLACES: Place[] = [
     name: "Time vortex",
     description: "A swirling tear in reality where moments pass in reverse. You can collect time fragments here.",
     rarity: 6,
-    resource: { id: "time-fragment", label: "time fragment" },
+    resource: { id: "time-fragment", label: "time fragment", element: "time" },
     cooldownMs: 60_000,
   },
   {
@@ -97,7 +104,7 @@ export const PLACES: Place[] = [
     name: "Rainbow bridge",
     description: "An arch of prismatic light stretching across the sky. You can collect light fragments here.",
     rarity: 7,
-    resource: { id: "light-fragment", label: "light fragment" },
+    resource: { id: "light-fragment", label: "light fragment", element: "light" },
     cooldownMs: 70_000,
   },
   {
@@ -105,10 +112,11 @@ export const PLACES: Place[] = [
     name: "Infinite void",
     description: "A pocket of absolute nothingness that devours all light. You can collect darkness fragments here.",
     rarity: 7,
-    resource: { id: "darkness-fragment", label: "darkness fragment" },
+    resource: { id: "darkness-fragment", label: "darkness fragment", element: "darkness" },
     cooldownMs: 70_000,
   },
 ];
+
 
 /** Looks up a place by id, or returns undefined when not found. */
 export function getPlace(id: string): Place | undefined {
@@ -116,12 +124,23 @@ export function getPlace(id: string): Place | undefined {
 }
 
 /**
- * Returns a random place that has not yet been discovered, weighted so that
- * lower-rarity places are more likely than higher-rarity places. Returns null
- * when every place is already discovered (or the pool is empty).
+ * Returns a random place that is currently eligible to appear in exploration,
+ * weighted so lower-rarity places are more likely than higher-rarity ones.
+ * Filters out places that have already been discovered, and places that are
+ * temporarily shelved (e.g. because the player studied them without unlocking
+ * their element). Returns null when no eligible places remain.
  */
-export function rollUndiscoveredPlace(discoveredIds: string[]): Place | null {
-  const available = PLACES.filter((p) => !discoveredIds.includes(p.id));
+export function rollUndiscoveredPlace(
+  discoveredIds: string[],
+  shelvedPlaces: Record<string, number> = {},
+  now: number = Date.now(),
+): Place | null {
+  const available = PLACES.filter((p) => {
+    if (discoveredIds.includes(p.id)) return false;
+    const shelvedUntil = shelvedPlaces[p.id] ?? 0;
+    if (shelvedUntil > now) return false;
+    return true;
+  });
   if (available.length === 0) return null;
   // Weight by 1/rarity so rarity 1 is 3x as likely as rarity 3.
   const weights = available.map((p) => 1 / Math.max(1, p.rarity));
@@ -133,3 +152,4 @@ export function rollUndiscoveredPlace(discoveredIds: string[]): Place | null {
   }
   return available[available.length - 1];
 }
+
