@@ -77,6 +77,9 @@ export function fragmentResourceId(elementId: string): string {
 /** Number of fragments required to create one crystal. */
 export const FRAGMENTS_PER_CRYSTAL = 100;
 
+/** Maximum level any element can reach. */
+export const LEVEL_CAP = 50;
+
 /** Total XP required to advance from `level` to `level + 1`. */
 export function xpToNextLevel(level: number): number {
   return level * 1000;
@@ -84,5 +87,10 @@ export function xpToNextLevel(level: number): number {
 
 export function getElement(id: Element): ElementInfo {
   return ELEMENTS.find((e) => e.id === id)!;
+}
+
+/** Lookup info for any known element id (including non-starter elements). */
+export function getElementInfo(id: string): AllElementInfo | undefined {
+  return ALL_ELEMENT_INFO.find((e) => e.id === id);
 }
 
