@@ -129,6 +129,7 @@ function ChooseElementScreen({
 
 type Discovery =
   | { kind: "place"; place: Place }
+  | { kind: "locked-place"; place: Place }
   | { kind: "event"; event: RandomEvent }
   | { kind: "nothing" };
 
@@ -136,9 +137,12 @@ function GameScreen({
   discoveredPlaces,
   resources,
   placeCooldowns,
+  shelvedPlaces,
+  unlockedElements,
   elementLevels,
   elementXp,
   onDiscoverPlace,
+  onShelvePlace,
   onApplyEvent,
   onCollectFromPlace,
   onReset,
@@ -146,9 +150,12 @@ function GameScreen({
   discoveredPlaces: string[];
   resources: Record<string, number>;
   placeCooldowns: Record<string, number>;
+  shelvedPlaces: Record<string, number>;
+  unlockedElements: string[];
   elementLevels: GameState["elementLevels"];
   elementXp: GameState["elementXp"];
   onDiscoverPlace: (placeId: string) => void;
+  onShelvePlace: (placeId: string, rarity: number) => void;
   onApplyEvent: (effect: (s: GameState) => GameState) => void;
   onCollectFromPlace: (placeId: string) => CollectResult;
   onReset: () => void;
@@ -162,11 +169,17 @@ function GameScreen({
   const [discovery, setDiscovery] = useState<Discovery | null>(null);
 
   function handleExplore() {
-    const place = rollUndiscoveredPlace(discoveredPlaces);
+    const place = rollUndiscoveredPlace(discoveredPlaces, shelvedPlaces);
     const event = rollEvent();
 
     const outcomes: Discovery[] = [];
-    if (place) outcomes.push({ kind: "place", place });
+    if (place) {
+      const elementId = place.resource.element;
+      const locked = elementId !== undefined && !unlockedElements.includes(elementId);
+      outcomes.push(
+        locked ? { kind: "locked-place", place } : { kind: "place", place },
+      );
+    }
     if (event) outcomes.push({ kind: "event", event });
 
     if (outcomes.length === 0) {
@@ -180,8 +193,17 @@ function GameScreen({
     } else if (chosen.kind === "event" && chosen.event.apply) {
       onApplyEvent(chosen.event.apply);
     }
+    // Locked-place discoveries are NOT added to discoveredPlaces; the player
+    // must choose to study it, which shelves it instead.
     setDiscovery(chosen);
   }
+
+  function handleStudy() {
+    if (discovery?.kind !== "locked-place") return;
+    onShelvePlace(discovery.place.id, discovery.place.rarity);
+    setDiscovery(null);
+  }
+
 
   return (
     <main className="mx-auto flex min-h-screen max-w-3xl flex-col px-6 py-12">
