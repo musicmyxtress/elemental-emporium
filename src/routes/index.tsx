@@ -296,8 +296,10 @@ function GameScreen({
       <DiscoveryDialog
         discovery={discovery}
         onStudy={handleStudy}
+        onCreatureAction={handleCreatureAction}
         onDismiss={() => setDiscovery(null)}
       />
+
 
     </main>
   );
