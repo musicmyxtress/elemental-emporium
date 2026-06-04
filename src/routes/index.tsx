@@ -290,6 +290,7 @@ function GameScreen({
       return;
     }
     setCreatureAnnouncement(`Tamed ${c.name} for ${cost} ${c.elementProduction.element} crystals.`);
+    onTameCreature(c.id);
     setDiscovery(null);
   }
 
