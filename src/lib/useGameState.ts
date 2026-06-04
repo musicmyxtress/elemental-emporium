@@ -49,7 +49,20 @@ export interface GameState {
    * element they have not unlocked.
    */
   shelvedCreatures: Record<string, number>;
+  /** Ids of buildings the player has constructed in the home base. */
+  buildings: string[];
+  /**
+   * Tamed creature instances. Each entry is a creature template id; one entry
+   * per tamed individual (so duplicates are expected when the player tames
+   * the same species multiple times).
+   */
+  tamedCreatures: string[];
 }
+
+/** Build costs for player-constructable buildings. */
+export const BUILDING_COSTS: Record<string, Record<string, number>> = {
+  stable: { wood: 50, stone: 50 },
+};
 
 
 const STORAGE_KEY = "mage-incremental-rpg-v1";
@@ -74,6 +87,8 @@ const INITIAL_STATE: GameState = {
   placeCooldowns: {},
   shelvedPlaces: {},
   shelvedCreatures: {},
+  buildings: [],
+  tamedCreatures: [],
 };
 
 
@@ -153,6 +168,12 @@ function loadState(): GameState {
             parsed.shelvedCreatures && typeof parsed.shelvedCreatures === "object"
               ? (parsed.shelvedCreatures as Record<string, number>)
               : {},
+          buildings: Array.isArray(parsed.buildings)
+            ? parsed.buildings.filter((x): x is string => typeof x === "string")
+            : [],
+          tamedCreatures: Array.isArray(parsed.tamedCreatures)
+            ? parsed.tamedCreatures.filter((x): x is string => typeof x === "string")
+            : [],
         };
 
 
@@ -393,6 +414,45 @@ export function useGameState() {
     return ok;
   }, []);
 
+  /**
+   * Records a tamed creature instance. Each call appends one entry, so taming
+   * the same species twice yields two entries.
+   */
+  const tameCreature = useCallback((creatureId: string) => {
+    setState((prev) => ({
+      ...prev,
+      tamedCreatures: [...prev.tamedCreatures, creatureId],
+    }));
+  }, []);
+
+  /**
+   * Attempts to construct a building. Spends its resource costs atomically;
+   * returns true on success, or false when the player lacks resources or the
+   * building is already built.
+   */
+  const buildBuilding = useCallback((buildingId: string): boolean => {
+    const costs = BUILDING_COSTS[buildingId];
+    if (!costs) return false;
+    let ok = false;
+    setState((prev) => {
+      if (prev.buildings.includes(buildingId)) return prev;
+      for (const [res, amount] of Object.entries(costs)) {
+        if ((prev.resources[res] ?? 0) < amount) return prev;
+      }
+      ok = true;
+      const nextResources = { ...prev.resources };
+      for (const [res, amount] of Object.entries(costs)) {
+        nextResources[res] = (nextResources[res] ?? 0) - amount;
+      }
+      return {
+        ...prev,
+        resources: nextResources,
+        buildings: [...prev.buildings, buildingId],
+      };
+    });
+    return ok;
+  }, []);
+
   const reset = useCallback(() => {
     setState(INITIAL_STATE);
   }, []);
@@ -410,6 +470,8 @@ export function useGameState() {
     unlockElement,
     convertFragmentsToCrystal,
     spendCrystals,
+    tameCreature,
+    buildBuilding,
     reset,
   };
 }

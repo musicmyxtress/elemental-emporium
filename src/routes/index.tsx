@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
-import { useGameState, type CollectResult, type GameState } from "@/lib/useGameState";
+import { useGameState, type CollectResult, type GameState, BUILDING_COSTS } from "@/lib/useGameState";
 import {
   ELEMENTS,
   ALL_ELEMENT_INFO,
@@ -13,6 +13,7 @@ import { rollEvent, type RandomEvent } from "@/lib/events";
 import { getPlace, rollUndiscoveredPlace, type Place } from "@/lib/places";
 import {
   rollCreature,
+  getCreature,
   getProductionAmount,
   getConsumptionAmount,
   type Creature,
@@ -62,6 +63,8 @@ function Index() {
     unlockElement,
     convertFragmentsToCrystal,
     spendCrystals,
+    tameCreature,
+    buildBuilding,
     reset,
   } = useGameState();
 
@@ -88,6 +91,8 @@ function Index() {
       shelvedPlaces={state.shelvedPlaces}
       shelvedCreatures={state.shelvedCreatures}
       unlockedElements={state.unlockedElements}
+      buildings={state.buildings}
+      tamedCreatures={state.tamedCreatures}
       onDiscoverPlace={discoverPlace}
       onShelvePlace={shelvePlace}
       onShelveCreature={shelveCreature}
@@ -96,6 +101,8 @@ function Index() {
       onCollectFromPlace={collectFromPlace}
       onConvertFragments={convertFragmentsToCrystal}
       onSpendCrystals={spendCrystals}
+      onTameCreature={tameCreature}
+      onBuildBuilding={buildBuilding}
       elementLevels={state.elementLevels}
       elementXp={state.elementXp}
       onReset={reset}
@@ -169,6 +176,8 @@ function GameScreen({
   shelvedPlaces,
   shelvedCreatures,
   unlockedElements,
+  buildings,
+  tamedCreatures,
   elementLevels,
   elementXp,
   onDiscoverPlace,
@@ -179,6 +188,8 @@ function GameScreen({
   onCollectFromPlace,
   onConvertFragments,
   onSpendCrystals,
+  onTameCreature,
+  onBuildBuilding,
   onReset,
 }: {
   discoveredPlaces: string[];
@@ -188,6 +199,8 @@ function GameScreen({
   shelvedPlaces: Record<string, number>;
   shelvedCreatures: Record<string, number>;
   unlockedElements: string[];
+  buildings: string[];
+  tamedCreatures: string[];
   elementLevels: GameState["elementLevels"];
   elementXp: GameState["elementXp"];
   onDiscoverPlace: (placeId: string) => void;
@@ -198,6 +211,8 @@ function GameScreen({
   onCollectFromPlace: (placeId: string) => CollectResult;
   onConvertFragments: (elementId: string) => boolean;
   onSpendCrystals: (elementId: string, amount: number) => boolean;
+  onTameCreature: (creatureId: string) => void;
+  onBuildBuilding: (buildingId: string) => boolean;
   onReset: () => void;
 }) {
   const headingRef = useRef<HTMLHeadingElement>(null);
@@ -275,6 +290,7 @@ function GameScreen({
       return;
     }
     setCreatureAnnouncement(`Tamed ${c.name} for ${cost} ${c.elementProduction.element} crystals.`);
+    onTameCreature(c.id);
     setDiscovery(null);
   }
 
@@ -317,6 +333,19 @@ function GameScreen({
                 />
               )}
               {tab.value === "resources" && <ResourcesPanel resources={resources} />}
+              {tab.value === "home-base" && (
+                <HomeBasePanel
+                  resources={resources}
+                  buildings={buildings}
+                  onBuildBuilding={onBuildBuilding}
+                />
+              )}
+              {tab.value === "stable" && (
+                <StablePanel
+                  buildings={buildings}
+                  tamedCreatures={tamedCreatures}
+                />
+              )}
               {tab.value === "fragments-and-crystals" && (
                 <FragmentsAndCrystalsPanel
                   resources={resources}
@@ -767,6 +796,213 @@ function DiscoveryDialog({
 }
 
 
+
+
+function HomeBasePanel({
+  resources,
+  buildings,
+  onBuildBuilding,
+}: {
+  resources: Record<string, number>;
+  buildings: string[];
+  onBuildBuilding: (buildingId: string) => boolean;
+}) {
+  const [announcement, setAnnouncement] = useState("");
+
+  const stableBuilt = buildings.includes("stable");
+  const stableCosts = BUILDING_COSTS.stable;
+  const canBuildStable =
+    !stableBuilt &&
+    Object.entries(stableCosts).every(([res, amt]) => (resources[res] ?? 0) >= amt);
+
+  function handleBuildStable() {
+    const ok = onBuildBuilding("stable");
+    setAnnouncement(
+      ok
+        ? "Stable built. The Stable tab is now available."
+        : "Not enough resources to build the stable.",
+    );
+  }
+
+  const costsLabel = Object.entries(stableCosts)
+    .map(([res, amt]) => `${amt} ${res}`)
+    .join(" and ");
+
+  return (
+    <>
+      <p className="mt-3 text-sm">
+        Construct buildings to expand what you can do. Each building unlocks a new tab.
+      </p>
+      <ul className="mt-4 grid gap-3" role="list">
+        <li className="rounded-xl border bg-background p-4 text-left">
+          <h3 className="text-base font-medium text-foreground">Stable</h3>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Shelter your tamed non-magical creatures and let them breed. Costs {costsLabel}.
+          </p>
+          <div className="mt-3">
+            {stableBuilt ? (
+              <p className="text-sm text-foreground">Built. Open the Stable tab to manage it.</p>
+            ) : (
+              <Button
+                type="button"
+                size="sm"
+                onClick={handleBuildStable}
+                disabled={!canBuildStable}
+                aria-label={
+                  canBuildStable
+                    ? `Build the stable for ${costsLabel}`
+                    : `Building the stable requires ${costsLabel}`
+                }
+              >
+                Build stable ({costsLabel})
+              </Button>
+            )}
+          </div>
+        </li>
+      </ul>
+      <div role="status" aria-live="polite" className="sr-only">
+        {announcement}
+      </div>
+    </>
+  );
+}
+
+function StablePanel({
+  buildings,
+  tamedCreatures,
+}: {
+  buildings: string[];
+  tamedCreatures: string[];
+}) {
+  const [selectedName, setSelectedName] = useState<string | null>(null);
+  const [announcement, setAnnouncement] = useState("");
+
+  if (!buildings.includes("stable")) {
+    return (
+      <p className="mt-3 text-sm">
+        You have not built a stable yet. Visit the Home Base tab to construct one.
+      </p>
+    );
+  }
+
+  // Resolve tamed instances into creature templates, then keep only non-magical
+  // ones (the stable shelters non-magical creatures).
+  const instances = tamedCreatures
+    .map((id) => getCreature(id))
+    .filter((c): c is Creature => Boolean(c) && !c!.magical);
+
+  if (instances.length === 0) {
+    return (
+      <p className="mt-3 text-sm">
+        Your stable is empty. Tame non-magical creatures during exploration to house them here.
+      </p>
+    );
+  }
+
+  // Group by creature name (species) so duplicates roll up into a single entry.
+  const groups = new Map<string, Creature[]>();
+  for (const c of instances) {
+    const list = groups.get(c.name) ?? [];
+    list.push(c);
+    groups.set(c.name, list);
+  }
+  const sortedNames = Array.from(groups.keys()).sort((a, b) => a.localeCompare(b));
+
+  if (selectedName && groups.has(selectedName)) {
+    const members = groups.get(selectedName)!;
+    const males = members.filter((m) => m.gender === "male").length;
+    const females = members.filter((m) => m.gender === "female").length;
+    const pairs = Math.min(males, females);
+    const totalProduction = members.reduce((sum, m) => sum + getProductionAmount(m), 0);
+    const element = members[0].elementProduction.element;
+
+    function handleBreed() {
+      // Breeding mechanics are described next; the button is wired but does
+      // nothing yet so the UI is in place to receive that behavior.
+      setAnnouncement("Breeding is not yet implemented.");
+    }
+
+    return (
+      <div className="mt-4">
+        <button
+          type="button"
+          onClick={() => setSelectedName(null)}
+          className="text-sm text-foreground underline underline-offset-2 hover:no-underline focus-visible:no-underline"
+        >
+          Back to stable
+        </button>
+        <h3 className="mt-3 text-base font-medium text-foreground">{selectedName}</h3>
+        <dl className="mt-3 grid gap-2 text-sm text-foreground">
+          <div className="flex justify-between">
+            <dt className="text-muted-foreground">Total fragment production</dt>
+            <dd
+              className="font-medium tabular-nums"
+              aria-label={`${totalProduction} ${element} fragments per tick`}
+            >
+              {totalProduction} {element} per tick
+            </dd>
+          </div>
+          <div className="flex justify-between">
+            <dt className="text-muted-foreground">Males</dt>
+            <dd className="font-medium tabular-nums">{males}</dd>
+          </div>
+          <div className="flex justify-between">
+            <dt className="text-muted-foreground">Females</dt>
+            <dd className="font-medium tabular-nums">{females}</dd>
+          </div>
+          <div className="flex justify-between">
+            <dt className="text-muted-foreground">Male/female pairs</dt>
+            <dd className="font-medium tabular-nums">{pairs}</dd>
+          </div>
+        </dl>
+        <div className="mt-4">
+          <Button
+            type="button"
+            size="sm"
+            onClick={handleBreed}
+            disabled={pairs === 0}
+            aria-label={
+              pairs === 0
+                ? `Breed ${selectedName}, requires at least one male/female pair`
+                : `Breed ${selectedName}`
+            }
+          >
+            Breed
+          </Button>
+        </div>
+        <div role="status" aria-live="polite" className="sr-only">
+          {announcement}
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <>
+      <p className="mt-3 text-sm">
+        Your non-magical creatures. Select one to see details and breed.
+      </p>
+      <ul className="mt-4 grid gap-2" role="list">
+        {sortedNames.map((name) => {
+          const count = groups.get(name)!.length;
+          return (
+            <li key={name}>
+              <button
+                type="button"
+                onClick={() => setSelectedName(name)}
+                className="flex w-full items-center justify-between rounded-lg border bg-background px-4 py-2 text-sm text-foreground transition-colors hover:bg-muted focus-visible:bg-muted"
+                aria-label={`${name}, ${count}. View details.`}
+              >
+                <span>{name}</span>
+                <span className="font-medium tabular-nums">{count}</span>
+              </button>
+            </li>
+          );
+        })}
+      </ul>
+    </>
+  );
+}
 
 
 const TABS = [
