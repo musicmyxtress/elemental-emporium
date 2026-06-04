@@ -37,6 +37,26 @@ export interface Creature {
  */
 export const CREATURES: Creature[] = [];
 
+/**
+ * Per-tick production amount for a creature.
+ * - Non-magical creatures produce their rarity level in their production element.
+ * - Magical creatures produce double their rarity level in their production element.
+ */
+export function getProductionAmount(creature: Creature): number {
+  const base = Math.max(1, creature.rarity);
+  return creature.magical ? base * 2 : base;
+}
+
+/**
+ * Per-tick consumption amount for a creature.
+ * - Non-magical creatures consume nothing (returns 0).
+ * - Magical creatures consume their rarity level in their consumption element.
+ */
+export function getConsumptionAmount(creature: Creature): number {
+  if (!creature.magical || !creature.elementConsumption) return 0;
+  return Math.max(1, creature.rarity);
+}
+
 /** Looks up a creature by id, or returns undefined when not found. */
 export function getCreature(id: string): Creature | undefined {
   return CREATURES.find((c) => c.id === id);
