@@ -49,7 +49,20 @@ export interface GameState {
    * element they have not unlocked.
    */
   shelvedCreatures: Record<string, number>;
+  /** Ids of buildings the player has constructed in the home base. */
+  buildings: string[];
+  /**
+   * Tamed creature instances. Each entry is a creature template id; one entry
+   * per tamed individual (so duplicates are expected when the player tames
+   * the same species multiple times).
+   */
+  tamedCreatures: string[];
 }
+
+/** Build costs for player-constructable buildings. */
+export const BUILDING_COSTS: Record<string, Record<string, number>> = {
+  stable: { wood: 50, stone: 50 },
+};
 
 
 const STORAGE_KEY = "mage-incremental-rpg-v1";
