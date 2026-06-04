@@ -45,6 +45,38 @@ export const ELEMENTS: ElementInfo[] = [
   },
 ];
 
+/**
+ * All element ids known to the game, including ones that are not unlockable
+ * at character creation. Used by UI that needs to enumerate every element
+ * (e.g. the fragments & crystals tab). The first four match `ELEMENTS`.
+ */
+export interface AllElementInfo {
+  id: string;
+  name: string;
+  fragmentName: string;
+  emoji: string;
+}
+
+export const ALL_ELEMENT_INFO: AllElementInfo[] = [
+  { id: "air", name: "Air", fragmentName: "Air Fragment", emoji: "🌬️" },
+  { id: "earth", name: "Earth", fragmentName: "Earth Fragment", emoji: "🌿" },
+  { id: "fire", name: "Fire", fragmentName: "Fire Fragment", emoji: "🔥" },
+  { id: "water", name: "Water", fragmentName: "Water Fragment", emoji: "💧" },
+  { id: "plant", name: "Plant", fragmentName: "Plant Fragment", emoji: "🌱" },
+  { id: "lava", name: "Lava", fragmentName: "Lava Fragment", emoji: "🌋" },
+  { id: "time", name: "Time", fragmentName: "Time Fragment", emoji: "⏳" },
+  { id: "light", name: "Light", fragmentName: "Light Fragment", emoji: "✨" },
+  { id: "darkness", name: "Darkness", fragmentName: "Darkness Fragment", emoji: "🌑" },
+];
+
+/** Returns the resource id used to store an element's fragments. */
+export function fragmentResourceId(elementId: string): string {
+  return `${elementId}-fragment`;
+}
+
+/** Number of fragments required to create one crystal. */
+export const FRAGMENTS_PER_CRYSTAL = 100;
+
 /** Total XP required to advance from `level` to `level + 1`. */
 export function xpToNextLevel(level: number): number {
   return level * 1000;
@@ -53,3 +85,4 @@ export function xpToNextLevel(level: number): number {
 export function getElement(id: Element): ElementInfo {
   return ELEMENTS.find((e) => e.id === id)!;
 }
+
