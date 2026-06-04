@@ -261,6 +261,13 @@ function GameScreen({
     const chosen = outcomes[Math.floor(Math.random() * outcomes.length)];
     if (chosen.kind === "place") {
       onDiscoverPlace(chosen.place.id);
+      if (chosen.place.resource.element) onDiscoverElement(chosen.place.resource.element);
+    } else if (chosen.kind === "locked-place") {
+      if (chosen.place.resource.element) onDiscoverElement(chosen.place.resource.element);
+    } else if (chosen.kind === "creature") {
+      onDiscoverElement(chosen.creature.elementProduction.element);
+    } else if (chosen.kind === "locked-creature") {
+      onDiscoverElement(chosen.creature.elementProduction.element);
     } else if (chosen.kind === "event" && chosen.event.apply) {
       onApplyEvent(chosen.event.apply);
     }
