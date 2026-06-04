@@ -294,37 +294,37 @@ function GameScreen({
     setDiscovery(null);
   }
 
+  const [activeTab, setActiveTab] = useState<(typeof TABS)[number]["value"]>("home-base");
+  const activeTabLabel = TABS.find((t) => t.value === activeTab)?.label ?? "";
+
   return (
-    <main className="mx-auto flex min-h-screen max-w-3xl flex-col px-6 py-12">
+    <main className="mx-auto flex min-h-screen max-w-3xl flex-col px-6 pt-12 pb-32">
       <header className="flex flex-wrap items-center justify-between gap-4">
         <h1
           ref={headingRef}
           tabIndex={-1}
           className="text-2xl font-semibold text-foreground sm:text-3xl"
         >
-          Mage's Path
+          {activeTabLabel}
         </h1>
-        <Button type="button" onClick={handleExplore}>
-          Explore
-        </Button>
+        {activeTab === "home-base" && (
+          <Button type="button" onClick={handleExplore}>
+            Explore
+          </Button>
+        )}
       </header>
 
-      <Tabs defaultValue="home-base" className="mt-10">
-        <TabsList className="flex h-auto w-full flex-wrap justify-start gap-1">
-          {TABS.map((tab) => (
-            <TabsTrigger key={tab.value} value={tab.value}>
-              {tab.label}
-            </TabsTrigger>
-          ))}
-        </TabsList>
-
+      <Tabs
+        value={activeTab}
+        onValueChange={(v) => setActiveTab(v as (typeof TABS)[number]["value"])}
+        className="mt-6"
+      >
         {TABS.map((tab) => (
           <TabsContent key={tab.value} value={tab.value}>
             <section
               aria-label={tab.label}
               className="rounded-2xl border bg-card p-8 text-muted-foreground"
             >
-              <h2 className="text-lg font-medium text-foreground">{tab.label}</h2>
               {tab.value === "places" && (
                 <PlacesPanel
                   discoveredPlaces={discoveredPlaces}
@@ -360,8 +360,19 @@ function GameScreen({
             </section>
           </TabsContent>
         ))}
-      </Tabs>
 
+        <div className="fixed inset-x-0 bottom-0 z-40 border-t bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">
+          <div className="mx-auto max-w-3xl overflow-x-auto px-4 py-2">
+            <TabsList className="flex h-auto w-max gap-1">
+              {TABS.map((tab) => (
+                <TabsTrigger key={tab.value} value={tab.value}>
+                  {tab.label}
+                </TabsTrigger>
+              ))}
+            </TabsList>
+          </div>
+        </div>
+      </Tabs>
 
       <div className="mt-8">
         <button
@@ -389,6 +400,7 @@ function GameScreen({
 
   );
 }
+
 
 function PlacesPanel({
   discoveredPlaces,
