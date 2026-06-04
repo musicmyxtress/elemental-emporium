@@ -179,6 +179,7 @@ function GameScreen({
   shelvedPlaces,
   shelvedCreatures,
   unlockedElements,
+  discoveredElements,
   buildings,
   tamedCreatures,
   elementLevels,
@@ -187,6 +188,7 @@ function GameScreen({
   onShelvePlace,
   onShelveCreature,
   onUnlockElement,
+  onDiscoverElement,
   onApplyEvent,
   onCollectFromPlace,
   onConvertFragments,
@@ -202,6 +204,7 @@ function GameScreen({
   shelvedPlaces: Record<string, number>;
   shelvedCreatures: Record<string, number>;
   unlockedElements: string[];
+  discoveredElements: string[];
   buildings: string[];
   tamedCreatures: string[];
   elementLevels: GameState["elementLevels"];
@@ -210,6 +213,7 @@ function GameScreen({
   onShelvePlace: (placeId: string, rarity: number) => void;
   onShelveCreature: (creatureId: string, rarity: number) => void;
   onUnlockElement: (elementId: string) => void;
+  onDiscoverElement: (elementId: string) => void;
   onApplyEvent: (effect: (s: GameState) => GameState) => void;
   onCollectFromPlace: (placeId: string) => CollectResult;
   onConvertFragments: (elementId: string) => boolean;
