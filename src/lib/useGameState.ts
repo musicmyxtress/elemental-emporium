@@ -336,6 +336,49 @@ export function useGameState() {
     }));
   }, []);
 
+  /**
+   * Converts 100 fragments of the given element into 1 crystal of that
+   * element. Returns true on success, or false when the player does not have
+   * enough fragments to convert.
+   */
+  const convertFragmentsToCrystal = useCallback((elementId: string): boolean => {
+    const key = fragmentResourceId(elementId);
+    let ok = false;
+    setState((prev) => {
+      const have = prev.resources[key] ?? 0;
+      if (have < FRAGMENTS_PER_CRYSTAL) return prev;
+      ok = true;
+      return {
+        ...prev,
+        resources: { ...prev.resources, [key]: have - FRAGMENTS_PER_CRYSTAL },
+        crystals: {
+          ...prev.crystals,
+          [elementId]: (prev.crystals[elementId] ?? 0) + 1,
+        },
+      };
+    });
+    return ok;
+  }, []);
+
+  /**
+   * Spends crystals of a given element. Returns true on success, or false
+   * when the player does not have enough crystals.
+   */
+  const spendCrystals = useCallback((elementId: string, amount: number): boolean => {
+    if (amount <= 0) return true;
+    let ok = false;
+    setState((prev) => {
+      const have = prev.crystals[elementId] ?? 0;
+      if (have < amount) return prev;
+      ok = true;
+      return {
+        ...prev,
+        crystals: { ...prev.crystals, [elementId]: have - amount },
+      };
+    });
+    return ok;
+  }, []);
+
   const reset = useCallback(() => {
     setState(INITIAL_STATE);
   }, []);
@@ -350,8 +393,10 @@ export function useGameState() {
     gainElementXp,
     shelvePlace,
     shelveCreature,
-
+    convertFragmentsToCrystal,
+    spendCrystals,
     reset,
   };
 }
+
 
