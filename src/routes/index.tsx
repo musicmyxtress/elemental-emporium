@@ -176,6 +176,8 @@ function GameScreen({
   shelvedPlaces,
   shelvedCreatures,
   unlockedElements,
+  buildings,
+  tamedCreatures,
   elementLevels,
   elementXp,
   onDiscoverPlace,
@@ -186,6 +188,8 @@ function GameScreen({
   onCollectFromPlace,
   onConvertFragments,
   onSpendCrystals,
+  onTameCreature,
+  onBuildBuilding,
   onReset,
 }: {
   discoveredPlaces: string[];
@@ -195,6 +199,8 @@ function GameScreen({
   shelvedPlaces: Record<string, number>;
   shelvedCreatures: Record<string, number>;
   unlockedElements: string[];
+  buildings: string[];
+  tamedCreatures: string[];
   elementLevels: GameState["elementLevels"];
   elementXp: GameState["elementXp"];
   onDiscoverPlace: (placeId: string) => void;
@@ -205,6 +211,8 @@ function GameScreen({
   onCollectFromPlace: (placeId: string) => CollectResult;
   onConvertFragments: (elementId: string) => boolean;
   onSpendCrystals: (elementId: string, amount: number) => boolean;
+  onTameCreature: (creatureId: string) => void;
+  onBuildBuilding: (buildingId: string) => boolean;
   onReset: () => void;
 }) {
   const headingRef = useRef<HTMLHeadingElement>(null);
