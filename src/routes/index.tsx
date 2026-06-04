@@ -187,6 +187,7 @@ function GameScreen({
   onDiscoverPlace: (placeId: string) => void;
   onShelvePlace: (placeId: string, rarity: number) => void;
   onShelveCreature: (creatureId: string, rarity: number) => void;
+  onUnlockElement: (elementId: string) => void;
   onApplyEvent: (effect: (s: GameState) => GameState) => void;
   onCollectFromPlace: (placeId: string) => CollectResult;
   onConvertFragments: (elementId: string) => boolean;
