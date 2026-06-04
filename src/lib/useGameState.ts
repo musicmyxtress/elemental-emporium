@@ -57,6 +57,12 @@ export interface GameState {
    * the same species multiple times).
    */
   tamedCreatures: string[];
+  /**
+   * Element ids the player has encountered during exploration (via a place or
+   * creature of that element appearing), even if not yet unlocked. Used to
+   * reveal elements in the Fragments and Crystals tab once seen.
+   */
+  discoveredElements: string[];
 }
 
 /** Build costs for player-constructable buildings. */
@@ -89,6 +95,7 @@ const INITIAL_STATE: GameState = {
   shelvedCreatures: {},
   buildings: [],
   tamedCreatures: [],
+  discoveredElements: STARTER_UNLOCKED_ELEMENTS,
 };
 
 
@@ -174,6 +181,9 @@ function loadState(): GameState {
           tamedCreatures: Array.isArray(parsed.tamedCreatures)
             ? parsed.tamedCreatures.filter((x): x is string => typeof x === "string")
             : [],
+          discoveredElements: Array.isArray(parsed.discoveredElements)
+            ? parsed.discoveredElements.filter((x): x is string => typeof x === "string")
+            : STARTER_UNLOCKED_ELEMENTS,
         };
 
 
@@ -363,10 +373,32 @@ export function useGameState() {
    */
   const unlockElement = useCallback((elementId: string) => {
     setState((prev) => {
-      if (prev.unlockedElements.includes(elementId)) return prev;
+      const alreadyUnlocked = prev.unlockedElements.includes(elementId);
+      const alreadyDiscovered = prev.discoveredElements.includes(elementId);
+      if (alreadyUnlocked && alreadyDiscovered) return prev;
       return {
         ...prev,
-        unlockedElements: [...prev.unlockedElements, elementId],
+        unlockedElements: alreadyUnlocked
+          ? prev.unlockedElements
+          : [...prev.unlockedElements, elementId],
+        discoveredElements: alreadyDiscovered
+          ? prev.discoveredElements
+          : [...prev.discoveredElements, elementId],
+      };
+    });
+  }, []);
+
+  /**
+   * Marks an element as discovered (encountered during exploration). No-op if
+   * already discovered. Discovery does not grant fragment collection; the
+   * element must still be unlocked via study to be useful.
+   */
+  const discoverElement = useCallback((elementId: string) => {
+    setState((prev) => {
+      if (prev.discoveredElements.includes(elementId)) return prev;
+      return {
+        ...prev,
+        discoveredElements: [...prev.discoveredElements, elementId],
       };
     });
   }, []);
@@ -468,6 +500,7 @@ export function useGameState() {
     shelvePlace,
     shelveCreature,
     unlockElement,
+    discoverElement,
     convertFragmentsToCrystal,
     spendCrystals,
     tameCreature,
