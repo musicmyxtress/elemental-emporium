@@ -1,11 +1,22 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { getPlace } from "./places";
+import { xpToNextLevel } from "./elements";
 
-export type Element = "air" | "water" | "fire";
+export type Element = "air" | "earth" | "fire" | "water";
+
+export const ALL_ELEMENTS: Element[] = ["air", "earth", "fire", "water"];
+
+export type ElementRecord<T> = Record<Element, T>;
 
 export interface GameState {
+  /** The element the player mastered at character creation. */
   element: Element | null;
+  /** Passive fragments of the mastered element accumulated over time. */
   fragments: number;
+  /** Current level in each element. The mastered element starts at 1; others at 0. */
+  elementLevels: ElementRecord<number>;
+  /** XP accumulated toward the next level in each element. */
+  elementXp: ElementRecord<number>;
   /** Ids of places the player has discovered. Places are discovered once. */
   discoveredPlaces: string[];
   /** Map of resource id -> amount the player owns. */
@@ -16,13 +27,38 @@ export interface GameState {
 
 const STORAGE_KEY = "mage-incremental-rpg-v1";
 
+function zeroLevels(): ElementRecord<number> {
+  return { air: 0, earth: 0, fire: 0, water: 0 };
+}
+
 const INITIAL_STATE: GameState = {
   element: null,
   fragments: 0,
+  elementLevels: zeroLevels(),
+  elementXp: zeroLevels(),
   discoveredPlaces: [],
   resources: {},
   placeCooldowns: {},
 };
+
+function isElement(value: unknown): value is Element {
+  return (
+    value === "air" || value === "earth" || value === "fire" || value === "water"
+  );
+}
+
+function sanitizeRecord(
+  value: unknown,
+): ElementRecord<number> {
+  const base = zeroLevels();
+  if (value && typeof value === "object") {
+    for (const key of ALL_ELEMENTS) {
+      const v = (value as Record<string, unknown>)[key];
+      if (typeof v === "number" && Number.isFinite(v)) base[key] = v;
+    }
+  }
+  return base;
+}
 
 function loadState(): GameState {
   if (typeof window === "undefined") return INITIAL_STATE;
@@ -31,15 +67,20 @@ function loadState(): GameState {
     if (raw) {
       const parsed = JSON.parse(raw) as Partial<GameState>;
       if (
-        (parsed.element === "air" ||
-          parsed.element === "water" ||
-          parsed.element === "fire" ||
-          parsed.element === null) &&
+        (isElement(parsed.element) || parsed.element === null) &&
         typeof parsed.fragments === "number"
       ) {
+        const elementLevels = sanitizeRecord(parsed.elementLevels);
+        // Migrate: if a mastered element exists but has no level recorded,
+        // grant it level 1 to match the new mechanic.
+        if (parsed.element && elementLevels[parsed.element] < 1) {
+          elementLevels[parsed.element] = 1;
+        }
         return {
           element: parsed.element ?? null,
           fragments: parsed.fragments,
+          elementLevels,
+          elementXp: sanitizeRecord(parsed.elementXp),
           discoveredPlaces: Array.isArray(parsed.discoveredPlaces)
             ? parsed.discoveredPlaces
             : [],
@@ -70,6 +111,30 @@ export interface CollectResult {
   resourceLabel?: string;
 }
 
+/**
+ * Applies XP to an element and rolls over levels while the player has enough
+ * to advance. The cost to reach level N+1 from N is N * 1000 XP.
+ */
+function applyXp(
+  levels: ElementRecord<number>,
+  xp: ElementRecord<number>,
+  element: Element,
+  amount: number,
+): { levels: ElementRecord<number>; xp: ElementRecord<number> } {
+  const nextLevels = { ...levels };
+  const nextXp = { ...xp };
+  nextXp[element] = (nextXp[element] ?? 0) + amount;
+  // Level 0 has no advancement cost (untrained); only level >=1 levels up.
+  while (
+    nextLevels[element] >= 1 &&
+    nextXp[element] >= xpToNextLevel(nextLevels[element])
+  ) {
+    nextXp[element] -= xpToNextLevel(nextLevels[element]);
+    nextLevels[element] += 1;
+  }
+  return { levels: nextLevels, xp: nextXp };
+}
+
 export function useGameState() {
   const [state, setState] = useState<GameState>(INITIAL_STATE);
   const [hydrated, setHydrated] = useState(false);
@@ -90,7 +155,7 @@ export function useGameState() {
     }
   }, [state, hydrated]);
 
-  // Passive fragment generation.
+  // Passive fragment generation for the mastered element.
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   useEffect(() => {
     if (!state.element) return;
@@ -103,7 +168,16 @@ export function useGameState() {
   }, [state.element]);
 
   const chooseElement = useCallback((element: Element) => {
-    setState((prev) => ({ ...prev, element }));
+    setState((prev) => {
+      const elementLevels = zeroLevels();
+      elementLevels[element] = 1;
+      return {
+        ...prev,
+        element,
+        elementLevels,
+        elementXp: zeroLevels(),
+      };
+    });
   }, []);
 
   /** Records a discovered place (no-op if already discovered). */
@@ -118,6 +192,20 @@ export function useGameState() {
   /** Applies a random event's effect to the current state. */
   const applyEvent = useCallback((effect: (s: GameState) => GameState) => {
     setState((prev) => effect(prev));
+  }, []);
+
+  /** Grants XP to an element. Levels up as long as XP allows. */
+  const gainElementXp = useCallback((element: Element, amount: number) => {
+    if (amount <= 0) return;
+    setState((prev) => {
+      const { levels, xp } = applyXp(
+        prev.elementLevels,
+        prev.elementXp,
+        element,
+        amount,
+      );
+      return { ...prev, elementLevels: levels, elementXp: xp };
+    });
   }, []);
 
   /**
@@ -158,6 +246,7 @@ export function useGameState() {
     discoverPlace,
     applyEvent,
     collectFromPlace,
+    gainElementXp,
     reset,
   };
 }

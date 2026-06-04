@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
-import { useGameState, type CollectResult } from "@/lib/useGameState";
-import { ELEMENTS } from "@/lib/elements";
+import { useGameState, type CollectResult, type GameState } from "@/lib/useGameState";
+import { ELEMENTS, xpToNextLevel } from "@/lib/elements";
 import { rollEvent, type RandomEvent } from "@/lib/events";
 import { getPlace, rollUndiscoveredPlace, type Place } from "@/lib/places";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -68,6 +68,8 @@ function Index() {
       onDiscoverPlace={discoverPlace}
       onApplyEvent={applyEvent}
       onCollectFromPlace={collectFromPlace}
+      elementLevels={state.elementLevels}
+      elementXp={state.elementXp}
       onReset={reset}
     />
   );
@@ -129,6 +131,8 @@ function GameScreen({
   discoveredPlaces,
   resources,
   placeCooldowns,
+  elementLevels,
+  elementXp,
   onDiscoverPlace,
   onApplyEvent,
   onCollectFromPlace,
@@ -137,8 +141,10 @@ function GameScreen({
   discoveredPlaces: string[];
   resources: Record<string, number>;
   placeCooldowns: Record<string, number>;
+  elementLevels: GameState["elementLevels"];
+  elementXp: GameState["elementXp"];
   onDiscoverPlace: (placeId: string) => void;
-  onApplyEvent: (effect: (s: import("@/lib/useGameState").GameState) => import("@/lib/useGameState").GameState) => void;
+  onApplyEvent: (effect: (s: GameState) => GameState) => void;
   onCollectFromPlace: (placeId: string) => CollectResult;
   onReset: () => void;
 }) {
@@ -211,6 +217,9 @@ function GameScreen({
                 />
               )}
               {tab.value === "resources" && <ResourcesPanel resources={resources} />}
+              {tab.value === "stats" && (
+                <StatsPanel elementLevels={elementLevels} elementXp={elementXp} />
+              )}
             </section>
           </TabsContent>
         ))}
@@ -338,6 +347,70 @@ function ResourcesPanel({ resources }: { resources: Record<string, number> }) {
           <span className="font-medium tabular-nums">{amount}</span>
         </li>
       ))}
+    </ul>
+  );
+}
+
+function StatsPanel({
+  elementLevels,
+  elementXp,
+}: {
+  elementLevels: GameState["elementLevels"];
+  elementXp: GameState["elementXp"];
+}) {
+  return (
+    <ul className="mt-4 grid gap-3" role="list">
+      {ELEMENTS.map((el) => {
+        const level = elementLevels[el.id] ?? 0;
+        const xp = elementXp[el.id] ?? 0;
+        const needed = level >= 1 ? xpToNextLevel(level) : 0;
+        const pct = needed > 0 ? Math.min(100, Math.round((xp / needed) * 100)) : 0;
+        return (
+          <li
+            key={el.id}
+            className="rounded-xl border bg-background p-4 text-left"
+          >
+            <div className="flex items-baseline justify-between gap-3">
+              <h3 className="text-base font-medium text-foreground">
+                <span aria-hidden="true" className="mr-2">
+                  {el.emoji}
+                </span>
+                {el.name}
+              </h3>
+              <span
+                className="text-sm font-medium tabular-nums text-foreground"
+                aria-label={`Level ${level}`}
+              >
+                Level {level}
+              </span>
+            </div>
+            {level >= 1 ? (
+              <>
+                <div
+                  className="mt-3 h-2 w-full overflow-hidden rounded-full bg-muted"
+                  role="progressbar"
+                  aria-valuemin={0}
+                  aria-valuemax={needed}
+                  aria-valuenow={xp}
+                  aria-label={`${el.name} experience: ${xp} of ${needed} toward level ${level + 1}`}
+                >
+                  <div
+                    className="h-full bg-foreground/70"
+                    style={{ width: `${pct}%` }}
+                  />
+                </div>
+                <p className="mt-2 text-xs text-muted-foreground tabular-nums">
+                  {xp} / {needed} XP toward level {level + 1}
+                </p>
+              </>
+            ) : (
+              <p className="mt-2 text-xs text-muted-foreground">
+                Untrained. Master this element to begin gaining levels.
+              </p>
+            )}
+          </li>
+        );
+      })}
     </ul>
   );
 }
