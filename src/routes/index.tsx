@@ -54,6 +54,7 @@ function Index() {
     collectFromPlace,
     shelvePlace,
     shelveCreature,
+    unlockElement,
     convertFragmentsToCrystal,
     spendCrystals,
     reset,
@@ -85,6 +86,7 @@ function Index() {
       onDiscoverPlace={discoverPlace}
       onShelvePlace={shelvePlace}
       onShelveCreature={shelveCreature}
+      onUnlockElement={unlockElement}
       onApplyEvent={applyEvent}
       onCollectFromPlace={collectFromPlace}
       onConvertFragments={convertFragmentsToCrystal}
@@ -167,6 +169,7 @@ function GameScreen({
   onDiscoverPlace,
   onShelvePlace,
   onShelveCreature,
+  onUnlockElement,
   onApplyEvent,
   onCollectFromPlace,
   onConvertFragments,
@@ -185,6 +188,7 @@ function GameScreen({
   onDiscoverPlace: (placeId: string) => void;
   onShelvePlace: (placeId: string, rarity: number) => void;
   onShelveCreature: (creatureId: string, rarity: number) => void;
+  onUnlockElement: (elementId: string) => void;
   onApplyEvent: (effect: (s: GameState) => GameState) => void;
   onCollectFromPlace: (placeId: string) => CollectResult;
   onConvertFragments: (elementId: string) => boolean;
@@ -238,8 +242,12 @@ function GameScreen({
 
   function handleStudy() {
     if (discovery?.kind === "locked-place") {
+      const elementId = discovery.place.resource.element;
+      if (elementId) onUnlockElement(elementId);
       onShelvePlace(discovery.place.id, discovery.place.rarity);
     } else if (discovery?.kind === "locked-creature") {
+      const elementId = discovery.creature.elementProduction.element;
+      onUnlockElement(elementId);
       onShelveCreature(discovery.creature.id, discovery.creature.rarity);
     }
     setDiscovery(null);

@@ -337,6 +337,20 @@ export function useGameState() {
   }, []);
 
   /**
+   * Unlocks an element so the player can collect its fragments. No-op if
+   * already unlocked.
+   */
+  const unlockElement = useCallback((elementId: string) => {
+    setState((prev) => {
+      if (prev.unlockedElements.includes(elementId)) return prev;
+      return {
+        ...prev,
+        unlockedElements: [...prev.unlockedElements, elementId],
+      };
+    });
+  }, []);
+
+  /**
    * Converts 100 fragments of the given element into 1 crystal of that
    * element. Returns true on success, or false when the player does not have
    * enough fragments to convert.
@@ -393,6 +407,7 @@ export function useGameState() {
     gainElementXp,
     shelvePlace,
     shelveCreature,
+    unlockElement,
     convertFragmentsToCrystal,
     spendCrystals,
     reset,
