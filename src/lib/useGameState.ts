@@ -500,6 +500,7 @@ export function useGameState() {
     shelvePlace,
     shelveCreature,
     unlockElement,
+    discoverElement,
     convertFragmentsToCrystal,
     spendCrystals,
     tameCreature,
