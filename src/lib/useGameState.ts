@@ -57,6 +57,12 @@ export interface GameState {
    * the same species multiple times).
    */
   tamedCreatures: string[];
+  /**
+   * Element ids the player has encountered during exploration (via a place or
+   * creature of that element appearing), even if not yet unlocked. Used to
+   * reveal elements in the Fragments and Crystals tab once seen.
+   */
+  discoveredElements: string[];
 }
 
 /** Build costs for player-constructable buildings. */
