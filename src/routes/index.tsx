@@ -131,6 +131,8 @@ function GameScreen({
   discoveredPlaces,
   resources,
   placeCooldowns,
+  elementLevels,
+  elementXp,
   onDiscoverPlace,
   onApplyEvent,
   onCollectFromPlace,
@@ -139,8 +141,10 @@ function GameScreen({
   discoveredPlaces: string[];
   resources: Record<string, number>;
   placeCooldowns: Record<string, number>;
+  elementLevels: GameState["elementLevels"];
+  elementXp: GameState["elementXp"];
   onDiscoverPlace: (placeId: string) => void;
-  onApplyEvent: (effect: (s: import("@/lib/useGameState").GameState) => import("@/lib/useGameState").GameState) => void;
+  onApplyEvent: (effect: (s: GameState) => GameState) => void;
   onCollectFromPlace: (placeId: string) => CollectResult;
   onReset: () => void;
 }) {
@@ -213,6 +217,9 @@ function GameScreen({
                 />
               )}
               {tab.value === "resources" && <ResourcesPanel resources={resources} />}
+              {tab.value === "stats" && (
+                <StatsPanel elementLevels={elementLevels} elementXp={elementXp} />
+              )}
             </section>
           </TabsContent>
         ))}
