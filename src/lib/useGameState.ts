@@ -224,13 +224,21 @@ export function useGameState() {
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   useEffect(() => {
     if (!state.element) return;
+    const masteredElement = state.element;
     intervalRef.current = setInterval(() => {
-      setState((prev) => ({ ...prev, fragments: prev.fragments + 1 }));
+      setState((prev) => {
+        const key = fragmentResourceId(masteredElement);
+        return {
+          ...prev,
+          resources: { ...prev.resources, [key]: (prev.resources[key] ?? 0) + 1 },
+        };
+      });
     }, FRAGMENT_INTERVAL_MS);
     return () => {
       if (intervalRef.current) clearInterval(intervalRef.current);
     };
   }, [state.element]);
+
 
   const chooseElement = useCallback((element: Element) => {
     setState((prev) => {
