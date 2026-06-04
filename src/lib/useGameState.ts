@@ -262,6 +262,20 @@ export function useGameState() {
     return { ok: true, resourceLabel: place.resource.label };
   }, [state.placeCooldowns]);
 
+  /**
+   * Shelves a place for `rarity` hours, removing it from the exploration pool
+   * during that window. Used when the player studies a place whose element is
+   * not yet unlocked; the place is dismissed without being discovered.
+   */
+  const shelvePlace = useCallback((placeId: string, rarity: number) => {
+    const hours = Math.max(1, rarity);
+    const until = Date.now() + hours * 60 * 60 * 1000;
+    setState((prev) => ({
+      ...prev,
+      shelvedPlaces: { ...prev.shelvedPlaces, [placeId]: until },
+    }));
+  }, []);
+
   const reset = useCallback(() => {
     setState(INITIAL_STATE);
   }, []);
@@ -274,6 +288,8 @@ export function useGameState() {
     applyEvent,
     collectFromPlace,
     gainElementXp,
+    shelvePlace,
     reset,
   };
 }
+
