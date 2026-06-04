@@ -1,12 +1,13 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
-import { useGameState, type CollectResult, type GameState, BUILDING_COSTS } from "@/lib/useGameState";
+import { useGameState, type CollectResult, type GameState, BUILDING_COSTS, APPRENTICE_LEVEL } from "@/lib/useGameState";
 import {
   ELEMENTS,
   ALL_ELEMENT_INFO,
   FRAGMENTS_PER_CRYSTAL,
   fragmentResourceId,
   xpToNextLevel,
+  getElementInfo,
 } from "@/lib/elements";
 
 import { rollEvent, type RandomEvent } from "@/lib/events";
