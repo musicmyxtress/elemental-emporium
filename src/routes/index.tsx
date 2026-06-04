@@ -47,6 +47,8 @@ function Index() {
     collectFromPlace,
     shelvePlace,
     shelveCreature,
+    convertFragmentsToCrystal,
+    spendCrystals,
     reset,
   } = useGameState();
 
@@ -68,6 +70,7 @@ function Index() {
     <GameScreen
       discoveredPlaces={state.discoveredPlaces}
       resources={state.resources}
+      crystals={state.crystals}
       placeCooldowns={state.placeCooldowns}
       shelvedPlaces={state.shelvedPlaces}
       shelvedCreatures={state.shelvedCreatures}
@@ -77,12 +80,15 @@ function Index() {
       onShelveCreature={shelveCreature}
       onApplyEvent={applyEvent}
       onCollectFromPlace={collectFromPlace}
+      onConvertFragments={convertFragmentsToCrystal}
+      onSpendCrystals={spendCrystals}
       elementLevels={state.elementLevels}
       elementXp={state.elementXp}
       onReset={reset}
     />
   );
 }
+
 
 
 
