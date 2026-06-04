@@ -218,6 +218,9 @@ type Discovery =
   | { kind: "nothing" };
 
 function GameScreen({
+  element,
+  generation,
+  apprenticeAcknowledged,
   discoveredPlaces,
   resources,
   crystals,
@@ -241,8 +244,13 @@ function GameScreen({
   onSpendCrystals,
   onTameCreature,
   onBuildBuilding,
+  onAcknowledgeApprentice,
+  onGraduateApprentice,
   onReset,
 }: {
+  element: string;
+  generation: number;
+  apprenticeAcknowledged: boolean;
   discoveredPlaces: string[];
   resources: Record<string, number>;
   crystals: Record<string, number>;
@@ -266,6 +274,8 @@ function GameScreen({
   onSpendCrystals: (elementId: string, amount: number) => boolean;
   onTameCreature: (creatureId: string) => void;
   onBuildBuilding: (buildingId: string) => boolean;
+  onAcknowledgeApprentice: () => void;
+  onGraduateApprentice: (creatureId: string) => boolean;
   onReset: () => void;
 }) {
   const headingRef = useRef<HTMLHeadingElement>(null);
