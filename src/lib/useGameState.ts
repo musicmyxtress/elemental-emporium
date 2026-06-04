@@ -328,15 +328,16 @@ export function useGameState() {
       return { ok: false, remainingMs: place.cooldownMs - elapsed };
     }
 
+    const amount = place.rarity * 10;
     setState((prev) => ({
       ...prev,
       resources: {
         ...prev.resources,
-        [place.resource.id]: (prev.resources[place.resource.id] ?? 0) + 1,
+        [place.resource.id]: (prev.resources[place.resource.id] ?? 0) + amount,
       },
       placeCooldowns: { ...prev.placeCooldowns, [placeId]: now },
     }));
-    return { ok: true, resourceLabel: place.resource.label };
+    return { ok: true, resourceLabel: `${amount} ${place.resource.label}` };
   }, [state.placeCooldowns]);
 
   /**
