@@ -35,7 +35,14 @@ export interface GameState {
    * element they have not unlocked.
    */
   shelvedPlaces: Record<string, number>;
+  /**
+   * Map of creature id -> timestamp (ms) at which the creature becomes
+   * eligible to encounter again. Set when the player studies a creature whose
+   * element they have not unlocked.
+   */
+  shelvedCreatures: Record<string, number>;
 }
+
 
 const STORAGE_KEY = "mage-incremental-rpg-v1";
 
@@ -57,7 +64,9 @@ const INITIAL_STATE: GameState = {
   resources: {},
   placeCooldowns: {},
   shelvedPlaces: {},
+  shelvedCreatures: {},
 };
+
 
 
 function isElement(value: unknown): value is Element {
@@ -118,7 +127,12 @@ function loadState(): GameState {
             parsed.shelvedPlaces && typeof parsed.shelvedPlaces === "object"
               ? (parsed.shelvedPlaces as Record<string, number>)
               : {},
+          shelvedCreatures:
+            parsed.shelvedCreatures && typeof parsed.shelvedCreatures === "object"
+              ? (parsed.shelvedCreatures as Record<string, number>)
+              : {},
         };
+
       }
     }
   } catch {
@@ -276,6 +290,20 @@ export function useGameState() {
     }));
   }, []);
 
+  /**
+   * Shelves a creature for `rarity` hours, removing it from the encounter pool
+   * during that window. Used when the player studies a creature whose element
+   * is not yet unlocked.
+   */
+  const shelveCreature = useCallback((creatureId: string, rarity: number) => {
+    const hours = Math.max(1, rarity);
+    const until = Date.now() + hours * 60 * 60 * 1000;
+    setState((prev) => ({
+      ...prev,
+      shelvedCreatures: { ...prev.shelvedCreatures, [creatureId]: until },
+    }));
+  }, []);
+
   const reset = useCallback(() => {
     setState(INITIAL_STATE);
   }, []);
@@ -289,6 +317,8 @@ export function useGameState() {
     collectFromPlace,
     gainElementXp,
     shelvePlace,
+    shelveCreature,
+
     reset,
   };
 }

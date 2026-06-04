@@ -4,6 +4,8 @@ import { useGameState, type CollectResult, type GameState } from "@/lib/useGameS
 import { ELEMENTS, xpToNextLevel } from "@/lib/elements";
 import { rollEvent, type RandomEvent } from "@/lib/events";
 import { getPlace, rollUndiscoveredPlace, type Place } from "@/lib/places";
+import { rollCreature, type Creature } from "@/lib/creatures";
+
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Dialog,
@@ -44,6 +46,7 @@ function Index() {
     applyEvent,
     collectFromPlace,
     shelvePlace,
+    shelveCreature,
     reset,
   } = useGameState();
 
@@ -67,9 +70,11 @@ function Index() {
       resources={state.resources}
       placeCooldowns={state.placeCooldowns}
       shelvedPlaces={state.shelvedPlaces}
+      shelvedCreatures={state.shelvedCreatures}
       unlockedElements={state.unlockedElements}
       onDiscoverPlace={discoverPlace}
       onShelvePlace={shelvePlace}
+      onShelveCreature={shelveCreature}
       onApplyEvent={applyEvent}
       onCollectFromPlace={collectFromPlace}
       elementLevels={state.elementLevels}
@@ -78,6 +83,7 @@ function Index() {
     />
   );
 }
+
 
 
 function ChooseElementScreen({
@@ -130,6 +136,8 @@ function ChooseElementScreen({
 type Discovery =
   | { kind: "place"; place: Place }
   | { kind: "locked-place"; place: Place }
+  | { kind: "creature"; creature: Creature }
+  | { kind: "locked-creature"; creature: Creature }
   | { kind: "event"; event: RandomEvent }
   | { kind: "nothing" };
 
@@ -138,11 +146,13 @@ function GameScreen({
   resources,
   placeCooldowns,
   shelvedPlaces,
+  shelvedCreatures,
   unlockedElements,
   elementLevels,
   elementXp,
   onDiscoverPlace,
   onShelvePlace,
+  onShelveCreature,
   onApplyEvent,
   onCollectFromPlace,
   onReset,
@@ -151,11 +161,13 @@ function GameScreen({
   resources: Record<string, number>;
   placeCooldowns: Record<string, number>;
   shelvedPlaces: Record<string, number>;
+  shelvedCreatures: Record<string, number>;
   unlockedElements: string[];
   elementLevels: GameState["elementLevels"];
   elementXp: GameState["elementXp"];
   onDiscoverPlace: (placeId: string) => void;
   onShelvePlace: (placeId: string, rarity: number) => void;
+  onShelveCreature: (creatureId: string, rarity: number) => void;
   onApplyEvent: (effect: (s: GameState) => GameState) => void;
   onCollectFromPlace: (placeId: string) => CollectResult;
   onReset: () => void;
@@ -171,6 +183,7 @@ function GameScreen({
   function handleExplore() {
     const place = rollUndiscoveredPlace(discoveredPlaces, shelvedPlaces);
     const event = rollEvent();
+    const creature = rollCreature(shelvedCreatures);
 
     const outcomes: Discovery[] = [];
     if (place) {
@@ -178,6 +191,13 @@ function GameScreen({
       const locked = elementId !== undefined && !unlockedElements.includes(elementId);
       outcomes.push(
         locked ? { kind: "locked-place", place } : { kind: "place", place },
+      );
+    }
+    if (creature) {
+      const elementId = creature.elementProduction.element;
+      const locked = !unlockedElements.includes(elementId);
+      outcomes.push(
+        locked ? { kind: "locked-creature", creature } : { kind: "creature", creature },
       );
     }
     if (event) outcomes.push({ kind: "event", event });
@@ -193,16 +213,27 @@ function GameScreen({
     } else if (chosen.kind === "event" && chosen.event.apply) {
       onApplyEvent(chosen.event.apply);
     }
-    // Locked-place discoveries are NOT added to discoveredPlaces; the player
-    // must choose to study it, which shelves it instead.
+    // Locked-place / locked-creature / creature outcomes are not auto-recorded;
+    // the player must pick a follow-up action in the dialog.
     setDiscovery(chosen);
   }
 
   function handleStudy() {
-    if (discovery?.kind !== "locked-place") return;
-    onShelvePlace(discovery.place.id, discovery.place.rarity);
+    if (discovery?.kind === "locked-place") {
+      onShelvePlace(discovery.place.id, discovery.place.rarity);
+    } else if (discovery?.kind === "locked-creature") {
+      onShelveCreature(discovery.creature.id, discovery.creature.rarity);
+    }
     setDiscovery(null);
   }
+
+  // Creature actions are stubbed for now — fight, tame, and leave-alone all
+  // dismiss the encounter without changing state. Real mechanics will be wired
+  // up when combat and the menagerie are implemented.
+  function handleCreatureAction() {
+    setDiscovery(null);
+  }
+
 
 
   return (
@@ -265,8 +296,10 @@ function GameScreen({
       <DiscoveryDialog
         discovery={discovery}
         onStudy={handleStudy}
+        onCreatureAction={handleCreatureAction}
         onDismiss={() => setDiscovery(null)}
       />
+
 
     </main>
   );
@@ -447,17 +480,28 @@ function StatsPanel({
   );
 }
 
+function describeCreature(creature: Creature): string {
+  const genderLabel = creature.gender === "male" ? "male" : "female";
+  const magicLabel = creature.magical ? "magical" : "non-magical";
+  const produces = `${creature.elementProduction.element} (${creature.elementProduction.amount}/tick)`;
+  const consumes = creature.elementConsumption
+    ? ` and consumes ${creature.elementConsumption.element} (${creature.elementConsumption.amount}/tick)`
+    : "";
+  return `A ${genderLabel}, ${magicLabel} creature that produces ${produces}${consumes}.`;
+}
+
 function DiscoveryDialog({
   discovery,
   onStudy,
+  onCreatureAction,
   onDismiss,
 }: {
   discovery: Discovery | null;
   onStudy: () => void;
+  onCreatureAction: () => void;
   onDismiss: () => void;
 }) {
   const open = discovery !== null;
-  const isLocked = discovery?.kind === "locked-place";
 
   let title = "Nothing stirs";
   let text = "You explore for a while, but find nothing of note this time.";
@@ -467,6 +511,12 @@ function DiscoveryDialog({
   } else if (discovery?.kind === "locked-place") {
     title = `You came across ${discovery.place.name}`;
     text = `${discovery.place.description} You have not yet unlocked the magic of this place, so you cannot draw on it. You may study it from a distance and move on.`;
+  } else if (discovery?.kind === "creature") {
+    title = `You encountered ${discovery.creature.name}`;
+    text = `${discovery.creature.description} ${describeCreature(discovery.creature)}`;
+  } else if (discovery?.kind === "locked-creature") {
+    title = `You encountered ${discovery.creature.name}`;
+    text = `${discovery.creature.description} ${describeCreature(discovery.creature)} You have not yet unlocked its element, so you cannot engage with it directly.`;
   } else if (discovery?.kind === "event") {
     title = discovery.event.title;
     text = discovery.event.text;
@@ -479,12 +529,38 @@ function DiscoveryDialog({
           <DialogTitle>{title}</DialogTitle>
           <DialogDescription>{text}</DialogDescription>
         </DialogHeader>
-        <DialogFooter>
-          {isLocked ? (
+        <DialogFooter className="flex flex-wrap gap-2 sm:flex-row">
+          {discovery?.kind === "locked-place" && (
             <Button type="button" onClick={onStudy}>
               Study and move on
             </Button>
-          ) : (
+          )}
+          {discovery?.kind === "locked-creature" && (
+            <>
+              <Button type="button" onClick={onStudy}>
+                Study
+              </Button>
+              <Button type="button" variant="outline" onClick={onCreatureAction}>
+                Leave alone
+              </Button>
+            </>
+          )}
+          {discovery?.kind === "creature" && (
+            <>
+              <Button type="button" onClick={onCreatureAction}>
+                Fight
+              </Button>
+              <Button type="button" onClick={onCreatureAction}>
+                Tame
+              </Button>
+              <Button type="button" variant="outline" onClick={onCreatureAction}>
+                Leave alone
+              </Button>
+            </>
+          )}
+          {(discovery?.kind === "place" ||
+            discovery?.kind === "event" ||
+            discovery?.kind === "nothing") && (
             <Button type="button" onClick={onDismiss}>
               Okay
             </Button>
@@ -494,6 +570,7 @@ function DiscoveryDialog({
     </Dialog>
   );
 }
+
 
 
 const TABS = [
