@@ -290,6 +290,20 @@ export function useGameState() {
     }));
   }, []);
 
+  /**
+   * Shelves a creature for `rarity` hours, removing it from the encounter pool
+   * during that window. Used when the player studies a creature whose element
+   * is not yet unlocked.
+   */
+  const shelveCreature = useCallback((creatureId: string, rarity: number) => {
+    const hours = Math.max(1, rarity);
+    const until = Date.now() + hours * 60 * 60 * 1000;
+    setState((prev) => ({
+      ...prev,
+      shelvedCreatures: { ...prev.shelvedCreatures, [creatureId]: until },
+    }));
+  }, []);
+
   const reset = useCallback(() => {
     setState(INITIAL_STATE);
   }, []);
@@ -303,6 +317,8 @@ export function useGameState() {
     collectFromPlace,
     gainElementXp,
     shelvePlace,
+    shelveCreature,
+
     reset,
   };
 }
