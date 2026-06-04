@@ -326,13 +326,17 @@ function GameScreen({
 
       <DiscoveryDialog
         discovery={discovery}
+        crystals={crystals}
         onStudy={handleStudy}
-        onCreatureAction={handleCreatureAction}
+        onFightOrLeave={handleFightOrLeave}
+        onTame={handleTame}
         onDismiss={() => setDiscovery(null)}
       />
-
-
+      <div role="status" aria-live="polite" className="sr-only">
+        {creatureAnnouncement}
+      </div>
     </main>
+
   );
 }
 
