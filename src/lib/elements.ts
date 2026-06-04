@@ -20,12 +20,12 @@ export const ELEMENTS: ElementInfo[] = [
     accentClass: "air",
   },
   {
-    id: "water",
-    name: "Water",
-    fragmentName: "Water Fragment",
-    description: "Calm and adaptable. Master of tide and frost.",
-    emoji: "💧",
-    accentClass: "water",
+    id: "earth",
+    name: "Earth",
+    fragmentName: "Earth Fragment",
+    description: "Steady and enduring. Master of stone and root.",
+    emoji: "🌿",
+    accentClass: "earth",
   },
   {
     id: "fire",
@@ -35,7 +35,20 @@ export const ELEMENTS: ElementInfo[] = [
     emoji: "🔥",
     accentClass: "fire",
   },
+  {
+    id: "water",
+    name: "Water",
+    fragmentName: "Water Fragment",
+    description: "Calm and adaptable. Master of tide and frost.",
+    emoji: "💧",
+    accentClass: "water",
+  },
 ];
+
+/** Total XP required to advance from `level` to `level + 1`. */
+export function xpToNextLevel(level: number): number {
+  return level * 1000;
+}
 
 export function getElement(id: Element): ElementInfo {
   return ELEMENTS.find((e) => e.id === id)!;
