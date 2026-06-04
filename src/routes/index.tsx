@@ -67,6 +67,8 @@ function Index() {
     spendCrystals,
     tameCreature,
     buildBuilding,
+    acknowledgeApprentice,
+    graduateApprentice,
     reset,
   } = useGameState();
 
@@ -81,11 +83,28 @@ function Index() {
   }
 
   if (!state.element) {
-    return <ChooseElementScreen onChoose={chooseElement} />;
+    // Generation 1 picks from the four starter elements. Later generations
+    // (apprentices who have graduated) may master any element previously
+    // unlocked.
+    const isApprentice = state.generation > 1;
+    const availableIds = isApprentice
+      ? state.unlockedElements
+      : ELEMENTS.map((e) => e.id);
+    return (
+      <ChooseElementScreen
+        onChoose={chooseElement}
+        availableElementIds={availableIds}
+        isApprentice={isApprentice}
+        generation={state.generation}
+      />
+    );
   }
 
   return (
     <GameScreen
+      element={state.element}
+      generation={state.generation}
+      apprenticeAcknowledged={state.apprenticeAcknowledged}
       discoveredPlaces={state.discoveredPlaces}
       resources={state.resources}
       crystals={state.crystals}
@@ -107,6 +126,8 @@ function Index() {
       onSpendCrystals={spendCrystals}
       onTameCreature={tameCreature}
       onBuildBuilding={buildBuilding}
+      onAcknowledgeApprentice={acknowledgeApprentice}
+      onGraduateApprentice={graduateApprentice}
       elementLevels={state.elementLevels}
       elementXp={state.elementXp}
       onReset={reset}
