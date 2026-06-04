@@ -1,12 +1,14 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { getPlace } from "./places";
-import { xpToNextLevel, fragmentResourceId, FRAGMENTS_PER_CRYSTAL } from "./elements";
+import { xpToNextLevel, fragmentResourceId, FRAGMENTS_PER_CRYSTAL, LEVEL_CAP } from "./elements";
 
-export type Element = "air" | "earth" | "fire" | "water";
+/** An element id. Starters are air/earth/fire/water; others (plant, lava, etc.)
+ * become available once unlocked. */
+export type Element = string;
 
 export const ALL_ELEMENTS: Element[] = ["air", "earth", "fire", "water"];
 
-export type ElementRecord<T> = Record<Element, T>;
+export type ElementRecord<T> = Record<string, T>;
 
 export interface GameState {
   /** The element the player mastered at character creation. */
@@ -35,34 +37,21 @@ export interface GameState {
   /** Map of element id -> number of crystals of that element the player owns. */
   crystals: Record<string, number>;
   /** Map of place id -> timestamp (ms) of the last collection at that place. */
-
   placeCooldowns: Record<string, number>;
-  /**
-   * Map of place id -> timestamp (ms) at which the place becomes eligible to
-   * appear in exploration again. Set when the player studies a place whose
-   * element they have not unlocked.
-   */
+  /** Map of place id -> timestamp (ms) at which the place becomes eligible again. */
   shelvedPlaces: Record<string, number>;
-  /**
-   * Map of creature id -> timestamp (ms) at which the creature becomes
-   * eligible to encounter again. Set when the player studies a creature whose
-   * element they have not unlocked.
-   */
+  /** Map of creature id -> timestamp (ms) at which the creature becomes eligible again. */
   shelvedCreatures: Record<string, number>;
   /** Ids of buildings the player has constructed in the home base. */
   buildings: string[];
-  /**
-   * Tamed creature instances. Each entry is a creature template id; one entry
-   * per tamed individual (so duplicates are expected when the player tames
-   * the same species multiple times).
-   */
+  /** Tamed creature template ids; duplicates allowed (one entry per individual). */
   tamedCreatures: string[];
-  /**
-   * Element ids the player has encountered during exploration (via a place or
-   * creature of that element appearing), even if not yet unlocked. Used to
-   * reveal elements in the Fragments and Crystals tab once seen.
-   */
+  /** Element ids the player has encountered during exploration. */
   discoveredElements: string[];
+  /** Generation count. 1 for the original mage; +1 each time an apprentice graduates. */
+  generation: number;
+  /** True once the player has acknowledged the current generation's apprentice arrival. */
+  apprenticeAcknowledged: boolean;
 }
 
 /** Build costs for player-constructable buildings. */
@@ -70,6 +59,8 @@ export const BUILDING_COSTS: Record<string, Record<string, number>> = {
   stable: { wood: 50, stone: 50 },
 };
 
+/** The mastered element level at which an apprentice arrives. */
+export const APPRENTICE_LEVEL = 20;
 
 const STORAGE_KEY = "mage-incremental-rpg-v1";
 
@@ -77,15 +68,15 @@ const STORAGE_KEY = "mage-incremental-rpg-v1";
 export const STARTER_UNLOCKED_ELEMENTS: string[] = ["air", "earth", "fire", "water"];
 
 
-function zeroLevels(): ElementRecord<number> {
-  return { air: 0, earth: 0, fire: 0, water: 0 };
+function emptyLevels(): ElementRecord<number> {
+  return {};
 }
 
 const INITIAL_STATE: GameState = {
   element: null,
   fragments: 0,
-  elementLevels: zeroLevels(),
-  elementXp: zeroLevels(),
+  elementLevels: emptyLevels(),
+  elementXp: emptyLevels(),
   unlockedElements: STARTER_UNLOCKED_ELEMENTS,
   discoveredPlaces: [],
   resources: {},
@@ -96,25 +87,16 @@ const INITIAL_STATE: GameState = {
   buildings: [],
   tamedCreatures: [],
   discoveredElements: STARTER_UNLOCKED_ELEMENTS,
+  generation: 1,
+  apprenticeAcknowledged: false,
 };
 
 
-
-
-function isElement(value: unknown): value is Element {
-  return (
-    value === "air" || value === "earth" || value === "fire" || value === "water"
-  );
-}
-
-function sanitizeRecord(
-  value: unknown,
-): ElementRecord<number> {
-  const base = zeroLevels();
+function sanitizeRecord(value: unknown): ElementRecord<number> {
+  const base: ElementRecord<number> = {};
   if (value && typeof value === "object") {
-    for (const key of ALL_ELEMENTS) {
-      const v = (value as Record<string, unknown>)[key];
-      if (typeof v === "number" && Number.isFinite(v)) base[key] = v;
+    for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
+      if (typeof v === "number" && Number.isFinite(v)) base[k] = v;
     }
   }
   return base;
@@ -126,73 +108,65 @@ function loadState(): GameState {
     const raw = window.localStorage.getItem(STORAGE_KEY);
     if (raw) {
       const parsed = JSON.parse(raw) as Partial<GameState>;
-      if (
-        (isElement(parsed.element) || parsed.element === null) &&
-        typeof parsed.fragments === "number"
-      ) {
-        const elementLevels = sanitizeRecord(parsed.elementLevels);
-        // Migrate: if a mastered element exists but has no level recorded,
-        // grant it level 1 to match the new mechanic.
-        if (parsed.element && elementLevels[parsed.element] < 1) {
-          elementLevels[parsed.element] = 1;
-        }
-        const baseResources: Record<string, number> =
-          parsed.resources && typeof parsed.resources === "object"
-            ? { ...(parsed.resources as Record<string, number>) }
-            : {};
-        // Migrate: fold the legacy passive `fragments` scalar into the
-        // mastered element's fragment resource so all fragment math lives in
-        // one place going forward.
-        if (parsed.element && typeof parsed.fragments === "number" && parsed.fragments > 0) {
-          const key = fragmentResourceId(parsed.element);
-          baseResources[key] = (baseResources[key] ?? 0) + parsed.fragments;
-        }
-        return {
-          element: parsed.element ?? null,
-          fragments: 0,
-          elementLevels,
-          elementXp: sanitizeRecord(parsed.elementXp),
-          unlockedElements: Array.isArray(parsed.unlockedElements)
-            ? parsed.unlockedElements.filter((x): x is string => typeof x === "string")
-            : STARTER_UNLOCKED_ELEMENTS,
-          discoveredPlaces: Array.isArray(parsed.discoveredPlaces)
-            ? parsed.discoveredPlaces
-            : [],
-          resources: baseResources,
-          crystals:
-            parsed.crystals && typeof parsed.crystals === "object"
-              ? (parsed.crystals as Record<string, number>)
-              : {},
-          placeCooldowns:
-            parsed.placeCooldowns && typeof parsed.placeCooldowns === "object"
-              ? (parsed.placeCooldowns as Record<string, number>)
-              : {},
-          shelvedPlaces:
-            parsed.shelvedPlaces && typeof parsed.shelvedPlaces === "object"
-              ? (parsed.shelvedPlaces as Record<string, number>)
-              : {},
-          shelvedCreatures:
-            parsed.shelvedCreatures && typeof parsed.shelvedCreatures === "object"
-              ? (parsed.shelvedCreatures as Record<string, number>)
-              : {},
-          buildings: Array.isArray(parsed.buildings)
-            ? parsed.buildings.filter((x): x is string => typeof x === "string")
-            : [],
-          tamedCreatures: Array.isArray(parsed.tamedCreatures)
-            ? parsed.tamedCreatures.filter((x): x is string => typeof x === "string")
-            : [],
-          discoveredElements: Array.isArray(parsed.discoveredElements)
-            ? parsed.discoveredElements.filter((x): x is string => typeof x === "string")
-            : STARTER_UNLOCKED_ELEMENTS,
-        };
-
-
-
+      const element = typeof parsed.element === "string" ? parsed.element : null;
+      const elementLevels = sanitizeRecord(parsed.elementLevels);
+      if (element && (elementLevels[element] ?? 0) < 1) {
+        elementLevels[element] = 1;
       }
+      const baseResources: Record<string, number> =
+        parsed.resources && typeof parsed.resources === "object"
+          ? { ...(parsed.resources as Record<string, number>) }
+          : {};
+      if (element && typeof parsed.fragments === "number" && parsed.fragments > 0) {
+        const key = fragmentResourceId(element);
+        baseResources[key] = (baseResources[key] ?? 0) + parsed.fragments;
+      }
+      return {
+        element,
+        fragments: 0,
+        elementLevels,
+        elementXp: sanitizeRecord(parsed.elementXp),
+        unlockedElements: Array.isArray(parsed.unlockedElements)
+          ? parsed.unlockedElements.filter((x): x is string => typeof x === "string")
+          : STARTER_UNLOCKED_ELEMENTS,
+        discoveredPlaces: Array.isArray(parsed.discoveredPlaces)
+          ? parsed.discoveredPlaces
+          : [],
+        resources: baseResources,
+        crystals:
+          parsed.crystals && typeof parsed.crystals === "object"
+            ? (parsed.crystals as Record<string, number>)
+            : {},
+        placeCooldowns:
+          parsed.placeCooldowns && typeof parsed.placeCooldowns === "object"
+            ? (parsed.placeCooldowns as Record<string, number>)
+            : {},
+        shelvedPlaces:
+          parsed.shelvedPlaces && typeof parsed.shelvedPlaces === "object"
+            ? (parsed.shelvedPlaces as Record<string, number>)
+            : {},
+        shelvedCreatures:
+          parsed.shelvedCreatures && typeof parsed.shelvedCreatures === "object"
+            ? (parsed.shelvedCreatures as Record<string, number>)
+            : {},
+        buildings: Array.isArray(parsed.buildings)
+          ? parsed.buildings.filter((x): x is string => typeof x === "string")
+          : [],
+        tamedCreatures: Array.isArray(parsed.tamedCreatures)
+          ? parsed.tamedCreatures.filter((x): x is string => typeof x === "string")
+          : [],
+        discoveredElements: Array.isArray(parsed.discoveredElements)
+          ? parsed.discoveredElements.filter((x): x is string => typeof x === "string")
+          : STARTER_UNLOCKED_ELEMENTS,
+        generation:
+          typeof parsed.generation === "number" && parsed.generation >= 1
+            ? parsed.generation
+            : 1,
+        apprenticeAcknowledged: Boolean(parsed.apprenticeAcknowledged),
+      };
     }
   } catch {
     // ignore corrupt storage
-
   }
   return INITIAL_STATE;
 }
@@ -201,15 +175,13 @@ export const FRAGMENT_INTERVAL_MS = 5000;
 
 export interface CollectResult {
   ok: boolean;
-  /** Milliseconds remaining on cooldown when ok is false. */
   remainingMs?: number;
-  /** Resource label that was collected when ok is true. */
   resourceLabel?: string;
 }
 
 /**
  * Applies XP to an element and rolls over levels while the player has enough
- * to advance. The cost to reach level N+1 from N is N * 1000 XP.
+ * to advance. Caps at LEVEL_CAP; XP past the cap is discarded.
  */
 function applyXp(
   levels: ElementRecord<number>,
@@ -219,14 +191,23 @@ function applyXp(
 ): { levels: ElementRecord<number>; xp: ElementRecord<number> } {
   const nextLevels = { ...levels };
   const nextXp = { ...xp };
+  const cur = nextLevels[element] ?? 0;
+  if (cur >= LEVEL_CAP) {
+    nextXp[element] = 0;
+    return { levels: nextLevels, xp: nextXp };
+  }
   nextXp[element] = (nextXp[element] ?? 0) + amount;
-  // Level 0 has no advancement cost (untrained); only level >=1 levels up.
   while (
-    nextLevels[element] >= 1 &&
-    nextXp[element] >= xpToNextLevel(nextLevels[element])
+    (nextLevels[element] ?? 0) >= 1 &&
+    (nextLevels[element] ?? 0) < LEVEL_CAP &&
+    (nextXp[element] ?? 0) >= xpToNextLevel(nextLevels[element] ?? 0)
   ) {
-    nextXp[element] -= xpToNextLevel(nextLevels[element]);
-    nextLevels[element] += 1;
+    nextXp[element] = (nextXp[element] ?? 0) - xpToNextLevel(nextLevels[element] ?? 0);
+    nextLevels[element] = (nextLevels[element] ?? 0) + 1;
+  }
+  if ((nextLevels[element] ?? 0) >= LEVEL_CAP) {
+    nextLevels[element] = LEVEL_CAP;
+    nextXp[element] = 0;
   }
   return { levels: nextLevels, xp: nextXp };
 }
@@ -235,19 +216,17 @@ export function useGameState() {
   const [state, setState] = useState<GameState>(INITIAL_STATE);
   const [hydrated, setHydrated] = useState(false);
 
-  // Hydrate from localStorage on the client only (avoids SSR mismatch).
   useEffect(() => {
     setState(loadState());
     setHydrated(true);
   }, []);
 
-  // Persist on change.
   useEffect(() => {
     if (!hydrated) return;
     try {
       window.localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
     } catch {
-      // ignore write failures
+      // ignore
     }
   }, [state, hydrated]);
 
@@ -273,18 +252,28 @@ export function useGameState() {
 
   const chooseElement = useCallback((element: Element) => {
     setState((prev) => {
-      const elementLevels = zeroLevels();
-      elementLevels[element] = 1;
+      const elementLevels: ElementRecord<number> = { ...prev.elementLevels };
+      elementLevels[element] = Math.max(1, elementLevels[element] ?? 0);
+      const elementXp: ElementRecord<number> = { ...prev.elementXp };
+      if ((elementXp[element] ?? 0) === 0) elementXp[element] = 0;
+      const unlockedElements = prev.unlockedElements.includes(element)
+        ? prev.unlockedElements
+        : [...prev.unlockedElements, element];
+      const discoveredElements = prev.discoveredElements.includes(element)
+        ? prev.discoveredElements
+        : [...prev.discoveredElements, element];
       return {
         ...prev,
         element,
         elementLevels,
-        elementXp: zeroLevels(),
+        elementXp,
+        unlockedElements,
+        discoveredElements,
+        apprenticeAcknowledged: false,
       };
     });
   }, []);
 
-  /** Records a discovered place (no-op if already discovered). */
   const discoverPlace = useCallback((placeId: string) => {
     setState((prev) =>
       prev.discoveredPlaces.includes(placeId)
@@ -293,12 +282,10 @@ export function useGameState() {
     );
   }, []);
 
-  /** Applies a random event's effect to the current state. */
   const applyEvent = useCallback((effect: (s: GameState) => GameState) => {
     setState((prev) => effect(prev));
   }, []);
 
-  /** Grants XP to an element. Levels up as long as XP allows. */
   const gainElementXp = useCallback((element: Element, amount: number) => {
     if (amount <= 0) return;
     setState((prev) => {
@@ -312,11 +299,6 @@ export function useGameState() {
     });
   }, []);
 
-  /**
-   * Collects the resource from a discovered place, respecting its cooldown.
-   * Returns whether the collection succeeded; on failure, includes the
-   * milliseconds remaining on the cooldown.
-   */
   const collectFromPlace = useCallback((placeId: string): CollectResult => {
     const place = getPlace(placeId);
     if (!place) return { ok: false };
@@ -340,11 +322,6 @@ export function useGameState() {
     return { ok: true, resourceLabel: `${amount} ${place.resource.label}` };
   }, [state.placeCooldowns]);
 
-  /**
-   * Shelves a place for `rarity` hours, removing it from the exploration pool
-   * during that window. Used when the player studies a place whose element is
-   * not yet unlocked; the place is dismissed without being discovered.
-   */
   const shelvePlace = useCallback((placeId: string, rarity: number) => {
     const hours = Math.max(1, rarity);
     const until = Date.now() + hours * 60 * 60 * 1000;
@@ -354,11 +331,6 @@ export function useGameState() {
     }));
   }, []);
 
-  /**
-   * Shelves a creature for `rarity` hours, removing it from the encounter pool
-   * during that window. Used when the player studies a creature whose element
-   * is not yet unlocked.
-   */
   const shelveCreature = useCallback((creatureId: string, rarity: number) => {
     const hours = Math.max(1, rarity);
     const until = Date.now() + hours * 60 * 60 * 1000;
@@ -368,10 +340,6 @@ export function useGameState() {
     }));
   }, []);
 
-  /**
-   * Unlocks an element so the player can collect its fragments. No-op if
-   * already unlocked.
-   */
   const unlockElement = useCallback((elementId: string) => {
     setState((prev) => {
       const alreadyUnlocked = prev.unlockedElements.includes(elementId);
@@ -389,11 +357,6 @@ export function useGameState() {
     });
   }, []);
 
-  /**
-   * Marks an element as discovered (encountered during exploration). No-op if
-   * already discovered. Discovery does not grant fragment collection; the
-   * element must still be unlocked via study to be useful.
-   */
   const discoverElement = useCallback((elementId: string) => {
     setState((prev) => {
       if (prev.discoveredElements.includes(elementId)) return prev;
@@ -404,11 +367,6 @@ export function useGameState() {
     });
   }, []);
 
-  /**
-   * Converts 100 fragments of the given element into 1 crystal of that
-   * element. Returns true on success, or false when the player does not have
-   * enough fragments to convert.
-   */
   const convertFragmentsToCrystal = useCallback((elementId: string): boolean => {
     const key = fragmentResourceId(elementId);
     let ok = false;
@@ -428,10 +386,6 @@ export function useGameState() {
     return ok;
   }, []);
 
-  /**
-   * Spends crystals of a given element. Returns true on success, or false
-   * when the player does not have enough crystals.
-   */
   const spendCrystals = useCallback((elementId: string, amount: number): boolean => {
     if (amount <= 0) return true;
     let ok = false;
@@ -447,10 +401,6 @@ export function useGameState() {
     return ok;
   }, []);
 
-  /**
-   * Records a tamed creature instance. Each call appends one entry, so taming
-   * the same species twice yields two entries.
-   */
   const tameCreature = useCallback((creatureId: string) => {
     setState((prev) => ({
       ...prev,
@@ -458,11 +408,6 @@ export function useGameState() {
     }));
   }, []);
 
-  /**
-   * Attempts to construct a building. Spends its resource costs atomically;
-   * returns true on success, or false when the player lacks resources or the
-   * building is already built.
-   */
   const buildBuilding = useCallback((buildingId: string): boolean => {
     const costs = BUILDING_COSTS[buildingId];
     if (!costs) return false;
@@ -481,6 +426,52 @@ export function useGameState() {
         ...prev,
         resources: nextResources,
         buildings: [...prev.buildings, buildingId],
+      };
+    });
+    return ok;
+  }, []);
+
+  /** Marks the apprentice arrival as acknowledged (dismisses the welcome popup). */
+  const acknowledgeApprentice = useCallback(() => {
+    setState((prev) =>
+      prev.apprenticeAcknowledged ? prev : { ...prev, apprenticeAcknowledged: true },
+    );
+  }, []);
+
+  /**
+   * Graduates the apprentice: hands them the chosen creature plus
+   * (masteredElement level)*10 fragments of the mastered element, then
+   * switches POV to the apprentice. Unlocks (elements, places) carry over;
+   * fragments, crystals, buildings, other creatures, and element levels do not.
+   * Returns true on success.
+   */
+  const graduateApprentice = useCallback((creatureId: string): boolean => {
+    let ok = false;
+    setState((prev) => {
+      if (!prev.element) return prev;
+      const masteredLevel = prev.elementLevels[prev.element] ?? 0;
+      if (masteredLevel < APPRENTICE_LEVEL) return prev;
+      // Remove one instance of the chosen creature from the player's tames.
+      const idx = prev.tamedCreatures.indexOf(creatureId);
+      if (idx < 0) return prev;
+      const fragmentKey = fragmentResourceId(prev.element);
+      const fragmentGift = masteredLevel * 10;
+      ok = true;
+      return {
+        ...prev,
+        element: null,
+        elementLevels: {},
+        elementXp: {},
+        resources: { [fragmentKey]: fragmentGift },
+        crystals: {},
+        placeCooldowns: {},
+        shelvedPlaces: {},
+        shelvedCreatures: {},
+        buildings: [],
+        tamedCreatures: [creatureId],
+        // unlockedElements, discoveredElements, discoveredPlaces persist.
+        generation: prev.generation + 1,
+        apprenticeAcknowledged: false,
       };
     });
     return ok;
@@ -506,8 +497,8 @@ export function useGameState() {
     spendCrystals,
     tameCreature,
     buildBuilding,
+    acknowledgeApprentice,
+    graduateApprentice,
     reset,
   };
 }
-
-
