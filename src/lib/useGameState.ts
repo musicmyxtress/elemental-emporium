@@ -64,7 +64,9 @@ const INITIAL_STATE: GameState = {
   resources: {},
   placeCooldowns: {},
   shelvedPlaces: {},
+  shelvedCreatures: {},
 };
+
 
 
 function isElement(value: unknown): value is Element {
