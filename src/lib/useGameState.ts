@@ -100,6 +100,9 @@ function loadState(): GameState {
           fragments: parsed.fragments,
           elementLevels,
           elementXp: sanitizeRecord(parsed.elementXp),
+          unlockedElements: Array.isArray(parsed.unlockedElements)
+            ? parsed.unlockedElements.filter((x): x is string => typeof x === "string")
+            : STARTER_UNLOCKED_ELEMENTS,
           discoveredPlaces: Array.isArray(parsed.discoveredPlaces)
             ? parsed.discoveredPlaces
             : [],
@@ -111,11 +114,16 @@ function loadState(): GameState {
             parsed.placeCooldowns && typeof parsed.placeCooldowns === "object"
               ? (parsed.placeCooldowns as Record<string, number>)
               : {},
+          shelvedPlaces:
+            parsed.shelvedPlaces && typeof parsed.shelvedPlaces === "object"
+              ? (parsed.shelvedPlaces as Record<string, number>)
+              : {},
         };
       }
     }
   } catch {
     // ignore corrupt storage
+
   }
   return INITIAL_STATE;
 }
