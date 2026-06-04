@@ -308,7 +308,16 @@ function GameScreen({
     setDiscovery(null);
   }
 
-  const [activeTab, setActiveTab] = useState<(typeof TABS)[number]["value"]>("home-base");
+  const [activeTab, setActiveTab] = useState<(typeof TABS)[number]["value"]>(() => {
+    if (typeof window === "undefined") return "home-base";
+    const saved = window.localStorage.getItem("mage-incremental-active-tab");
+    return (TABS.find((t) => t.value === saved)?.value) ?? "home-base";
+  });
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem("mage-incremental-active-tab", activeTab);
+    }
+  }, [activeTab]);
   const activeTabLabel = TABS.find((t) => t.value === activeTab)?.label ?? "";
 
   return (
@@ -795,7 +804,11 @@ function DiscoveryDialog({
 
   return (
     <Dialog open={open} onOpenChange={(next) => (!next ? onDismiss() : undefined)}>
-      <DialogContent>
+      <DialogContent
+        onPointerDownOutside={(e) => e.preventDefault()}
+        onEscapeKeyDown={(e) => e.preventDefault()}
+        onInteractOutside={(e) => e.preventDefault()}
+      >
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
           <DialogDescription>{text}</DialogDescription>
