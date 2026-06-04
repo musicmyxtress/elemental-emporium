@@ -328,7 +328,7 @@ export function useGameState() {
       return { ok: false, remainingMs: place.cooldownMs - elapsed };
     }
 
-    const amount = place.rarity * 10;
+    const amount = place.resource.element ? place.rarity * 10 : 1;
     setState((prev) => ({
       ...prev,
       resources: {
