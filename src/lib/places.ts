@@ -66,7 +66,7 @@ export const PLACES: Place[] = [
     description: "Wide plains rippling with wildflowers and herbs. You can collect plant fragments here.",
     rarity: 3,
     resource: { id: "plant-fragment", label: "plant fragment" },
-    cooldownMs: 15_000,
+    cooldownMs: 30_000,
   },
   {
     id: "volcano",
@@ -74,7 +74,7 @@ export const PLACES: Place[] = [
     description: "A restless volcano glowing with molten light. You can collect lava fragments here.",
     rarity: 3,
     resource: { id: "lava-fragment", label: "lava fragment" },
-    cooldownMs: 15_000,
+    cooldownMs: 30_000,
   },
 ];
 
