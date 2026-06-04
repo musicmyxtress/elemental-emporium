@@ -333,6 +333,19 @@ function GameScreen({
                 />
               )}
               {tab.value === "resources" && <ResourcesPanel resources={resources} />}
+              {tab.value === "home-base" && (
+                <HomeBasePanel
+                  resources={resources}
+                  buildings={buildings}
+                  onBuildBuilding={onBuildBuilding}
+                />
+              )}
+              {tab.value === "stable" && (
+                <StablePanel
+                  buildings={buildings}
+                  tamedCreatures={tamedCreatures}
+                />
+              )}
               {tab.value === "fragments-and-crystals" && (
                 <FragmentsAndCrystalsPanel
                   resources={resources}
