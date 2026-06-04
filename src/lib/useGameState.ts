@@ -95,6 +95,7 @@ const INITIAL_STATE: GameState = {
   shelvedCreatures: {},
   buildings: [],
   tamedCreatures: [],
+  discoveredElements: STARTER_UNLOCKED_ELEMENTS,
 };
 
 
