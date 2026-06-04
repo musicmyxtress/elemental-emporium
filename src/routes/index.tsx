@@ -643,6 +643,7 @@ function describeCreature(creature: Creature): string {
 function DiscoveryDialog({
   discovery,
   crystals,
+  unlockedElements,
   onStudy,
   onFightOrLeave,
   onTame,
@@ -650,6 +651,7 @@ function DiscoveryDialog({
 }: {
   discovery: Discovery | null;
   crystals: Record<string, number>;
+  unlockedElements: string[];
   onStudy: () => void;
   onFightOrLeave: () => void;
   onTame: () => void;
@@ -657,18 +659,33 @@ function DiscoveryDialog({
 }) {
   const open = discovery !== null;
 
+  // Re-evaluate lock status at render time so that if an element was
+  // unlocked elsewhere (e.g. by studying a different place/creature) the
+  // dialog switches to the normal action set instead of showing Study.
+  const isElementLocked = (id: string | undefined) =>
+    id !== undefined && !unlockedElements.includes(id);
+
+  const isPlaceLocked =
+    discovery?.kind === "locked-place" &&
+    isElementLocked(discovery.place.resource.element);
+  const isCreatureLocked =
+    discovery?.kind === "locked-creature" &&
+    isElementLocked(discovery.creature.elementProduction.element);
+
   let title = "Nothing stirs";
   let text = "You explore for a while, but find nothing of note this time.";
-  if (discovery?.kind === "place") {
-    title = `You discovered ${discovery.place.name}`;
-    text = discovery.place.description;
-  } else if (discovery?.kind === "locked-place") {
+  if (discovery?.kind === "place" || (discovery?.kind === "locked-place" && !isPlaceLocked)) {
+    const place = discovery.place;
+    title = `You discovered ${place.name}`;
+    text = place.description;
+  } else if (isPlaceLocked) {
     title = `You came across ${discovery.place.name}`;
     text = `${discovery.place.description} You have not yet unlocked the magic of this place, so you cannot draw on it. You may study it from a distance and move on.`;
-  } else if (discovery?.kind === "creature") {
-    title = `You encountered ${discovery.creature.name}`;
-    text = `${discovery.creature.description} ${describeCreature(discovery.creature)}`;
-  } else if (discovery?.kind === "locked-creature") {
+  } else if (discovery?.kind === "creature" || (discovery?.kind === "locked-creature" && !isCreatureLocked)) {
+    const creature = discovery.creature;
+    title = `You encountered ${creature.name}`;
+    text = `${creature.description} ${describeCreature(creature)}`;
+  } else if (isCreatureLocked) {
     title = `You encountered ${discovery.creature.name}`;
     text = `${discovery.creature.description} ${describeCreature(discovery.creature)} You have not yet unlocked its element, so you cannot engage with it directly.`;
   } else if (discovery?.kind === "event") {
@@ -677,10 +694,12 @@ function DiscoveryDialog({
   }
 
   // Compute tame cost / affordability for live creature encounters.
-  const tameCost =
-    discovery?.kind === "creature" ? discovery.creature.rarity * 2 : 0;
-  const tameElement =
-    discovery?.kind === "creature" ? discovery.creature.elementProduction.element : "";
+  const creatureForTame =
+    discovery?.kind === "creature" || (discovery?.kind === "locked-creature" && !isCreatureLocked)
+      ? discovery?.creature
+      : undefined;
+  const tameCost = creatureForTame ? creatureForTame.rarity * 2 : 0;
+  const tameElement = creatureForTame ? creatureForTame.elementProduction.element : "";
   const tameAvailable = (crystals[tameElement] ?? 0) >= tameCost;
 
   return (
@@ -691,12 +710,12 @@ function DiscoveryDialog({
           <DialogDescription>{text}</DialogDescription>
         </DialogHeader>
         <DialogFooter className="flex flex-wrap gap-2 sm:flex-row">
-          {discovery?.kind === "locked-place" && (
+          {isPlaceLocked && (
             <Button type="button" onClick={onStudy}>
               Study and move on
             </Button>
           )}
-          {discovery?.kind === "locked-creature" && (
+          {isCreatureLocked && (
             <>
               <Button type="button" onClick={onStudy}>
                 Study
@@ -706,7 +725,7 @@ function DiscoveryDialog({
               </Button>
             </>
           )}
-          {discovery?.kind === "creature" && (
+          {creatureForTame && (
             <>
               <Button type="button" onClick={onFightOrLeave}>
                 Fight
@@ -730,7 +749,8 @@ function DiscoveryDialog({
           )}
           {(discovery?.kind === "place" ||
             discovery?.kind === "event" ||
-            discovery?.kind === "nothing") && (
+            discovery?.kind === "nothing" ||
+            (discovery?.kind === "locked-place" && !isPlaceLocked)) && (
             <Button type="button" onClick={onDismiss}>
               Okay
             </Button>
