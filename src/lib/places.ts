@@ -124,12 +124,23 @@ export function getPlace(id: string): Place | undefined {
 }
 
 /**
- * Returns a random place that has not yet been discovered, weighted so that
- * lower-rarity places are more likely than higher-rarity places. Returns null
- * when every place is already discovered (or the pool is empty).
+ * Returns a random place that is currently eligible to appear in exploration,
+ * weighted so lower-rarity places are more likely than higher-rarity ones.
+ * Filters out places that have already been discovered, and places that are
+ * temporarily shelved (e.g. because the player studied them without unlocking
+ * their element). Returns null when no eligible places remain.
  */
-export function rollUndiscoveredPlace(discoveredIds: string[]): Place | null {
-  const available = PLACES.filter((p) => !discoveredIds.includes(p.id));
+export function rollUndiscoveredPlace(
+  discoveredIds: string[],
+  shelvedPlaces: Record<string, number> = {},
+  now: number = Date.now(),
+): Place | null {
+  const available = PLACES.filter((p) => {
+    if (discoveredIds.includes(p.id)) return false;
+    const shelvedUntil = shelvedPlaces[p.id] ?? 0;
+    if (shelvedUntil > now) return false;
+    return true;
+  });
   if (available.length === 0) return null;
   // Weight by 1/rarity so rarity 1 is 3x as likely as rarity 3.
   const weights = available.map((p) => 1 / Math.max(1, p.rarity));
@@ -141,3 +152,4 @@ export function rollUndiscoveredPlace(discoveredIds: string[]): Place | null {
   }
   return available[available.length - 1];
 }
+
