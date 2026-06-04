@@ -61,6 +61,7 @@ function Index() {
     shelvePlace,
     shelveCreature,
     unlockElement,
+    discoverElement,
     convertFragmentsToCrystal,
     spendCrystals,
     tameCreature,
@@ -91,12 +92,14 @@ function Index() {
       shelvedPlaces={state.shelvedPlaces}
       shelvedCreatures={state.shelvedCreatures}
       unlockedElements={state.unlockedElements}
+      discoveredElements={state.discoveredElements}
       buildings={state.buildings}
       tamedCreatures={state.tamedCreatures}
       onDiscoverPlace={discoverPlace}
       onShelvePlace={shelvePlace}
       onShelveCreature={shelveCreature}
       onUnlockElement={unlockElement}
+      onDiscoverElement={discoverElement}
       onApplyEvent={applyEvent}
       onCollectFromPlace={collectFromPlace}
       onConvertFragments={convertFragmentsToCrystal}
