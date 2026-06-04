@@ -407,6 +407,7 @@ export function useGameState() {
     gainElementXp,
     shelvePlace,
     shelveCreature,
+    unlockElement,
     convertFragmentsToCrystal,
     spendCrystals,
     reset,
