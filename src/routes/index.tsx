@@ -11,7 +11,12 @@ import {
 
 import { rollEvent, type RandomEvent } from "@/lib/events";
 import { getPlace, rollUndiscoveredPlace, type Place } from "@/lib/places";
-import { rollCreature, type Creature } from "@/lib/creatures";
+import {
+  rollCreature,
+  getProductionAmount,
+  getConsumptionAmount,
+  type Creature,
+} from "@/lib/creatures";
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
@@ -633,9 +638,9 @@ function StatsPanel({
 function describeCreature(creature: Creature): string {
   const genderLabel = creature.gender === "male" ? "male" : "female";
   const magicLabel = creature.magical ? "magical" : "non-magical";
-  const produces = `${creature.elementProduction.element} (${creature.elementProduction.amount}/tick)`;
+  const produces = `${creature.elementProduction.element} (${getProductionAmount(creature)}/tick)`;
   const consumes = creature.elementConsumption
-    ? ` and consumes ${creature.elementConsumption.element} (${creature.elementConsumption.amount}/tick)`
+    ? ` and consumes ${creature.elementConsumption.element} (${getConsumptionAmount(creature)}/tick)`
     : "";
   return `A ${genderLabel}, ${magicLabel} creature that produces ${produces}${consumes}.`;
 }
