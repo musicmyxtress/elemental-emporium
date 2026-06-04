@@ -242,8 +242,12 @@ function GameScreen({
 
   function handleStudy() {
     if (discovery?.kind === "locked-place") {
+      const elementId = discovery.place.resource.element;
+      if (elementId) onUnlockElement(elementId);
       onShelvePlace(discovery.place.id, discovery.place.rarity);
     } else if (discovery?.kind === "locked-creature") {
+      const elementId = discovery.creature.elementProduction.element;
+      onUnlockElement(elementId);
       onShelveCreature(discovery.creature.id, discovery.creature.rarity);
     }
     setDiscovery(null);
