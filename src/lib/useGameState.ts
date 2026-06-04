@@ -32,7 +32,10 @@ export interface GameState {
   discoveredPlaces: string[];
   /** Map of resource id -> amount the player owns. */
   resources: Record<string, number>;
+  /** Map of element id -> number of crystals of that element the player owns. */
+  crystals: Record<string, number>;
   /** Map of place id -> timestamp (ms) of the last collection at that place. */
+
   placeCooldowns: Record<string, number>;
   /**
    * Map of place id -> timestamp (ms) at which the place becomes eligible to
