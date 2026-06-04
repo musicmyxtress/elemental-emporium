@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
-import { useGameState, type CollectResult, type GameState } from "@/lib/useGameState";
+import { useGameState, type CollectResult, type GameState, BUILDING_COSTS } from "@/lib/useGameState";
 import {
   ELEMENTS,
   ALL_ELEMENT_INFO,
@@ -13,6 +13,7 @@ import { rollEvent, type RandomEvent } from "@/lib/events";
 import { getPlace, rollUndiscoveredPlace, type Place } from "@/lib/places";
 import {
   rollCreature,
+  getCreature,
   getProductionAmount,
   getConsumptionAmount,
   type Creature,
