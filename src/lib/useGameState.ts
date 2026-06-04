@@ -35,7 +35,14 @@ export interface GameState {
    * element they have not unlocked.
    */
   shelvedPlaces: Record<string, number>;
+  /**
+   * Map of creature id -> timestamp (ms) at which the creature becomes
+   * eligible to encounter again. Set when the player studies a creature whose
+   * element they have not unlocked.
+   */
+  shelvedCreatures: Record<string, number>;
 }
+
 
 const STORAGE_KEY = "mage-incremental-rpg-v1";
 
