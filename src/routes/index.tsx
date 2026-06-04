@@ -872,9 +872,16 @@ function HomeBasePanel({
     .map(([res, amt]) => `${amt} ${res}`)
     .join(" and ");
 
+  const wood = resources["wood"] ?? 0;
+  const stone = resources["stone"] ?? 0;
+
   return (
     <>
-      <p className="mt-3 text-sm">
+      <h3 className="mt-3 text-base font-medium text-foreground">Resources</h3>
+      <p className="mt-1 text-sm text-foreground">Wood: {wood}</p>
+      <p className="text-sm text-foreground">stone: {stone}</p>
+
+      <p className="mt-6 text-sm text-muted-foreground">
         Construct buildings to expand what you can do. Each building unlocks a new tab.
       </p>
       <ul className="mt-4 grid gap-3" role="list">
