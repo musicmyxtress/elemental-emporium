@@ -262,7 +262,12 @@ function GameScreen({
         </button>
       </div>
 
-      <DiscoveryDialog discovery={discovery} onDismiss={() => setDiscovery(null)} />
+      <DiscoveryDialog
+        discovery={discovery}
+        onStudy={handleStudy}
+        onDismiss={() => setDiscovery(null)}
+      />
+
     </main>
   );
 }
