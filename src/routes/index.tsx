@@ -44,6 +44,7 @@ function Index() {
     applyEvent,
     collectFromPlace,
     shelvePlace,
+    shelveCreature,
     reset,
   } = useGameState();
 
@@ -67,9 +68,11 @@ function Index() {
       resources={state.resources}
       placeCooldowns={state.placeCooldowns}
       shelvedPlaces={state.shelvedPlaces}
+      shelvedCreatures={state.shelvedCreatures}
       unlockedElements={state.unlockedElements}
       onDiscoverPlace={discoverPlace}
       onShelvePlace={shelvePlace}
+      onShelveCreature={shelveCreature}
       onApplyEvent={applyEvent}
       onCollectFromPlace={collectFromPlace}
       elementLevels={state.elementLevels}
@@ -78,6 +81,7 @@ function Index() {
     />
   );
 }
+
 
 
 function ChooseElementScreen({
