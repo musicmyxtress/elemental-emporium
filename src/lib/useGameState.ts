@@ -414,6 +414,45 @@ export function useGameState() {
     return ok;
   }, []);
 
+  /**
+   * Records a tamed creature instance. Each call appends one entry, so taming
+   * the same species twice yields two entries.
+   */
+  const tameCreature = useCallback((creatureId: string) => {
+    setState((prev) => ({
+      ...prev,
+      tamedCreatures: [...prev.tamedCreatures, creatureId],
+    }));
+  }, []);
+
+  /**
+   * Attempts to construct a building. Spends its resource costs atomically;
+   * returns true on success, or false when the player lacks resources or the
+   * building is already built.
+   */
+  const buildBuilding = useCallback((buildingId: string): boolean => {
+    const costs = BUILDING_COSTS[buildingId];
+    if (!costs) return false;
+    let ok = false;
+    setState((prev) => {
+      if (prev.buildings.includes(buildingId)) return prev;
+      for (const [res, amount] of Object.entries(costs)) {
+        if ((prev.resources[res] ?? 0) < amount) return prev;
+      }
+      ok = true;
+      const nextResources = { ...prev.resources };
+      for (const [res, amount] of Object.entries(costs)) {
+        nextResources[res] = (nextResources[res] ?? 0) - amount;
+      }
+      return {
+        ...prev,
+        resources: nextResources,
+        buildings: [...prev.buildings, buildingId],
+      };
+    });
+    return ok;
+  }, []);
+
   const reset = useCallback(() => {
     setState(INITIAL_STATE);
   }, []);
@@ -431,6 +470,8 @@ export function useGameState() {
     unlockElement,
     convertFragmentsToCrystal,
     spendCrystals,
+    tameCreature,
+    buildBuilding,
     reset,
   };
 }
