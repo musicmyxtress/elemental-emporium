@@ -795,7 +795,11 @@ function DiscoveryDialog({
 
   return (
     <Dialog open={open} onOpenChange={(next) => (!next ? onDismiss() : undefined)}>
-      <DialogContent>
+      <DialogContent
+        onPointerDownOutside={(e) => e.preventDefault()}
+        onEscapeKeyDown={(e) => e.preventDefault()}
+        onInteractOutside={(e) => e.preventDefault()}
+      >
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
           <DialogDescription>{text}</DialogDescription>
