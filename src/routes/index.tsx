@@ -86,6 +86,7 @@ function Index() {
       onDiscoverPlace={discoverPlace}
       onShelvePlace={shelvePlace}
       onShelveCreature={shelveCreature}
+      onUnlockElement={unlockElement}
       onApplyEvent={applyEvent}
       onCollectFromPlace={collectFromPlace}
       onConvertFragments={convertFragmentsToCrystal}
