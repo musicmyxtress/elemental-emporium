@@ -56,7 +56,7 @@ export const PLACES: Place[] = [
     name: "Mountain",
     description: "A towering peak humming with deep magic. You can collect earth fragments here.",
     rarity: 1,
-    resource: { id: "earth-fragment", label: "earth fragment" },
+    resource: { id: "earth-fragment", label: "earth fragment", element: "earth" },
     cooldownMs: 10_000,
   },
   {
@@ -64,7 +64,7 @@ export const PLACES: Place[] = [
     name: "Flowing stream",
     description: "A clear stream winding through mossy stones. You can collect water fragments here.",
     rarity: 1,
-    resource: { id: "water-fragment", label: "water fragment" },
+    resource: { id: "water-fragment", label: "water fragment", element: "water" },
     cooldownMs: 10_000,
   },
   {
@@ -72,7 +72,7 @@ export const PLACES: Place[] = [
     name: "Grassy plains",
     description: "Wide plains rippling with wildflowers and herbs. You can collect plant fragments here.",
     rarity: 3,
-    resource: { id: "plant-fragment", label: "plant fragment" },
+    resource: { id: "plant-fragment", label: "plant fragment", element: "plant" },
     cooldownMs: 30_000,
   },
   {
@@ -80,7 +80,7 @@ export const PLACES: Place[] = [
     name: "Volcano",
     description: "A restless volcano glowing with molten light. You can collect lava fragments here.",
     rarity: 3,
-    resource: { id: "lava-fragment", label: "lava fragment" },
+    resource: { id: "lava-fragment", label: "lava fragment", element: "lava" },
     cooldownMs: 30_000,
   },
   {
@@ -88,7 +88,7 @@ export const PLACES: Place[] = [
     name: "Ember grove",
     description: "A grove of trees that perpetually smolder with embers. You can collect fire fragments here.",
     rarity: 1,
-    resource: { id: "fire-fragment", label: "fire fragment" },
+    resource: { id: "fire-fragment", label: "fire fragment", element: "fire" },
     cooldownMs: 10_000,
   },
   {
@@ -96,7 +96,7 @@ export const PLACES: Place[] = [
     name: "Time vortex",
     description: "A swirling tear in reality where moments pass in reverse. You can collect time fragments here.",
     rarity: 6,
-    resource: { id: "time-fragment", label: "time fragment" },
+    resource: { id: "time-fragment", label: "time fragment", element: "time" },
     cooldownMs: 60_000,
   },
   {
@@ -104,7 +104,7 @@ export const PLACES: Place[] = [
     name: "Rainbow bridge",
     description: "An arch of prismatic light stretching across the sky. You can collect light fragments here.",
     rarity: 7,
-    resource: { id: "light-fragment", label: "light fragment" },
+    resource: { id: "light-fragment", label: "light fragment", element: "light" },
     cooldownMs: 70_000,
   },
   {
@@ -112,10 +112,11 @@ export const PLACES: Place[] = [
     name: "Infinite void",
     description: "A pocket of absolute nothingness that devours all light. You can collect darkness fragments here.",
     rarity: 7,
-    resource: { id: "darkness-fragment", label: "darkness fragment" },
+    resource: { id: "darkness-fragment", label: "darkness fragment", element: "darkness" },
     cooldownMs: 70_000,
   },
 ];
+
 
 /** Looks up a place by id, or returns undefined when not found. */
 export function getPlace(id: string): Place | undefined {
