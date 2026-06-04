@@ -11,8 +11,13 @@ export type ElementRecord<T> = Record<Element, T>;
 export interface GameState {
   /** The element the player mastered at character creation. */
   element: Element | null;
-  /** Passive fragments of the mastered element accumulated over time. */
+  /**
+   * Legacy passive-fragment counter for the mastered element. New code stores
+   * passive fragments directly in `resources[<element>-fragment]`; this field
+   * is kept only so older saves can be migrated on load. Always 0 after load.
+   */
   fragments: number;
+
   /** Current level in each element. The mastered element starts at 1; others at 0. */
   elementLevels: ElementRecord<number>;
   /** XP accumulated toward the next level in each element. */
