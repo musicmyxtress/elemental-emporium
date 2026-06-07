@@ -78,6 +78,10 @@ export interface GameState {
   generation: number;
   /** True once the player has acknowledged the current generation's apprentice arrival. */
   apprenticeAcknowledged: boolean;
+  /** Breedings in progress; their parents do not produce while pending. */
+  pendingBreedings: PendingBreed[];
+  /** Resolved breedings awaiting the player's acknowledgement. */
+  breedingResults: BreedingResult[];
 }
 
 /** Build costs for player-constructable buildings. */
