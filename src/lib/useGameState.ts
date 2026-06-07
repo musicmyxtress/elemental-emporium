@@ -195,6 +195,28 @@ function loadState(): GameState {
             ? parsed.generation
             : 1,
         apprenticeAcknowledged: Boolean(parsed.apprenticeAcknowledged),
+        pendingBreedings: Array.isArray(parsed.pendingBreedings)
+          ? (parsed.pendingBreedings as PendingBreed[]).filter(
+              (p) =>
+                p &&
+                typeof p.id === "string" &&
+                typeof p.creatureName === "string" &&
+                typeof p.templateId === "string" &&
+                typeof p.pairs === "number" &&
+                typeof p.readyAt === "number" &&
+                Array.isArray(p.offspringGenders),
+            )
+          : [],
+        breedingResults: Array.isArray(parsed.breedingResults)
+          ? (parsed.breedingResults as BreedingResult[]).filter(
+              (r) =>
+                r &&
+                typeof r.id === "string" &&
+                typeof r.creatureName === "string" &&
+                typeof r.males === "number" &&
+                typeof r.females === "number",
+            )
+          : [],
       };
     }
   } catch {
