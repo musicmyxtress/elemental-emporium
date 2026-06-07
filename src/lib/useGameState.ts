@@ -280,13 +280,13 @@ function applyXp(
   xp: ElementRecord<number>,
   element: Element,
   amount: number,
-): { levels: ElementRecord<number>; xp: ElementRecord<number> } {
+): { levels: ElementRecord<number>; xp: ElementRecord<number>; gained: number } {
   const nextLevels = { ...levels };
   const nextXp = { ...xp };
-  const cur = nextLevels[element] ?? 0;
-  if (cur >= LEVEL_CAP) {
+  const startLevel = nextLevels[element] ?? 0;
+  if (startLevel >= LEVEL_CAP) {
     nextXp[element] = 0;
-    return { levels: nextLevels, xp: nextXp };
+    return { levels: nextLevels, xp: nextXp, gained: 0 };
   }
   nextXp[element] = (nextXp[element] ?? 0) + amount;
   while (
@@ -301,7 +301,8 @@ function applyXp(
     nextLevels[element] = LEVEL_CAP;
     nextXp[element] = 0;
   }
-  return { levels: nextLevels, xp: nextXp };
+  const gained = (nextLevels[element] ?? 0) - startLevel;
+  return { levels: nextLevels, xp: nextXp, gained };
 }
 
 export function useGameState() {
