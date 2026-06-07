@@ -511,6 +511,37 @@ function GameScreen({
       });
       return;
     }
+
+    if ("buffApplied" in cast) {
+      const log = [
+        ...combat.log,
+        cast.spell.actionText,
+        `You are shielded by ${cast.spell.name}.`,
+      ];
+      const dmg = getCreatureDamage(combat.creature);
+      const result = onDamagePlayer(dmg);
+      let creatureLog: string;
+      if (result.blocked) {
+        creatureLog = `${combat.creature.name} strikes at you, but your Water Wall absorbs the blow!`;
+      } else {
+        creatureLog = `${combat.creature.name} strikes you for ${result.actualDamage} damage.`;
+      }
+      const log2 = [...log, creatureLog];
+      if (result.defeated) {
+        setCombat({
+          ...combat,
+          log: [
+            ...log2,
+            "You collapse. Half of your fragments slip away as you fall into a forced sleep.",
+          ],
+          phase: "lose",
+        });
+        return;
+      }
+      setCombat({ ...combat, log: log2, phase: "player" });
+      return;
+    }
+
     const newCreatureHp = Math.max(0, combat.creatureHp - cast.damage);
     const log = [
       ...combat.log,
@@ -523,9 +554,15 @@ function GameScreen({
     }
     // Creature retaliates immediately.
     const dmg = getCreatureDamage(combat.creature);
-    const defeated = onDamagePlayer(dmg);
-    const log2 = [...log, `${combat.creature.name} strikes you for ${dmg} damage.`];
-    if (defeated) {
+    const result = onDamagePlayer(dmg);
+    let creatureLog: string;
+    if (result.blocked) {
+      creatureLog = `${combat.creature.name} strikes at you, but your Water Wall absorbs the blow!`;
+    } else {
+      creatureLog = `${combat.creature.name} strikes you for ${result.actualDamage} damage.`;
+    }
+    const log2 = [...log, creatureLog];
+    if (result.defeated) {
       setCombat({
         ...combat,
         creatureHp: newCreatureHp,
