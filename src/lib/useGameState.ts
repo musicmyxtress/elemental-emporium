@@ -190,6 +190,7 @@ function loadState(): GameState {
         tamedCreatures: Array.isArray(parsed.tamedCreatures)
           ? parsed.tamedCreatures.filter((x): x is string => typeof x === "string")
           : [],
+        magicalLevels: sanitizeRecord(parsed.magicalLevels),
         discoveredElements: Array.isArray(parsed.discoveredElements)
           ? parsed.discoveredElements.filter((x): x is string => typeof x === "string")
           : STARTER_UNLOCKED_ELEMENTS,
