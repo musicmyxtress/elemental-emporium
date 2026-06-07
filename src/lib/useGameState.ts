@@ -1,6 +1,32 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { getPlace } from "./places";
 import { xpToNextLevel, fragmentResourceId, FRAGMENTS_PER_CRYSTAL, LEVEL_CAP } from "./elements";
+import { getCreature, type CreatureGender } from "./creatures";
+
+/** A breeding currently in progress; its parents do not produce while it lasts. */
+export interface PendingBreed {
+  id: string;
+  creatureName: string;
+  /** A template id from this species, used to spawn the offspring instances. */
+  templateId: string;
+  /** Number of male/female pairs locked in this breeding. */
+  pairs: number;
+  /** Timestamp (ms) at which the breeding resolves. */
+  readyAt: number;
+  /** Pre-rolled offspring genders, one per pair. */
+  offspringGenders: CreatureGender[];
+}
+
+/** A resolved breeding awaiting acknowledgement from the player. */
+export interface BreedingResult {
+  id: string;
+  creatureName: string;
+  males: number;
+  females: number;
+}
+
+/** How long, in ms, parents stay locked after a successful breeding. */
+export const BREEDING_DURATION_MS = 30 * 60 * 1000;
 
 /** An element id. Starters are air/earth/fire/water; others (plant, lava, etc.)
  * become available once unlocked. */
