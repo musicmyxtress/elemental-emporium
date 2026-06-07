@@ -402,8 +402,19 @@ function GameScreen({
 
   const [discovery, setDiscovery] = useState<Discovery | null>(null);
   const [creatureAnnouncement, setCreatureAnnouncement] = useState("");
+  const [combat, setCombat] = useState<CombatState | null>(null);
+
+  // Drives the sleep countdown / HP bar re-render once per second.
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, []);
+  const isSleeping = sleepUntil > now;
+  const sleepRemainingMs = isSleeping ? sleepUntil - now : 0;
 
   function handleExplore() {
+    if (isSleeping) return;
     const place = rollUndiscoveredPlace(discoveredPlaces, shelvedPlaces);
     const event = rollEvent();
     const creature = rollCreature(elementLevels, shelvedCreatures);
@@ -459,9 +470,73 @@ function GameScreen({
     setDiscovery(null);
   }
 
-  // Fight and leave-alone remain stubs until combat is implemented.
-  function handleFightOrLeave() {
+  /** Closes the discovery dialog. Used for "Leave alone". */
+  function handleLeave() {
     setDiscovery(null);
+  }
+
+  /** Begins turn-based combat against the discovered creature. */
+  function handleFight() {
+    if (isSleeping) return;
+    if (discovery?.kind !== "creature" && discovery?.kind !== "locked-creature") return;
+    const creature = discovery.creature;
+    setDiscovery(null);
+    setCombat({
+      creature,
+      creatureHp: getCreatureHp(creature),
+      creatureMaxHp: getCreatureHp(creature),
+      log: [`A wild ${creature.name} squares up to fight.`],
+      phase: "player",
+    });
+  }
+
+  /** Player casts a spell, then the creature counter-attacks (or combat ends). */
+  function handleCast(spellId: string) {
+    if (!combat || combat.phase !== "player" || isSleeping) return;
+    const cast = onCastSpell(spellId);
+    if (!cast) {
+      setCombat({
+        ...combat,
+        log: [...combat.log, "You can't afford to cast that spell."],
+      });
+      return;
+    }
+    const newCreatureHp = Math.max(0, combat.creatureHp - cast.damage);
+    const log = [
+      ...combat.log,
+      cast.spell.actionText,
+      `${cast.spell.name} deals ${cast.damage} damage to ${combat.creature.name}.`,
+    ];
+    if (newCreatureHp === 0) {
+      setCombat({ ...combat, creatureHp: 0, log: [...log, `You defeated ${combat.creature.name}!`], phase: "win" });
+      return;
+    }
+    // Creature retaliates immediately.
+    const dmg = getCreatureDamage(combat.creature);
+    const defeated = onDamagePlayer(dmg);
+    const log2 = [...log, `${combat.creature.name} strikes you for ${dmg} damage.`];
+    if (defeated) {
+      setCombat({
+        ...combat,
+        creatureHp: newCreatureHp,
+        log: [
+          ...log2,
+          "You collapse. Half of your fragments slip away as you fall into a forced sleep.",
+        ],
+        phase: "lose",
+      });
+      return;
+    }
+    setCombat({ ...combat, creatureHp: newCreatureHp, log: log2, phase: "player" });
+  }
+
+  function handleFlee() {
+    if (!combat) return;
+    setCombat({ ...combat, log: [...combat.log, "You flee from combat."], phase: "win" });
+  }
+
+  function handleCloseCombat() {
+    setCombat(null);
   }
 
   function handleTame() {
