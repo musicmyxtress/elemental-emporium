@@ -258,6 +258,15 @@ function loadState(): GameState {
           typeof parsed.sleepUntil === "number" && parsed.sleepUntil > 0
             ? parsed.sleepUntil
             : 0,
+        spellBuffs: Array.isArray(parsed.spellBuffs)
+          ? (parsed.spellBuffs as unknown[]).filter(
+              (b): b is { spellId: string; expiresAt: number } =>
+                b !== null &&
+                typeof b === "object" &&
+                typeof (b as Record<string, unknown>).spellId === "string" &&
+                typeof (b as Record<string, unknown>).expiresAt === "number",
+            )
+          : [],
       };
     }
   } catch {
@@ -718,16 +727,33 @@ export function useGameState() {
    * to act (e.g. asleep).
    */
   const castSpell = useCallback(
-    (spellId: string): { spell: Spell; damage: number } | null => {
+    (spellId: string): CastResult | null => {
       const spell = SPELLS.find((s) => s.id === spellId);
       if (!spell) return null;
-      let result: { spell: Spell; damage: number } | null = null;
+      let result: CastResult | null = null;
       setState((prev) => {
         if (prev.sleepUntil > Date.now()) return prev;
         const key = fragmentResourceId(spell.element);
         const have = prev.resources[key] ?? 0;
         if (have < spell.cost) return prev;
-        const damage = rollSpellDamage(spell);
+
+        if (spell.type === "defensive") {
+          const buff = {
+            spellId: spell.id,
+            expiresAt: Date.now() + (spell.durationMs ?? 0),
+          };
+          result = { spell, buffApplied: true as const };
+          return {
+            ...prev,
+            resources: { ...prev.resources, [key]: have - spell.cost },
+            spellBuffs: [
+              ...prev.spellBuffs.filter((b) => b.spellId !== spell.id),
+              buff,
+            ],
+          };
+        }
+
+        const damage = rollSpellDamage(spell, prev.elementLevels);
         result = { spell, damage };
         return {
           ...prev,
