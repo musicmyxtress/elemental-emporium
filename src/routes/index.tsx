@@ -569,11 +569,45 @@ function GameScreen({
         masteredElement={element}
         onAcknowledge={onAcknowledgeApprentice}
       />
+      <BreedingResultDialog
+        result={breedingResults[0] ?? null}
+        onDismiss={onDismissBreedingResult}
+      />
       <div role="status" aria-live="polite" className="sr-only">
         {creatureAnnouncement}
       </div>
     </main>
 
+  );
+}
+
+function BreedingResultDialog({
+  result,
+  onDismiss,
+}: {
+  result: GameState["breedingResults"][number] | null;
+  onDismiss: (id: string) => void;
+}) {
+  const open = Boolean(result);
+  const total = result ? result.males + result.females : 0;
+  return (
+    <Dialog open={open} onOpenChange={(o) => !o && result && onDismiss(result.id)}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Breeding complete</DialogTitle>
+          <DialogDescription>
+            {result
+              ? `Your ${result.creatureName} pairs produced ${total} offspring: ${result.males} male${result.males === 1 ? "" : "s"} and ${result.females} female${result.females === 1 ? "" : "s"}.`
+              : ""}
+          </DialogDescription>
+        </DialogHeader>
+        <DialogFooter>
+          <Button onClick={() => result && onDismiss(result.id)} autoFocus>
+            Welcome them to the stable
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 
