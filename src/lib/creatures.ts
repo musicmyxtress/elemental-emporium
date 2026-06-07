@@ -44,9 +44,10 @@ export const CREATURES: Creature[] = [];
  * - Non-magical creatures produce their rarity level in their production element.
  * - Magical creatures produce double their rarity level in their production element.
  */
-export function getProductionAmount(creature: Creature): number {
+export function getProductionAmount(creature: Creature, trainedLevels?: number): number {
   const base = Math.max(1, creature.rarity);
-  return creature.magical ? base * 2 : base;
+  const multiplier = 1 + Math.floor((trainedLevels ?? 0) / 3);
+  return creature.magical ? base * 2 * multiplier : base * multiplier;
 }
 
 /**
