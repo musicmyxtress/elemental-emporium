@@ -150,6 +150,12 @@ function Index() {
       onDismissBreedingResult={dismissBreedingResult}
       elementLevels={state.elementLevels}
       elementXp={state.elementXp}
+      currentHp={state.currentHp}
+      maxHp={getMaxHp(state.levelUpsTotal)}
+      sleepUntil={state.sleepUntil}
+      onCastSpell={castSpell}
+      onDamagePlayer={damagePlayer}
+      onStartSleep={startSleep}
       onReset={reset}
     />
   );
