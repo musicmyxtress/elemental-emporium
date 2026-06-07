@@ -1246,12 +1246,27 @@ function HomeBasePanel({
 function StablePanel({
   buildings,
   tamedCreatures,
+  pendingBreedings,
+  onStartBreeding,
 }: {
   buildings: string[];
   tamedCreatures: string[];
+  pendingBreedings: GameState["pendingBreedings"];
+  onStartBreeding: (
+    creatureName: string,
+    templateId: string,
+    pairs: number,
+    rarity: number,
+  ) => { ok: boolean; success: boolean; chance: number; pairs: number };
 }) {
   const [selectedName, setSelectedName] = useState<string | null>(null);
   const [announcement, setAnnouncement] = useState("");
+  // Force re-render every 30s so the pending countdown stays fresh.
+  const [, setNow] = useState(Date.now());
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 30000);
+    return () => clearInterval(id);
+  }, []);
 
   if (!buildings.includes("stable")) {
     return (
@@ -1284,18 +1299,44 @@ function StablePanel({
   }
   const sortedNames = Array.from(groups.keys()).sort((a, b) => a.localeCompare(b));
 
+  // Total pairs currently locked in a breeding per species name.
+  const lockedPairs = new Map<string, number>();
+  for (const p of pendingBreedings) {
+    lockedPairs.set(p.creatureName, (lockedPairs.get(p.creatureName) ?? 0) + p.pairs);
+  }
+
   if (selectedName && groups.has(selectedName)) {
     const members = groups.get(selectedName)!;
-    const males = members.filter((m) => m.gender === "male").length;
-    const females = members.filter((m) => m.gender === "female").length;
+    const totalMales = members.filter((m) => m.gender === "male").length;
+    const totalFemales = members.filter((m) => m.gender === "female").length;
+    const locked = lockedPairs.get(selectedName) ?? 0;
+    const males = Math.max(0, totalMales - locked);
+    const females = Math.max(0, totalFemales - locked);
     const pairs = Math.min(males, females);
-    const totalProduction = members.reduce((sum, m) => sum + getProductionAmount(m), 0);
+    const rarity = members[0].rarity;
     const element = members[0].elementProduction.element;
+    // Only unlocked (i.e. not busy breeding) members produce resources.
+    const activeMembers = [
+      ...members.filter((m) => m.gender === "male").slice(locked),
+      ...members.filter((m) => m.gender === "female").slice(locked),
+    ];
+    const totalProduction = activeMembers.reduce((sum, m) => sum + getProductionAmount(m), 0);
+    const chance = Math.max(0, Math.min(100, 81 - 6 * rarity));
+    const speciesPendings = pendingBreedings.filter((p) => p.creatureName === selectedName);
 
     function handleBreed() {
-      // Breeding mechanics are described next; the button is wired but does
-      // nothing yet so the UI is in place to receive that behavior.
-      setAnnouncement("Breeding is not yet implemented.");
+      if (pairs <= 0) return;
+      const res = onStartBreeding(selectedName!, members[0].id, pairs, rarity);
+      if (!res.ok) return;
+      if (res.success) {
+        setAnnouncement(
+          `Breeding succeeded with ${res.pairs} pair${res.pairs === 1 ? "" : "s"}. Parents will rest for 30 minutes.`,
+        );
+      } else {
+        setAnnouncement(
+          `Breeding failed (chance was ${res.chance}%). Try again when you're ready.`,
+        );
+      }
     }
 
     return (
@@ -1319,18 +1360,41 @@ function StablePanel({
             </dd>
           </div>
           <div className="flex justify-between">
-            <dt className="text-muted-foreground">Males</dt>
+            <dt className="text-muted-foreground">Available males</dt>
             <dd className="font-medium tabular-nums">{males}</dd>
           </div>
           <div className="flex justify-between">
-            <dt className="text-muted-foreground">Females</dt>
+            <dt className="text-muted-foreground">Available females</dt>
             <dd className="font-medium tabular-nums">{females}</dd>
           </div>
           <div className="flex justify-between">
             <dt className="text-muted-foreground">Male/female pairs</dt>
             <dd className="font-medium tabular-nums">{pairs}</dd>
           </div>
+          <div className="flex justify-between">
+            <dt className="text-muted-foreground">Breeding success chance</dt>
+            <dd className="font-medium tabular-nums">{chance}%</dd>
+          </div>
+          {locked > 0 && (
+            <div className="flex justify-between">
+              <dt className="text-muted-foreground">Pairs currently breeding</dt>
+              <dd className="font-medium tabular-nums">{locked}</dd>
+            </div>
+          )}
         </dl>
+        {speciesPendings.length > 0 && (
+          <ul className="mt-3 space-y-1 text-sm text-muted-foreground" role="list">
+            {speciesPendings.map((p) => {
+              const minsLeft = Math.max(0, Math.ceil((p.readyAt - Date.now()) / 60000));
+              return (
+                <li key={p.id}>
+                  {p.pairs} pair{p.pairs === 1 ? "" : "s"} breeding — about {minsLeft} minute
+                  {minsLeft === 1 ? "" : "s"} left.
+                </li>
+              );
+            })}
+          </ul>
+        )}
         <div className="mt-4">
           <Button
             type="button"
@@ -1339,11 +1403,11 @@ function StablePanel({
             disabled={pairs === 0}
             aria-label={
               pairs === 0
-                ? `Breed ${selectedName}, requires at least one male/female pair`
-                : `Breed ${selectedName}`
+                ? `Breed ${selectedName}, requires at least one available male/female pair`
+                : `Breed ${selectedName}, ${chance}% chance of success`
             }
           >
-            Breed
+            Breed ({chance}%)
           </Button>
         </div>
         <div role="status" aria-live="polite" className="sr-only">
