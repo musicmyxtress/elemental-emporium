@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { getPlace } from "./places";
 import { xpToNextLevel, fragmentResourceId, FRAGMENTS_PER_CRYSTAL, LEVEL_CAP } from "./elements";
-import type { CreatureGender } from "./creatures";
+import { getCreature, getProductionAmount, type CreatureGender } from "./creatures";
 
 /** A breeding currently in progress; its parents do not produce while it lasts. */
 export interface PendingBreed {
