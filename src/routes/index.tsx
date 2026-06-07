@@ -1077,7 +1077,8 @@ function DiscoveryDialog({
   crystals,
   unlockedElements,
   onStudy,
-  onFightOrLeave,
+  onFight,
+  onLeave,
   onTame,
   onDismiss,
 }: {
@@ -1085,7 +1086,8 @@ function DiscoveryDialog({
   crystals: Record<string, number>;
   unlockedElements: string[];
   onStudy: () => void;
-  onFightOrLeave: () => void;
+  onFight: () => void;
+  onLeave: () => void;
   onTame: () => void;
   onDismiss: () => void;
 }) {
