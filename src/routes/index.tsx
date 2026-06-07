@@ -1361,7 +1361,7 @@ function StablePanel({
       ...members.filter((m) => m.gender === "male").slice(locked),
       ...members.filter((m) => m.gender === "female").slice(locked),
     ];
-    const totalProduction = activeMembers.reduce((sum, m) => sum + getProductionAmount(m), 0);
+    const totalProduction = activeMembers.reduce((sum, m) => sum + getProductionAmount(m, elementLevels[element] ?? 0), 0);
     const chance = Math.max(0, Math.min(100, 81 - 6 * rarity));
     const speciesPendings = pendingBreedings.filter((p) => p.creatureName === selectedName);
 
