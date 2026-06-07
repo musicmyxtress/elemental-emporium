@@ -434,13 +434,27 @@ export function useGameState() {
   const gainElementXp = useCallback((element: Element, amount: number) => {
     if (amount <= 0) return;
     setState((prev) => {
-      const { levels, xp } = applyXp(
+      const { levels, xp, gained } = applyXp(
         prev.elementLevels,
         prev.elementXp,
         element,
         amount,
       );
-      return { ...prev, elementLevels: levels, elementXp: xp };
+      if (gained === 0) {
+        return { ...prev, elementLevels: levels, elementXp: xp };
+      }
+      const levelUpsTotal = prev.levelUpsTotal + gained;
+      // Grow current HP alongside max so newly-earned HP is immediately
+      // available, while never exceeding the new cap.
+      const newMax = getMaxHp(levelUpsTotal);
+      const currentHp = Math.min(newMax, prev.currentHp + gained * HP_PER_LEVEL);
+      return {
+        ...prev,
+        elementLevels: levels,
+        elementXp: xp,
+        levelUpsTotal,
+        currentHp,
+      };
     });
   }, []);
 
