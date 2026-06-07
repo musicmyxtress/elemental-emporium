@@ -1158,14 +1158,14 @@ function DiscoveryDialog({
               <Button type="button" onClick={onStudy}>
                 Study
               </Button>
-              <Button type="button" variant="outline" onClick={onFightOrLeave}>
+              <Button type="button" variant="outline" onClick={onLeave}>
                 Leave alone
               </Button>
             </>
           )}
           {creatureForTame && (
             <>
-              <Button type="button" onClick={onFightOrLeave}>
+              <Button type="button" onClick={onFight}>
                 Fight
               </Button>
               <Button
@@ -1180,7 +1180,7 @@ function DiscoveryDialog({
               >
                 Tame ({tameCost} {tameElement} crystals)
               </Button>
-              <Button type="button" variant="outline" onClick={onFightOrLeave}>
+              <Button type="button" variant="outline" onClick={onLeave}>
                 Leave alone
               </Button>
             </>
