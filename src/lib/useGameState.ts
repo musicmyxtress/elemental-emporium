@@ -2,6 +2,19 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { getPlace } from "./places";
 import { xpToNextLevel, fragmentResourceId, FRAGMENTS_PER_CRYSTAL, LEVEL_CAP } from "./elements";
 import { getCreature, getProductionAmount, type CreatureGender } from "./creatures";
+import { SPELLS, rollSpellDamage, type Spell } from "./spells";
+
+/** Base maximum HP at character creation, before any level-ups. */
+export const STARTING_MAX_HP = 8;
+/** HP gained for each element level the player acquires via XP. */
+export const HP_PER_LEVEL = 2;
+/** How long a forced or chosen sleep lasts, in ms. */
+export const SLEEP_DURATION_MS = 60 * 1000;
+
+/** Computes the player's current maximum HP from their level-up counter. */
+export function getMaxHp(levelUpsTotal: number): number {
+  return STARTING_MAX_HP + HP_PER_LEVEL * Math.max(0, levelUpsTotal);
+}
 
 /** A breeding currently in progress; its parents do not produce while it lasts. */
 export interface PendingBreed {
