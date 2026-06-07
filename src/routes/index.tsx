@@ -512,6 +512,7 @@ function GameScreen({
                   buildings={buildings}
                   tamedCreatures={tamedCreatures}
                   pendingBreedings={pendingBreedings}
+                  elementLevels={elementLevels}
                   onStartBreeding={onStartBreeding}
                 />
               )}
@@ -559,6 +560,7 @@ function GameScreen({
         discovery={discovery}
         crystals={crystals}
         unlockedElements={unlockedElements}
+        elementLevels={elementLevels}
         onStudy={handleStudy}
         onFightOrLeave={handleFightOrLeave}
         onTame={handleTame}
@@ -934,10 +936,11 @@ function StatsPanel({
   );
 }
 
-function describeCreature(creature: Creature): string {
+function describeCreature(creature: Creature, elementLevels?: Record<string, number>): string {
   const genderLabel = creature.gender === "male" ? "male" : "female";
   const magicLabel = creature.magical ? "magical" : "non-magical";
-  const produces = `${creature.elementProduction.element} (${getProductionAmount(creature)}/tick)`;
+  const trainedLevels = elementLevels?.[creature.elementProduction.element] ?? 0;
+  const produces = `${creature.elementProduction.element} (${getProductionAmount(creature, trainedLevels)}/tick)`;
   const consumes = creature.elementConsumption
     ? ` and consumes ${creature.elementConsumption.element} (${getConsumptionAmount(creature)}/tick)`
     : "";
@@ -948,6 +951,7 @@ function DiscoveryDialog({
   discovery,
   crystals,
   unlockedElements,
+  elementLevels,
   onStudy,
   onFightOrLeave,
   onTame,
@@ -956,6 +960,7 @@ function DiscoveryDialog({
   discovery: Discovery | null;
   crystals: Record<string, number>;
   unlockedElements: string[];
+  elementLevels: Record<string, number>;
   onStudy: () => void;
   onFightOrLeave: () => void;
   onTame: () => void;
@@ -988,10 +993,10 @@ function DiscoveryDialog({
   } else if (discovery?.kind === "creature" || (discovery?.kind === "locked-creature" && !isCreatureLocked)) {
     const creature = discovery.creature;
     title = `You encountered ${creature.name}`;
-    text = `${creature.description} ${describeCreature(creature)}`;
+    text = `${creature.description} ${describeCreature(creature, elementLevels)}`;
   } else if (isCreatureLocked) {
     title = `You encountered ${discovery.creature.name}`;
-    text = `${discovery.creature.description} ${describeCreature(discovery.creature)} You have not yet unlocked its element, so you cannot engage with it directly.`;
+    text = `${discovery.creature.description} ${describeCreature(discovery.creature, elementLevels)} You have not yet unlocked its element, so you cannot engage with it directly.`;
   } else if (discovery?.kind === "event") {
     title = discovery.event.title;
     text = discovery.event.text;
@@ -1281,11 +1286,13 @@ function StablePanel({
   buildings,
   tamedCreatures,
   pendingBreedings,
+  elementLevels,
   onStartBreeding,
 }: {
   buildings: string[];
   tamedCreatures: string[];
   pendingBreedings: GameState["pendingBreedings"];
+  elementLevels: Record<string, number>;
   onStartBreeding: (
     creatureName: string,
     templateId: string,
@@ -1354,7 +1361,7 @@ function StablePanel({
       ...members.filter((m) => m.gender === "male").slice(locked),
       ...members.filter((m) => m.gender === "female").slice(locked),
     ];
-    const totalProduction = activeMembers.reduce((sum, m) => sum + getProductionAmount(m), 0);
+    const totalProduction = activeMembers.reduce((sum, m) => sum + getProductionAmount(m, elementLevels[element] ?? 0), 0);
     const chance = Math.max(0, Math.min(100, 81 - 6 * rarity));
     const speciesPendings = pendingBreedings.filter((p) => p.creatureName === selectedName);
 
