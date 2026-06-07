@@ -992,10 +992,10 @@ function DiscoveryDialog({
   } else if (discovery?.kind === "creature" || (discovery?.kind === "locked-creature" && !isCreatureLocked)) {
     const creature = discovery.creature;
     title = `You encountered ${creature.name}`;
-    text = `${creature.description} ${describeCreature(creature)}`;
+    text = `${creature.description} ${describeCreature(creature, elementLevels)}`;
   } else if (isCreatureLocked) {
     title = `You encountered ${discovery.creature.name}`;
-    text = `${discovery.creature.description} ${describeCreature(discovery.creature)} You have not yet unlocked its element, so you cannot engage with it directly.`;
+    text = `${discovery.creature.description} ${describeCreature(discovery.creature, elementLevels)} You have not yet unlocked its element, so you cannot engage with it directly.`;
   } else if (discovery?.kind === "event") {
     title = discovery.event.title;
     text = discovery.event.text;
