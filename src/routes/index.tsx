@@ -69,6 +69,8 @@ function Index() {
     buildBuilding,
     acknowledgeApprentice,
     graduateApprentice,
+    startBreeding,
+    dismissBreedingResult,
     reset,
   } = useGameState();
 
