@@ -82,6 +82,25 @@ export interface GameState {
   pendingBreedings: PendingBreed[];
   /** Resolved breedings awaiting the player's acknowledgement. */
   breedingResults: BreedingResult[];
+  /** Trainable magical creatures the player has tamed. */
+  magicalCreatures: MagicalCreatureInstance[];
+}
+
+/** An individual trained magical creature. */
+export interface MagicalCreatureInstance {
+  id: string;
+  templateId: string;
+  level: number;
+  xp: number;
+}
+
+/** Returns the player's max HP: 1 per level across all elements. */
+export function getPlayerHp(state: GameState): number {
+  let hp = 0;
+  for (const lv of Object.values(state.elementLevels)) {
+    if (typeof lv === "number" && lv > 0) hp += lv;
+  }
+  return hp;
 }
 
 /** Build costs for player-constructable buildings. */
