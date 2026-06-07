@@ -49,10 +49,11 @@ export function getEffectiveLevel(creature: Creature, trainedLevel?: number): nu
   return Math.max(1, trainedLevel ?? 1);
 }
 
-/** Maximum HP for a creature. HP = rarity × effective level. */
+/** Maximum HP for a creature. HP = (rarity + effective level) × 5. */
 export function getCreatureHp(creature: Creature, trainedLevel?: number): number {
   const rarity = Math.max(1, creature.rarity);
-  return rarity * getEffectiveLevel(creature, trainedLevel);
+  const level = getEffectiveLevel(creature, trainedLevel);
+  return (rarity + level) * 5;
 }
 
 /**
