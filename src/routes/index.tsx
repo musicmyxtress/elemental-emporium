@@ -511,6 +511,8 @@ function GameScreen({
                 <StablePanel
                   buildings={buildings}
                   tamedCreatures={tamedCreatures}
+                  pendingBreedings={pendingBreedings}
+                  onStartBreeding={onStartBreeding}
                 />
               )}
               {tab.value === "fragments-and-crystals" && (
