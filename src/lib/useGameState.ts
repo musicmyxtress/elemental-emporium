@@ -639,6 +639,8 @@ export function useGameState() {
     buildBuilding,
     acknowledgeApprentice,
     graduateApprentice,
+    startBreeding,
+    dismissBreedingResult,
     reset,
   };
 }
