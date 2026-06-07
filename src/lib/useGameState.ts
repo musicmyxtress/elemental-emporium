@@ -303,6 +303,43 @@ export function useGameState() {
     };
   }, [state.element]);
 
+  // Resolve pending breedings whose timer has elapsed.
+  useEffect(() => {
+    if (!hydrated) return;
+    const tick = () => {
+      setState((prev) => {
+        if (prev.pendingBreedings.length === 0) return prev;
+        const now = Date.now();
+        const ripe = prev.pendingBreedings.filter((p) => p.readyAt <= now);
+        if (ripe.length === 0) return prev;
+        const remaining = prev.pendingBreedings.filter((p) => p.readyAt > now);
+        const newTames: string[] = [];
+        const newResults: BreedingResult[] = [];
+        for (const p of ripe) {
+          const males = p.offspringGenders.filter((g) => g === "male").length;
+          const females = p.offspringGenders.length - males;
+          for (let i = 0; i < p.offspringGenders.length; i++) newTames.push(p.templateId);
+          newResults.push({
+            id: p.id,
+            creatureName: p.creatureName,
+            males,
+            females,
+          });
+        }
+        return {
+          ...prev,
+          pendingBreedings: remaining,
+          tamedCreatures: [...prev.tamedCreatures, ...newTames],
+          breedingResults: [...prev.breedingResults, ...newResults],
+        };
+      });
+    };
+    tick();
+    const id = setInterval(tick, 5000);
+    return () => clearInterval(id);
+  }, [hydrated]);
+
+
 
   const chooseElement = useCallback((element: Element) => {
     setState((prev) => {
