@@ -243,6 +243,18 @@ function loadState(): GameState {
                 typeof r.females === "number",
             )
           : [],
+        levelUpsTotal:
+          typeof parsed.levelUpsTotal === "number" && parsed.levelUpsTotal >= 0
+            ? parsed.levelUpsTotal
+            : 0,
+        currentHp:
+          typeof parsed.currentHp === "number" && parsed.currentHp >= 0
+            ? parsed.currentHp
+            : STARTING_MAX_HP,
+        sleepUntil:
+          typeof parsed.sleepUntil === "number" && parsed.sleepUntil > 0
+            ? parsed.sleepUntil
+            : 0,
       };
     }
   } catch {
