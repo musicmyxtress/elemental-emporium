@@ -1265,6 +1265,7 @@ function CombatDialog({
   maxHp,
   spells,
   resources,
+  elementLevels,
   onCast,
   onFlee,
   onClose,
@@ -1274,6 +1275,7 @@ function CombatDialog({
   maxHp: number;
   spells: Spell[];
   resources: Record<string, number>;
+  elementLevels: Record<string, number>;
   onCast: (spellId: string) => void;
   onFlee: () => void;
   onClose: () => void;
