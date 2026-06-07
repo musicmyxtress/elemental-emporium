@@ -302,6 +302,8 @@ function GameScreen({
   discoveredElements,
   buildings,
   tamedCreatures,
+  pendingBreedings,
+  breedingResults,
   elementLevels,
   elementXp,
   onDiscoverPlace,
@@ -317,6 +319,8 @@ function GameScreen({
   onBuildBuilding,
   onAcknowledgeApprentice,
   onGraduateApprentice,
+  onStartBreeding,
+  onDismissBreedingResult,
   onReset,
 }: {
   element: string;
@@ -332,6 +336,8 @@ function GameScreen({
   discoveredElements: string[];
   buildings: string[];
   tamedCreatures: string[];
+  pendingBreedings: GameState["pendingBreedings"];
+  breedingResults: GameState["breedingResults"];
   elementLevels: GameState["elementLevels"];
   elementXp: GameState["elementXp"];
   onDiscoverPlace: (placeId: string) => void;
@@ -347,6 +353,13 @@ function GameScreen({
   onBuildBuilding: (buildingId: string) => boolean;
   onAcknowledgeApprentice: () => void;
   onGraduateApprentice: (creatureId: string) => boolean;
+  onStartBreeding: (
+    creatureName: string,
+    templateId: string,
+    pairs: number,
+    rarity: number,
+  ) => { ok: boolean; success: boolean; chance: number; pairs: number };
+  onDismissBreedingResult: (id: string) => void;
   onReset: () => void;
 }) {
   const headingRef = useRef<HTMLHeadingElement>(null);
