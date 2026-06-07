@@ -708,6 +708,7 @@ export function useGameState() {
     convertFragmentsToCrystal,
     spendCrystals,
     tameCreature,
+    gainCreatureXp,
     buildBuilding,
     acknowledgeApprentice,
     graduateApprentice,
