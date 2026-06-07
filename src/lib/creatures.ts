@@ -18,6 +18,8 @@ export interface Creature {
    * rarity-1 creature is more likely to appear than a rarity-3 creature.
    */
   rarity: number;
+  /** Minimum element level required for this creature to appear in exploration. */
+  level: number;
   gender: CreatureGender;
   /** Whether the creature wields magic. Magical creatures also consume an element. */
   magical: boolean;
