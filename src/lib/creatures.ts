@@ -71,12 +71,15 @@ export function getCreature(id: string): Creature | undefined {
  * element they have not unlocked). Returns null when no creatures remain.
  */
 export function rollCreature(
+  elementLevels: Record<string, number>,
   shelvedCreatures: Record<string, number> = {},
   now: number = Date.now(),
 ): Creature | null {
   const available = CREATURES.filter((c) => {
     const shelvedUntil = shelvedCreatures[c.id] ?? 0;
-    return shelvedUntil <= now;
+    if (shelvedUntil > now) return false;
+    const playerLevel = elementLevels[c.elementProduction.element] ?? 0;
+    return playerLevel >= c.level;
   });
   if (available.length === 0) return null;
   const weights = available.map((c) => 1 / Math.max(1, c.rarity));
