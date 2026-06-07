@@ -399,8 +399,8 @@ function GameScreen({
   currentHp: number;
   maxHp: number;
   sleepUntil: number;
-  onCastSpell: (spellId: string) => { spell: Spell; damage: number } | null;
-  onDamagePlayer: (amount: number) => boolean;
+  onCastSpell: (spellId: string) => CastResult | null;
+  onDamagePlayer: (amount: number) => { defeated: boolean; blocked: boolean; actualDamage: number };
   onStartSleep: () => boolean;
   onReset: () => void;
 }) {
