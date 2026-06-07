@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { getPlace } from "./places";
 import { xpToNextLevel, fragmentResourceId, FRAGMENTS_PER_CRYSTAL, LEVEL_CAP } from "./elements";
 import { getCreature, getProductionAmount, type CreatureGender } from "./creatures";
-import { SPELLS, rollSpellDamage, type Spell } from "./spells";
+import { SPELLS, rollSpellDamage, type Spell, type CastResult } from "./spells";
 
 /** Base maximum HP at character creation, before any level-ups. */
 export const STARTING_MAX_HP = 8;
@@ -103,6 +103,8 @@ export interface GameState {
   currentHp: number;
   /** Timestamp (ms) at which a sleep ends. 0 when not sleeping. */
   sleepUntil: number;
+  /** Active defensive spell buffs with expiration timestamps. */
+  spellBuffs: { spellId: string; expiresAt: number }[];
 }
 
 /** Build costs for player-constructable buildings. */
@@ -146,6 +148,7 @@ const INITIAL_STATE: GameState = {
   levelUpsTotal: 0,
   currentHp: STARTING_MAX_HP,
   sleepUntil: 0,
+  spellBuffs: [],
 };
 
 

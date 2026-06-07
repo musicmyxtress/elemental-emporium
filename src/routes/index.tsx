@@ -29,7 +29,7 @@ import {
   getCreatureDamage,
   type Creature,
 } from "@/lib/creatures";
-import { getUnlockedSpells, type Spell } from "@/lib/spells";
+import { getUnlockedSpells, getSpellDamageRange, type Spell, type CastResult } from "@/lib/spells";
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
