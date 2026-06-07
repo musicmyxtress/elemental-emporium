@@ -72,6 +72,8 @@ export interface GameState {
   buildings: string[];
   /** Tamed creature template ids; duplicates allowed (one entry per individual). */
   tamedCreatures: string[];
+  /** Trained level per magical creature template id. Defaults to 1 when missing. */
+  magicalLevels: Record<string, number>;
   /** Element ids the player has encountered during exploration. */
   discoveredElements: string[];
   /** Generation count. 1 for the original mage; +1 each time an apprentice graduates. */
