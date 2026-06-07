@@ -341,6 +341,12 @@ function GameScreen({
   onGraduateApprentice,
   onStartBreeding,
   onDismissBreedingResult,
+  currentHp,
+  maxHp,
+  sleepUntil,
+  onCastSpell,
+  onDamagePlayer,
+  onStartSleep,
   onReset,
 }: {
   element: string;
