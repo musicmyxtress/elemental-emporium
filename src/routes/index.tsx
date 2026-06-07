@@ -91,11 +91,11 @@ function Index() {
       ? state.unlockedElements
       : ELEMENTS.map((e) => e.id);
     return (
-      <ChooseElementScreen
-        onChoose={chooseElement}
-        availableElementIds={availableIds}
+      <PreGameFlow
         isApprentice={isApprentice}
         generation={state.generation}
+        availableElementIds={availableIds}
+        onChoose={chooseElement}
       />
     );
   }
