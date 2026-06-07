@@ -374,6 +374,11 @@ export function useGameState() {
   const chooseElement = useCallback((element: Element) => {
     setState((prev) => {
       const elementLevels: ElementRecord<number> = { ...prev.elementLevels };
+      // Every new generation starts with level 1 in each starter element
+      // (air/earth/fire/water), giving the player 4 baseline HP.
+      for (const starter of STARTER_UNLOCKED_ELEMENTS) {
+        elementLevels[starter] = Math.max(1, elementLevels[starter] ?? 0);
+      }
       elementLevels[element] = Math.max(1, elementLevels[element] ?? 0);
       const elementXp: ElementRecord<number> = { ...prev.elementXp };
       if ((elementXp[element] ?? 0) === 0) elementXp[element] = 0;
