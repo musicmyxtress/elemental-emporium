@@ -505,7 +505,7 @@ function GameScreen({
 
               )}
               {tab.value === "stats" && (
-                <StatsPanel elementLevels={elementLevels} elementXp={elementXp} />
+                <StatsPanel elementLevels={elementLevels} elementXp={elementXp} generation={generation} />
               )}
             </section>
           </TabsContent>
