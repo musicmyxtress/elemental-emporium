@@ -1416,6 +1416,35 @@ function HomeBasePanel({
         Generation {generation}. You are mastering {masteredName} (level {masteredLevel}).
       </p>
 
+      <h3 className="mt-6 text-base font-medium text-foreground">Health</h3>
+      <p className="mt-1 text-sm text-foreground tabular-nums">
+        {currentHp} / {maxHp} HP
+      </p>
+      {currentHp < maxHp && (
+        <div className="mt-2">
+          <Button
+            type="button"
+            size="sm"
+            onClick={() => {
+              const ok = onStartSleep();
+              setAnnouncement(
+                ok
+                  ? "You lie down to sleep for a minute. Your creatures keep working while you rest."
+                  : "You can't sleep right now.",
+              );
+            }}
+            disabled={isSleeping}
+            aria-label={
+              isSleeping
+                ? "Already sleeping"
+                : "Sleep for one minute to restore HP"
+            }
+          >
+            {isSleeping ? "Sleeping…" : "Sleep (1 min)"}
+          </Button>
+        </div>
+      )}
+
       <h3 className="mt-6 text-base font-medium text-foreground">Resources</h3>
       <p className="mt-1 text-sm text-foreground">Wood: {wood}</p>
       <p className="text-sm text-foreground">Stone: {stone}</p>
