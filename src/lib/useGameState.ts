@@ -636,6 +636,7 @@ export function useGameState() {
         apprenticeAcknowledged: false,
         pendingBreedings: [],
         breedingResults: [],
+        magicalCreatures: [],
       };
     });
     return ok;
