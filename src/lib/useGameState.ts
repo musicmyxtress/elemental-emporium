@@ -708,6 +708,93 @@ export function useGameState() {
     return result;
   }, []);
 
+  /**
+   * Casts a spell, deducting its fragment cost from the matching element's
+   * pool and rolling damage. Returns the rolled damage and the spell on
+   * success, or null when the player can't afford the cost / isn't allowed
+   * to act (e.g. asleep).
+   */
+  const castSpell = useCallback(
+    (spellId: string): { spell: Spell; damage: number } | null => {
+      const spell = SPELLS.find((s) => s.id === spellId);
+      if (!spell) return null;
+      let result: { spell: Spell; damage: number } | null = null;
+      setState((prev) => {
+        if (prev.sleepUntil > Date.now()) return prev;
+        const key = fragmentResourceId(spell.element);
+        const have = prev.resources[key] ?? 0;
+        if (have < spell.cost) return prev;
+        const damage = rollSpellDamage(spell);
+        result = { spell, damage };
+        return {
+          ...prev,
+          resources: { ...prev.resources, [key]: have - spell.cost },
+        };
+      });
+      return result;
+    },
+    [],
+  );
+
+  /**
+   * Subtracts damage from the player's HP. If HP reaches 0, halves every
+   * fragment pile and forces the player to sleep for SLEEP_DURATION_MS.
+   * Returns true when this hit defeated the player.
+   */
+  const damagePlayer = useCallback((amount: number): boolean => {
+    let defeated = false;
+    setState((prev) => {
+      const next = Math.max(0, prev.currentHp - Math.max(0, amount));
+      if (next > 0) {
+        return { ...prev, currentHp: next };
+      }
+      defeated = true;
+      const resources = { ...prev.resources };
+      for (const k of Object.keys(resources)) {
+        if (k.endsWith("-fragment")) {
+          resources[k] = Math.floor((resources[k] ?? 0) / 2);
+        }
+      }
+      return {
+        ...prev,
+        resources,
+        currentHp: 0,
+        sleepUntil: Date.now() + SLEEP_DURATION_MS,
+      };
+    });
+    return defeated;
+  }, []);
+
+  /** Starts a voluntary sleep that restores HP after SLEEP_DURATION_MS. */
+  const startSleep = useCallback((): boolean => {
+    let ok = false;
+    setState((prev) => {
+      if (prev.sleepUntil > Date.now()) return prev;
+      const max = getMaxHp(prev.levelUpsTotal);
+      if (prev.currentHp >= max) return prev;
+      ok = true;
+      return { ...prev, sleepUntil: Date.now() + SLEEP_DURATION_MS };
+    });
+    return ok;
+  }, []);
+
+  // Restore HP and clear sleepUntil once the sleep timer elapses.
+  useEffect(() => {
+    if (!hydrated) return;
+    const id = setInterval(() => {
+      setState((prev) => {
+        if (prev.sleepUntil === 0) return prev;
+        if (Date.now() < prev.sleepUntil) return prev;
+        return {
+          ...prev,
+          sleepUntil: 0,
+          currentHp: getMaxHp(prev.levelUpsTotal),
+        };
+      });
+    }, 500);
+    return () => clearInterval(id);
+  }, [hydrated]);
+
   const reset = useCallback(() => {
     setState(INITIAL_STATE);
   }, []);
