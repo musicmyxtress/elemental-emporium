@@ -875,6 +875,7 @@ function StatsPanel({
         );
       })}
     </ul>
+    </>
   );
 }
 
