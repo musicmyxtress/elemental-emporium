@@ -334,8 +334,13 @@ export function useGameState() {
     intervalRef.current = setInterval(() => {
       setState((prev) => {
         const resources = { ...prev.resources };
-        const masteredKey = fragmentResourceId(masteredElement);
-        resources[masteredKey] = (resources[masteredKey] ?? 0) + 1;
+        const asleep = prev.sleepUntil > Date.now();
+        // Mastery passive halts while the player sleeps.
+        if (!asleep) {
+          const masteredKey = fragmentResourceId(masteredElement);
+          resources[masteredKey] = (resources[masteredKey] ?? 0) + 1;
+        }
+        // Tamed creatures keep producing even during sleep.
         for (const id of prev.tamedCreatures) {
           const creature = getCreature(id);
           if (!creature || !creature.magical) continue;
