@@ -2,6 +2,19 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { getPlace } from "./places";
 import { xpToNextLevel, fragmentResourceId, FRAGMENTS_PER_CRYSTAL, LEVEL_CAP } from "./elements";
 import { getCreature, getProductionAmount, type CreatureGender } from "./creatures";
+import { SPELLS, rollSpellDamage, type Spell } from "./spells";
+
+/** Base maximum HP at character creation, before any level-ups. */
+export const STARTING_MAX_HP = 8;
+/** HP gained for each element level the player acquires via XP. */
+export const HP_PER_LEVEL = 2;
+/** How long a forced or chosen sleep lasts, in ms. */
+export const SLEEP_DURATION_MS = 60 * 1000;
+
+/** Computes the player's current maximum HP from their level-up counter. */
+export function getMaxHp(levelUpsTotal: number): number {
+  return STARTING_MAX_HP + HP_PER_LEVEL * Math.max(0, levelUpsTotal);
+}
 
 /** A breeding currently in progress; its parents do not produce while it lasts. */
 export interface PendingBreed {
@@ -84,6 +97,12 @@ export interface GameState {
   pendingBreedings: PendingBreed[];
   /** Resolved breedings awaiting the player's acknowledgement. */
   breedingResults: BreedingResult[];
+  /** Total element level-ups the player has earned (drives max HP). */
+  levelUpsTotal: number;
+  /** Current HP; clamped to getMaxHp(levelUpsTotal). */
+  currentHp: number;
+  /** Timestamp (ms) at which a sleep ends. 0 when not sleeping. */
+  sleepUntil: number;
 }
 
 /** Build costs for player-constructable buildings. */
@@ -124,6 +143,9 @@ const INITIAL_STATE: GameState = {
   apprenticeAcknowledged: false,
   pendingBreedings: [],
   breedingResults: [],
+  levelUpsTotal: 0,
+  currentHp: STARTING_MAX_HP,
+  sleepUntil: 0,
 };
 
 
@@ -221,6 +243,18 @@ function loadState(): GameState {
                 typeof r.females === "number",
             )
           : [],
+        levelUpsTotal:
+          typeof parsed.levelUpsTotal === "number" && parsed.levelUpsTotal >= 0
+            ? parsed.levelUpsTotal
+            : 0,
+        currentHp:
+          typeof parsed.currentHp === "number" && parsed.currentHp >= 0
+            ? parsed.currentHp
+            : STARTING_MAX_HP,
+        sleepUntil:
+          typeof parsed.sleepUntil === "number" && parsed.sleepUntil > 0
+            ? parsed.sleepUntil
+            : 0,
       };
     }
   } catch {
@@ -246,13 +280,13 @@ function applyXp(
   xp: ElementRecord<number>,
   element: Element,
   amount: number,
-): { levels: ElementRecord<number>; xp: ElementRecord<number> } {
+): { levels: ElementRecord<number>; xp: ElementRecord<number>; gained: number } {
   const nextLevels = { ...levels };
   const nextXp = { ...xp };
-  const cur = nextLevels[element] ?? 0;
-  if (cur >= LEVEL_CAP) {
+  const startLevel = nextLevels[element] ?? 0;
+  if (startLevel >= LEVEL_CAP) {
     nextXp[element] = 0;
-    return { levels: nextLevels, xp: nextXp };
+    return { levels: nextLevels, xp: nextXp, gained: 0 };
   }
   nextXp[element] = (nextXp[element] ?? 0) + amount;
   while (
@@ -267,7 +301,8 @@ function applyXp(
     nextLevels[element] = LEVEL_CAP;
     nextXp[element] = 0;
   }
-  return { levels: nextLevels, xp: nextXp };
+  const gained = (nextLevels[element] ?? 0) - startLevel;
+  return { levels: nextLevels, xp: nextXp, gained };
 }
 
 export function useGameState() {
@@ -299,8 +334,13 @@ export function useGameState() {
     intervalRef.current = setInterval(() => {
       setState((prev) => {
         const resources = { ...prev.resources };
-        const masteredKey = fragmentResourceId(masteredElement);
-        resources[masteredKey] = (resources[masteredKey] ?? 0) + 1;
+        const asleep = prev.sleepUntil > Date.now();
+        // Mastery passive halts while the player sleeps.
+        if (!asleep) {
+          const masteredKey = fragmentResourceId(masteredElement);
+          resources[masteredKey] = (resources[masteredKey] ?? 0) + 1;
+        }
+        // Tamed creatures keep producing even during sleep.
         for (const id of prev.tamedCreatures) {
           const creature = getCreature(id);
           if (!creature || !creature.magical) continue;
@@ -394,13 +434,27 @@ export function useGameState() {
   const gainElementXp = useCallback((element: Element, amount: number) => {
     if (amount <= 0) return;
     setState((prev) => {
-      const { levels, xp } = applyXp(
+      const { levels, xp, gained } = applyXp(
         prev.elementLevels,
         prev.elementXp,
         element,
         amount,
       );
-      return { ...prev, elementLevels: levels, elementXp: xp };
+      if (gained === 0) {
+        return { ...prev, elementLevels: levels, elementXp: xp };
+      }
+      const levelUpsTotal = prev.levelUpsTotal + gained;
+      // Grow current HP alongside max so newly-earned HP is immediately
+      // available, while never exceeding the new cap.
+      const newMax = getMaxHp(levelUpsTotal);
+      const currentHp = Math.min(newMax, prev.currentHp + gained * HP_PER_LEVEL);
+      return {
+        ...prev,
+        elementLevels: levels,
+        elementXp: xp,
+        levelUpsTotal,
+        currentHp,
+      };
     });
   }, []);
 
@@ -580,6 +634,9 @@ export function useGameState() {
         apprenticeAcknowledged: false,
         pendingBreedings: [],
         breedingResults: [],
+        levelUpsTotal: 0,
+        currentHp: STARTING_MAX_HP,
+        sleepUntil: 0,
       };
     });
     return ok;
@@ -651,6 +708,93 @@ export function useGameState() {
     return result;
   }, []);
 
+  /**
+   * Casts a spell, deducting its fragment cost from the matching element's
+   * pool and rolling damage. Returns the rolled damage and the spell on
+   * success, or null when the player can't afford the cost / isn't allowed
+   * to act (e.g. asleep).
+   */
+  const castSpell = useCallback(
+    (spellId: string): { spell: Spell; damage: number } | null => {
+      const spell = SPELLS.find((s) => s.id === spellId);
+      if (!spell) return null;
+      let result: { spell: Spell; damage: number } | null = null;
+      setState((prev) => {
+        if (prev.sleepUntil > Date.now()) return prev;
+        const key = fragmentResourceId(spell.element);
+        const have = prev.resources[key] ?? 0;
+        if (have < spell.cost) return prev;
+        const damage = rollSpellDamage(spell);
+        result = { spell, damage };
+        return {
+          ...prev,
+          resources: { ...prev.resources, [key]: have - spell.cost },
+        };
+      });
+      return result;
+    },
+    [],
+  );
+
+  /**
+   * Subtracts damage from the player's HP. If HP reaches 0, halves every
+   * fragment pile and forces the player to sleep for SLEEP_DURATION_MS.
+   * Returns true when this hit defeated the player.
+   */
+  const damagePlayer = useCallback((amount: number): boolean => {
+    let defeated = false;
+    setState((prev) => {
+      const next = Math.max(0, prev.currentHp - Math.max(0, amount));
+      if (next > 0) {
+        return { ...prev, currentHp: next };
+      }
+      defeated = true;
+      const resources = { ...prev.resources };
+      for (const k of Object.keys(resources)) {
+        if (k.endsWith("-fragment")) {
+          resources[k] = Math.floor((resources[k] ?? 0) / 2);
+        }
+      }
+      return {
+        ...prev,
+        resources,
+        currentHp: 0,
+        sleepUntil: Date.now() + SLEEP_DURATION_MS,
+      };
+    });
+    return defeated;
+  }, []);
+
+  /** Starts a voluntary sleep that restores HP after SLEEP_DURATION_MS. */
+  const startSleep = useCallback((): boolean => {
+    let ok = false;
+    setState((prev) => {
+      if (prev.sleepUntil > Date.now()) return prev;
+      const max = getMaxHp(prev.levelUpsTotal);
+      if (prev.currentHp >= max) return prev;
+      ok = true;
+      return { ...prev, sleepUntil: Date.now() + SLEEP_DURATION_MS };
+    });
+    return ok;
+  }, []);
+
+  // Restore HP and clear sleepUntil once the sleep timer elapses.
+  useEffect(() => {
+    if (!hydrated) return;
+    const id = setInterval(() => {
+      setState((prev) => {
+        if (prev.sleepUntil === 0) return prev;
+        if (Date.now() < prev.sleepUntil) return prev;
+        return {
+          ...prev,
+          sleepUntil: 0,
+          currentHp: getMaxHp(prev.levelUpsTotal),
+        };
+      });
+    }, 500);
+    return () => clearInterval(id);
+  }, [hydrated]);
+
   const reset = useCallback(() => {
     setState(INITIAL_STATE);
   }, []);
@@ -676,6 +820,9 @@ export function useGameState() {
     startBreeding,
     dismissBreedingResult,
     trainMagicalCreature,
+    castSpell,
+    damagePlayer,
+    startSleep,
     reset,
   };
 }

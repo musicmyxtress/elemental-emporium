@@ -1,6 +1,14 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
-import { useGameState, type CollectResult, type GameState, BUILDING_COSTS, APPRENTICE_LEVEL } from "@/lib/useGameState";
+import {
+  useGameState,
+  type CollectResult,
+  type GameState,
+  BUILDING_COSTS,
+  APPRENTICE_LEVEL,
+  getMaxHp,
+  SLEEP_DURATION_MS,
+} from "@/lib/useGameState";
 import {
   ELEMENTS,
   ALL_ELEMENT_INFO,
@@ -17,8 +25,11 @@ import {
   getCreature,
   getProductionAmount,
   getConsumptionAmount,
+  getCreatureHp,
+  getCreatureDamage,
   type Creature,
 } from "@/lib/creatures";
+import { getUnlockedSpells, type Spell } from "@/lib/spells";
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
@@ -71,6 +82,9 @@ function Index() {
     graduateApprentice,
     startBreeding,
     dismissBreedingResult,
+    castSpell,
+    damagePlayer,
+    startSleep,
     reset,
   } = useGameState();
 
@@ -136,6 +150,12 @@ function Index() {
       onDismissBreedingResult={dismissBreedingResult}
       elementLevels={state.elementLevels}
       elementXp={state.elementXp}
+      currentHp={state.currentHp}
+      maxHp={getMaxHp(state.levelUpsTotal)}
+      sleepUntil={state.sleepUntil}
+      onCastSpell={castSpell}
+      onDamagePlayer={damagePlayer}
+      onStartSleep={startSleep}
       onReset={reset}
     />
   );
@@ -288,6 +308,16 @@ type Discovery =
   | { kind: "event"; event: RandomEvent }
   | { kind: "nothing" };
 
+/** Active turn-based encounter state. */
+interface CombatState {
+  creature: Creature;
+  creatureHp: number;
+  creatureMaxHp: number;
+  log: string[];
+  /** 'player' = waiting for a spell choice; 'win'/'lose' = encounter over. */
+  phase: "player" | "win" | "lose";
+}
+
 function GameScreen({
   element,
   generation,
@@ -321,6 +351,12 @@ function GameScreen({
   onGraduateApprentice,
   onStartBreeding,
   onDismissBreedingResult,
+  currentHp,
+  maxHp,
+  sleepUntil,
+  onCastSpell,
+  onDamagePlayer,
+  onStartSleep,
   onReset,
 }: {
   element: string;
@@ -360,6 +396,12 @@ function GameScreen({
     rarity: number,
   ) => { ok: boolean; success: boolean; chance: number; pairs: number };
   onDismissBreedingResult: (id: string) => void;
+  currentHp: number;
+  maxHp: number;
+  sleepUntil: number;
+  onCastSpell: (spellId: string) => { spell: Spell; damage: number } | null;
+  onDamagePlayer: (amount: number) => boolean;
+  onStartSleep: () => boolean;
   onReset: () => void;
 }) {
   const headingRef = useRef<HTMLHeadingElement>(null);
@@ -370,8 +412,19 @@ function GameScreen({
 
   const [discovery, setDiscovery] = useState<Discovery | null>(null);
   const [creatureAnnouncement, setCreatureAnnouncement] = useState("");
+  const [combat, setCombat] = useState<CombatState | null>(null);
+
+  // Drives the sleep countdown / HP bar re-render once per second.
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, []);
+  const isSleeping = sleepUntil > now;
+  const sleepRemainingMs = isSleeping ? sleepUntil - now : 0;
 
   function handleExplore() {
+    if (isSleeping) return;
     const place = rollUndiscoveredPlace(discoveredPlaces, shelvedPlaces);
     const event = rollEvent();
     const creature = rollCreature(elementLevels, shelvedCreatures);
@@ -427,9 +480,73 @@ function GameScreen({
     setDiscovery(null);
   }
 
-  // Fight and leave-alone remain stubs until combat is implemented.
-  function handleFightOrLeave() {
+  /** Closes the discovery dialog. Used for "Leave alone". */
+  function handleLeave() {
     setDiscovery(null);
+  }
+
+  /** Begins turn-based combat against the discovered creature. */
+  function handleFight() {
+    if (isSleeping) return;
+    if (discovery?.kind !== "creature" && discovery?.kind !== "locked-creature") return;
+    const creature = discovery.creature;
+    setDiscovery(null);
+    setCombat({
+      creature,
+      creatureHp: getCreatureHp(creature),
+      creatureMaxHp: getCreatureHp(creature),
+      log: [`A wild ${creature.name} squares up to fight.`],
+      phase: "player",
+    });
+  }
+
+  /** Player casts a spell, then the creature counter-attacks (or combat ends). */
+  function handleCast(spellId: string) {
+    if (!combat || combat.phase !== "player" || isSleeping) return;
+    const cast = onCastSpell(spellId);
+    if (!cast) {
+      setCombat({
+        ...combat,
+        log: [...combat.log, "You can't afford to cast that spell."],
+      });
+      return;
+    }
+    const newCreatureHp = Math.max(0, combat.creatureHp - cast.damage);
+    const log = [
+      ...combat.log,
+      cast.spell.actionText,
+      `${cast.spell.name} deals ${cast.damage} damage to ${combat.creature.name}.`,
+    ];
+    if (newCreatureHp === 0) {
+      setCombat({ ...combat, creatureHp: 0, log: [...log, `You defeated ${combat.creature.name}!`], phase: "win" });
+      return;
+    }
+    // Creature retaliates immediately.
+    const dmg = getCreatureDamage(combat.creature);
+    const defeated = onDamagePlayer(dmg);
+    const log2 = [...log, `${combat.creature.name} strikes you for ${dmg} damage.`];
+    if (defeated) {
+      setCombat({
+        ...combat,
+        creatureHp: newCreatureHp,
+        log: [
+          ...log2,
+          "You collapse. Half of your fragments slip away as you fall into a forced sleep.",
+        ],
+        phase: "lose",
+      });
+      return;
+    }
+    setCombat({ ...combat, creatureHp: newCreatureHp, log: log2, phase: "player" });
+  }
+
+  function handleFlee() {
+    if (!combat) return;
+    setCombat({ ...combat, log: [...combat.log, "You flee from combat."], phase: "win" });
+  }
+
+  function handleCloseCombat() {
+    setCombat(null);
   }
 
   function handleTame() {
@@ -470,12 +587,31 @@ function GameScreen({
         >
           {activeTabLabel}
         </h1>
-        {activeTab === "home-base" && (
-          <Button type="button" onClick={handleExplore}>
-            Explore
-          </Button>
-        )}
+        <div className="flex items-center gap-3">
+          <p className="text-sm font-medium tabular-nums text-foreground" aria-label={`Health: ${currentHp} of ${maxHp}`}>
+            HP {currentHp}/{maxHp}
+          </p>
+          {activeTab === "home-base" && (
+            <Button
+              type="button"
+              onClick={handleExplore}
+              disabled={isSleeping}
+              aria-label={isSleeping ? "You are sleeping; cannot explore" : "Explore"}
+            >
+              Explore
+            </Button>
+          )}
+        </div>
       </header>
+      {isSleeping && (
+        <p
+          role="status"
+          aria-live="polite"
+          className="mt-4 rounded-md border bg-muted/50 p-3 text-sm text-foreground"
+        >
+          Sleeping… you wake in {Math.ceil(sleepRemainingMs / 1000)}s. Your creatures keep producing fragments.
+        </p>
+      )}
 
       <Tabs
         value={activeTab}
@@ -503,8 +639,12 @@ function GameScreen({
                   tamedCreatures={tamedCreatures}
                   resources={resources}
                   buildings={buildings}
+                  currentHp={currentHp}
+                  maxHp={maxHp}
+                  isSleeping={isSleeping}
                   onBuildBuilding={onBuildBuilding}
                   onGraduateApprentice={onGraduateApprentice}
+                  onStartSleep={onStartSleep}
                 />
               )}
               {tab.value === "stable" && (
@@ -560,9 +700,20 @@ function GameScreen({
         crystals={crystals}
         unlockedElements={unlockedElements}
         onStudy={handleStudy}
-        onFightOrLeave={handleFightOrLeave}
+        onFight={handleFight}
+        onLeave={handleLeave}
         onTame={handleTame}
         onDismiss={() => setDiscovery(null)}
+      />
+      <CombatDialog
+        combat={combat}
+        currentHp={currentHp}
+        maxHp={maxHp}
+        spells={getUnlockedSpells(elementLevels, unlockedElements)}
+        resources={resources}
+        onCast={handleCast}
+        onFlee={handleFlee}
+        onClose={handleCloseCombat}
       />
       <ApprenticeArrivalDialog
         open={(elementLevels[element] ?? 0) >= APPRENTICE_LEVEL && !apprenticeAcknowledged}
@@ -949,7 +1100,8 @@ function DiscoveryDialog({
   crystals,
   unlockedElements,
   onStudy,
-  onFightOrLeave,
+  onFight,
+  onLeave,
   onTame,
   onDismiss,
 }: {
@@ -957,7 +1109,8 @@ function DiscoveryDialog({
   crystals: Record<string, number>;
   unlockedElements: string[];
   onStudy: () => void;
-  onFightOrLeave: () => void;
+  onFight: () => void;
+  onLeave: () => void;
   onTame: () => void;
   onDismiss: () => void;
 }) {
@@ -1028,14 +1181,14 @@ function DiscoveryDialog({
               <Button type="button" onClick={onStudy}>
                 Study
               </Button>
-              <Button type="button" variant="outline" onClick={onFightOrLeave}>
+              <Button type="button" variant="outline" onClick={onLeave}>
                 Leave alone
               </Button>
             </>
           )}
           {creatureForTame && (
             <>
-              <Button type="button" onClick={onFightOrLeave}>
+              <Button type="button" onClick={onFight}>
                 Fight
               </Button>
               <Button
@@ -1050,7 +1203,7 @@ function DiscoveryDialog({
               >
                 Tame ({tameCost} {tameElement} crystals)
               </Button>
-              <Button type="button" variant="outline" onClick={onFightOrLeave}>
+              <Button type="button" variant="outline" onClick={onLeave}>
                 Leave alone
               </Button>
             </>
@@ -1069,6 +1222,104 @@ function DiscoveryDialog({
   );
 }
 
+function CombatDialog({
+  combat,
+  currentHp,
+  maxHp,
+  spells,
+  resources,
+  onCast,
+  onFlee,
+  onClose,
+}: {
+  combat: CombatState | null;
+  currentHp: number;
+  maxHp: number;
+  spells: Spell[];
+  resources: Record<string, number>;
+  onCast: (spellId: string) => void;
+  onFlee: () => void;
+  onClose: () => void;
+}) {
+  const open = combat !== null;
+  if (!combat) {
+    return (
+      <Dialog open={open} onOpenChange={(o) => (!o ? onClose() : undefined)}>
+        <DialogContent />
+      </Dialog>
+    );
+  }
+  const { creature, creatureHp, creatureMaxHp, log, phase } = combat;
+  const isOver = phase === "win" || phase === "lose";
+  const title = isOver
+    ? phase === "win"
+      ? `Victory over ${creature.name}`
+      : `${creature.name} defeats you`
+    : `Fighting ${creature.name}`;
+  return (
+    <Dialog open={open} onOpenChange={(o) => (!o && isOver ? onClose() : undefined)}>
+      <DialogContent
+        onPointerDownOutside={(e) => e.preventDefault()}
+        onEscapeKeyDown={(e) => e.preventDefault()}
+        onInteractOutside={(e) => e.preventDefault()}
+      >
+        <DialogHeader>
+          <DialogTitle>{title}</DialogTitle>
+          <DialogDescription>
+            You: {currentHp} / {maxHp} HP. {creature.name}: {creatureHp} / {creatureMaxHp} HP.
+          </DialogDescription>
+        </DialogHeader>
+        <div
+          role="log"
+          aria-live="polite"
+          className="max-h-48 space-y-1 overflow-y-auto rounded-md border bg-muted/40 p-3 text-sm text-foreground"
+        >
+          {log.map((line, i) => (
+            <p key={i}>{line}</p>
+          ))}
+        </div>
+        <DialogFooter className="flex flex-wrap gap-2 sm:flex-row">
+          {phase === "player" && spells.length === 0 && (
+            <p className="text-sm text-muted-foreground">
+              You have no offensive spells unlocked yet. You may only flee.
+            </p>
+          )}
+          {phase === "player" &&
+            spells.map((spell) => {
+              const have = resources[fragmentResourceId(spell.element)] ?? 0;
+              const affordable = have >= spell.cost;
+              return (
+                <Button
+                  key={spell.id}
+                  type="button"
+                  onClick={() => onCast(spell.id)}
+                  disabled={!affordable}
+                  aria-label={
+                    affordable
+                      ? `Cast ${spell.name}, costs ${spell.cost} ${spell.element} fragments, deals ${spell.damageMin} to ${spell.damageMax} damage`
+                      : `Cast ${spell.name} requires ${spell.cost} ${spell.element} fragments — not enough`
+                  }
+                >
+                  {spell.name} ({spell.cost} {spell.element})
+                </Button>
+              );
+            })}
+          {phase === "player" && (
+            <Button type="button" variant="outline" onClick={onFlee}>
+              Flee
+            </Button>
+          )}
+          {isOver && (
+            <Button type="button" onClick={onClose} autoFocus>
+              Continue
+            </Button>
+          )}
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 
 
 
@@ -1079,8 +1330,12 @@ function HomeBasePanel({
   tamedCreatures,
   resources,
   buildings,
+  currentHp,
+  maxHp,
+  isSleeping,
   onBuildBuilding,
   onGraduateApprentice,
+  onStartSleep,
 }: {
   masteredElement: string;
   masteredLevel: number;
@@ -1088,8 +1343,12 @@ function HomeBasePanel({
   tamedCreatures: string[];
   resources: Record<string, number>;
   buildings: string[];
+  currentHp: number;
+  maxHp: number;
+  isSleeping: boolean;
   onBuildBuilding: (buildingId: string) => boolean;
   onGraduateApprentice: (creatureId: string) => boolean;
+  onStartSleep: () => boolean;
 }) {
   const [announcement, setAnnouncement] = useState("");
   const [graduateOpen, setGraduateOpen] = useState(false);
@@ -1156,6 +1415,35 @@ function HomeBasePanel({
       <p className="mt-1 text-sm text-muted-foreground">
         Generation {generation}. You are mastering {masteredName} (level {masteredLevel}).
       </p>
+
+      <h3 className="mt-6 text-base font-medium text-foreground">Health</h3>
+      <p className="mt-1 text-sm text-foreground tabular-nums">
+        {currentHp} / {maxHp} HP
+      </p>
+      {currentHp < maxHp && (
+        <div className="mt-2">
+          <Button
+            type="button"
+            size="sm"
+            onClick={() => {
+              const ok = onStartSleep();
+              setAnnouncement(
+                ok
+                  ? "You lie down to sleep for a minute. Your creatures keep working while you rest."
+                  : "You can't sleep right now.",
+              );
+            }}
+            disabled={isSleeping}
+            aria-label={
+              isSleeping
+                ? "Already sleeping"
+                : "Sleep for one minute to restore HP"
+            }
+          >
+            {isSleeping ? "Sleeping…" : "Sleep (1 min)"}
+          </Button>
+        </div>
+      )}
 
       <h3 className="mt-6 text-base font-medium text-foreground">Resources</h3>
       <p className="mt-1 text-sm text-foreground">Wood: {wood}</p>
