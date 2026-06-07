@@ -1285,11 +1285,13 @@ function StablePanel({
   buildings,
   tamedCreatures,
   pendingBreedings,
+  elementLevels,
   onStartBreeding,
 }: {
   buildings: string[];
   tamedCreatures: string[];
   pendingBreedings: GameState["pendingBreedings"];
+  elementLevels: Record<string, number>;
   onStartBreeding: (
     creatureName: string,
     templateId: string,
