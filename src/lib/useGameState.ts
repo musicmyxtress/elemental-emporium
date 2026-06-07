@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { getPlace } from "./places";
 import { xpToNextLevel, fragmentResourceId, FRAGMENTS_PER_CRYSTAL, LEVEL_CAP } from "./elements";
-import type { CreatureGender } from "./creatures";
+import { getCreature, getProductionAmount, type CreatureGender } from "./creatures";
 
 /** A breeding currently in progress; its parents do not produce while it lasts. */
 export interface PendingBreed {
@@ -288,18 +288,28 @@ export function useGameState() {
     }
   }, [state, hydrated]);
 
-  // Passive fragment generation for the mastered element.
+  // Passive fragment generation for the mastered element, plus per-tick
+  // contributions from tamed magical creatures (whose output scales with
+  // their currently trained level — read from `prev` so training changes
+  // take effect on the very next tick).
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   useEffect(() => {
     if (!state.element) return;
     const masteredElement = state.element;
     intervalRef.current = setInterval(() => {
       setState((prev) => {
-        const key = fragmentResourceId(masteredElement);
-        return {
-          ...prev,
-          resources: { ...prev.resources, [key]: (prev.resources[key] ?? 0) + 1 },
-        };
+        const resources = { ...prev.resources };
+        const masteredKey = fragmentResourceId(masteredElement);
+        resources[masteredKey] = (resources[masteredKey] ?? 0) + 1;
+        for (const id of prev.tamedCreatures) {
+          const creature = getCreature(id);
+          if (!creature || !creature.magical) continue;
+          const trained = prev.magicalLevels[id] ?? 1;
+          const amount = getProductionAmount(creature, trained);
+          const key = fragmentResourceId(creature.elementProduction.element);
+          resources[key] = (resources[key] ?? 0) + amount;
+        }
+        return { ...prev, resources };
       });
     }, FRAGMENT_INTERVAL_MS);
     return () => {
