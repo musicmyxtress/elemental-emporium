@@ -748,6 +748,7 @@ function GameScreen({
         maxHp={maxHp}
         spells={getUnlockedSpells(elementLevels, unlockedElements)}
         resources={resources}
+        elementLevels={elementLevels}
         onCast={handleCast}
         onFlee={handleFlee}
         onClose={handleCloseCombat}
