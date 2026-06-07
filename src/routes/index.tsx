@@ -117,6 +117,8 @@ function Index() {
       discoveredElements={state.discoveredElements}
       buildings={state.buildings}
       tamedCreatures={state.tamedCreatures}
+      pendingBreedings={state.pendingBreedings}
+      breedingResults={state.breedingResults}
       onDiscoverPlace={discoverPlace}
       onShelvePlace={shelvePlace}
       onShelveCreature={shelveCreature}
@@ -130,6 +132,8 @@ function Index() {
       onBuildBuilding={buildBuilding}
       onAcknowledgeApprentice={acknowledgeApprentice}
       onGraduateApprentice={graduateApprentice}
+      onStartBreeding={startBreeding}
+      onDismissBreedingResult={dismissBreedingResult}
       elementLevels={state.elementLevels}
       elementXp={state.elementXp}
       onReset={reset}
