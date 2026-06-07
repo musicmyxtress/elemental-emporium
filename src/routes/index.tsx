@@ -808,16 +808,22 @@ function FragmentsAndCrystalsPanel({
 }
 
 function StatsPanel({
-
   elementLevels,
   elementXp,
+  generation,
 }: {
   elementLevels: GameState["elementLevels"];
   elementXp: GameState["elementXp"];
+  generation: number;
 }) {
   return (
-    <ul className="mt-4 grid gap-3" role="list">
-      {ELEMENTS.map((el) => {
+    <>
+      <h3 className="text-base font-medium text-foreground">Generations</h3>
+      <p className="mt-1 text-sm text-muted-foreground">
+        You are on generation {generation}.
+      </p>
+      <ul className="mt-4 grid gap-3" role="list">
+        {ELEMENTS.map((el) => {
         const level = elementLevels[el.id] ?? 0;
         const xp = elementXp[el.id] ?? 0;
         const needed = level >= 1 ? xpToNextLevel(level) : 0;
