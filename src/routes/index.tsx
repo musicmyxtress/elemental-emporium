@@ -677,9 +677,20 @@ function GameScreen({
         crystals={crystals}
         unlockedElements={unlockedElements}
         onStudy={handleStudy}
-        onFightOrLeave={handleFightOrLeave}
+        onFight={handleFight}
+        onLeave={handleLeave}
         onTame={handleTame}
         onDismiss={() => setDiscovery(null)}
+      />
+      <CombatDialog
+        combat={combat}
+        currentHp={currentHp}
+        maxHp={maxHp}
+        spells={getUnlockedSpells(elementLevels, unlockedElements)}
+        resources={resources}
+        onCast={handleCast}
+        onFlee={handleFlee}
+        onClose={handleCloseCombat}
       />
       <ApprenticeArrivalDialog
         open={(elementLevels[element] ?? 0) >= APPRENTICE_LEVEL && !apprenticeAcknowledged}
