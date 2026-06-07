@@ -1,6 +1,14 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
-import { useGameState, type CollectResult, type GameState, BUILDING_COSTS, APPRENTICE_LEVEL } from "@/lib/useGameState";
+import {
+  useGameState,
+  type CollectResult,
+  type GameState,
+  BUILDING_COSTS,
+  APPRENTICE_LEVEL,
+  getMaxHp,
+  SLEEP_DURATION_MS,
+} from "@/lib/useGameState";
 import {
   ELEMENTS,
   ALL_ELEMENT_INFO,
@@ -17,8 +25,11 @@ import {
   getCreature,
   getProductionAmount,
   getConsumptionAmount,
+  getCreatureHp,
+  getCreatureDamage,
   type Creature,
 } from "@/lib/creatures";
+import { getUnlockedSpells, type Spell } from "@/lib/spells";
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
