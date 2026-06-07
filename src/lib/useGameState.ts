@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { getPlace } from "./places";
 import { xpToNextLevel, fragmentResourceId, FRAGMENTS_PER_CRYSTAL, LEVEL_CAP } from "./elements";
-import { getCreature, type CreatureGender } from "./creatures";
+import type { CreatureGender } from "./creatures";
 
 /** A breeding currently in progress; its parents do not produce while it lasts. */
 export interface PendingBreed {
@@ -82,25 +82,6 @@ export interface GameState {
   pendingBreedings: PendingBreed[];
   /** Resolved breedings awaiting the player's acknowledgement. */
   breedingResults: BreedingResult[];
-  /** Trainable magical creatures the player has tamed. */
-  magicalCreatures: MagicalCreatureInstance[];
-}
-
-/** An individual trained magical creature. */
-export interface MagicalCreatureInstance {
-  id: string;
-  templateId: string;
-  level: number;
-  xp: number;
-}
-
-/** Returns the player's max HP: 1 per level across all elements. */
-export function getPlayerHp(state: GameState): number {
-  let hp = 0;
-  for (const lv of Object.values(state.elementLevels)) {
-    if (typeof lv === "number" && lv > 0) hp += lv;
-  }
-  return hp;
 }
 
 /** Build costs for player-constructable buildings. */
@@ -140,7 +121,6 @@ const INITIAL_STATE: GameState = {
   apprenticeAcknowledged: false,
   pendingBreedings: [],
   breedingResults: [],
-  magicalCreatures: [],
 };
 
 
@@ -162,11 +142,8 @@ function loadState(): GameState {
       const parsed = JSON.parse(raw) as Partial<GameState>;
       const element = typeof parsed.element === "string" ? parsed.element : null;
       const elementLevels = sanitizeRecord(parsed.elementLevels);
-      if (element) {
-        for (const starter of STARTER_UNLOCKED_ELEMENTS) {
-          if ((elementLevels[starter] ?? 0) < 1) elementLevels[starter] = 1;
-        }
-        if ((elementLevels[element] ?? 0) < 1) elementLevels[element] = 1;
+      if (element && (elementLevels[element] ?? 0) < 1) {
+        elementLevels[element] = 1;
       }
       const baseResources: Record<string, number> =
         parsed.resources && typeof parsed.resources === "object"
@@ -238,16 +215,6 @@ function loadState(): GameState {
                 typeof r.creatureName === "string" &&
                 typeof r.males === "number" &&
                 typeof r.females === "number",
-            )
-          : [],
-        magicalCreatures: Array.isArray(parsed.magicalCreatures)
-          ? (parsed.magicalCreatures as MagicalCreatureInstance[]).filter(
-              (m) =>
-                m &&
-                typeof m.id === "string" &&
-                typeof m.templateId === "string" &&
-                typeof m.level === "number" &&
-                typeof m.xp === "number",
             )
           : [],
       };
@@ -377,11 +344,6 @@ export function useGameState() {
   const chooseElement = useCallback((element: Element) => {
     setState((prev) => {
       const elementLevels: ElementRecord<number> = { ...prev.elementLevels };
-      // Every new generation starts with level 1 in each starter element
-      // (air/earth/fire/water), giving the player 4 baseline HP.
-      for (const starter of STARTER_UNLOCKED_ELEMENTS) {
-        elementLevels[starter] = Math.max(1, elementLevels[starter] ?? 0);
-      }
       elementLevels[element] = Math.max(1, elementLevels[element] ?? 0);
       const elementXp: ElementRecord<number> = { ...prev.elementXp };
       if ((elementXp[element] ?? 0) === 0) elementXp[element] = 0;
@@ -531,46 +493,10 @@ export function useGameState() {
   }, []);
 
   const tameCreature = useCallback((creatureId: string) => {
-    setState((prev) => {
-      const tpl = getCreature(creatureId);
-      if (tpl?.magical) {
-        const instance: MagicalCreatureInstance = {
-          id: `mag-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-          templateId: creatureId,
-          level: 1,
-          xp: 0,
-        };
-        return { ...prev, magicalCreatures: [...prev.magicalCreatures, instance] };
-      }
-      return { ...prev, tamedCreatures: [...prev.tamedCreatures, creatureId] };
-    });
-  }, []);
-
-  /**
-   * Awards XP to a trained magical creature. Uses the same level curve as
-   * elements (xpToNextLevel) and caps at LEVEL_CAP.
-   */
-  const gainCreatureXp = useCallback((instanceId: string, amount: number) => {
-    if (amount <= 0) return;
-    setState((prev) => {
-      let changed = false;
-      const next = prev.magicalCreatures.map((m) => {
-        if (m.id !== instanceId) return m;
-        changed = true;
-        let level = m.level;
-        let xp = m.xp + amount;
-        while (level < LEVEL_CAP && xp >= xpToNextLevel(level)) {
-          xp -= xpToNextLevel(level);
-          level += 1;
-        }
-        if (level >= LEVEL_CAP) {
-          level = LEVEL_CAP;
-          xp = 0;
-        }
-        return { ...m, level, xp };
-      });
-      return changed ? { ...prev, magicalCreatures: next } : prev;
-    });
+    setState((prev) => ({
+      ...prev,
+      tamedCreatures: [...prev.tamedCreatures, creatureId],
+    }));
   }, []);
 
   const buildBuilding = useCallback((buildingId: string): boolean => {
@@ -639,7 +565,6 @@ export function useGameState() {
         apprenticeAcknowledged: false,
         pendingBreedings: [],
         breedingResults: [],
-        magicalCreatures: [],
       };
     });
     return ok;
@@ -711,7 +636,6 @@ export function useGameState() {
     convertFragmentsToCrystal,
     spendCrystals,
     tameCreature,
-    gainCreatureXp,
     buildBuilding,
     acknowledgeApprentice,
     graduateApprentice,

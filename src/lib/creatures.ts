@@ -40,17 +40,13 @@ export interface Creature {
 export const CREATURES: Creature[] = [];
 
 /**
- * Per-tick production amount for a creature at a given trained level.
- * - Non-magical creatures always produce their rarity (untrainable).
- * - Magical creatures produce double their rarity at level 1, and gain a
- *   bonus of (1 + rarity) per 3 trained levels above 1.
+ * Per-tick production amount for a creature.
+ * - Non-magical creatures produce their rarity level in their production element.
+ * - Magical creatures produce double their rarity level in their production element.
  */
-export function getProductionAmount(creature: Creature, level: number = 1): number {
+export function getProductionAmount(creature: Creature): number {
   const base = Math.max(1, creature.rarity);
-  if (!creature.magical) return base;
-  const trained = Math.max(1, level);
-  const bonusSteps = Math.floor((trained - 1) / 3);
-  return base * 2 + bonusSteps * (1 + base);
+  return creature.magical ? base * 2 : base;
 }
 
 /**
@@ -61,14 +57,6 @@ export function getProductionAmount(creature: Creature, level: number = 1): numb
 export function getConsumptionAmount(creature: Creature): number {
   if (!creature.magical || !creature.elementConsumption) return 0;
   return Math.max(1, creature.rarity);
-}
-
-/**
- * Max HP for a creature at a given level. All creatures: rarity × level.
- * Non-magical creatures are not trainable and effectively stay at level 1.
- */
-export function getCreatureHp(creature: Creature, level: number = 1): number {
-  return Math.max(1, creature.rarity) * Math.max(1, level);
 }
 
 /** Looks up a creature by id, or returns undefined when not found. */
