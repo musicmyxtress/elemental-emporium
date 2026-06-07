@@ -140,6 +140,7 @@ const INITIAL_STATE: GameState = {
   apprenticeAcknowledged: false,
   pendingBreedings: [],
   breedingResults: [],
+  magicalCreatures: [],
 };
 
 
