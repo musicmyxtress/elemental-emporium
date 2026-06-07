@@ -1,6 +1,32 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { getPlace } from "./places";
 import { xpToNextLevel, fragmentResourceId, FRAGMENTS_PER_CRYSTAL, LEVEL_CAP } from "./elements";
+import type { CreatureGender } from "./creatures";
+
+/** A breeding currently in progress; its parents do not produce while it lasts. */
+export interface PendingBreed {
+  id: string;
+  creatureName: string;
+  /** A template id from this species, used to spawn the offspring instances. */
+  templateId: string;
+  /** Number of male/female pairs locked in this breeding. */
+  pairs: number;
+  /** Timestamp (ms) at which the breeding resolves. */
+  readyAt: number;
+  /** Pre-rolled offspring genders, one per pair. */
+  offspringGenders: CreatureGender[];
+}
+
+/** A resolved breeding awaiting acknowledgement from the player. */
+export interface BreedingResult {
+  id: string;
+  creatureName: string;
+  males: number;
+  females: number;
+}
+
+/** How long, in ms, parents stay locked after a successful breeding. */
+export const BREEDING_DURATION_MS = 30 * 60 * 1000;
 
 /** An element id. Starters are air/earth/fire/water; others (plant, lava, etc.)
  * become available once unlocked. */
@@ -52,6 +78,10 @@ export interface GameState {
   generation: number;
   /** True once the player has acknowledged the current generation's apprentice arrival. */
   apprenticeAcknowledged: boolean;
+  /** Breedings in progress; their parents do not produce while pending. */
+  pendingBreedings: PendingBreed[];
+  /** Resolved breedings awaiting the player's acknowledgement. */
+  breedingResults: BreedingResult[];
 }
 
 /** Build costs for player-constructable buildings. */
@@ -89,6 +119,8 @@ const INITIAL_STATE: GameState = {
   discoveredElements: STARTER_UNLOCKED_ELEMENTS,
   generation: 1,
   apprenticeAcknowledged: false,
+  pendingBreedings: [],
+  breedingResults: [],
 };
 
 
@@ -163,6 +195,28 @@ function loadState(): GameState {
             ? parsed.generation
             : 1,
         apprenticeAcknowledged: Boolean(parsed.apprenticeAcknowledged),
+        pendingBreedings: Array.isArray(parsed.pendingBreedings)
+          ? (parsed.pendingBreedings as PendingBreed[]).filter(
+              (p) =>
+                p &&
+                typeof p.id === "string" &&
+                typeof p.creatureName === "string" &&
+                typeof p.templateId === "string" &&
+                typeof p.pairs === "number" &&
+                typeof p.readyAt === "number" &&
+                Array.isArray(p.offspringGenders),
+            )
+          : [],
+        breedingResults: Array.isArray(parsed.breedingResults)
+          ? (parsed.breedingResults as BreedingResult[]).filter(
+              (r) =>
+                r &&
+                typeof r.id === "string" &&
+                typeof r.creatureName === "string" &&
+                typeof r.males === "number" &&
+                typeof r.females === "number",
+            )
+          : [],
       };
     }
   } catch {
@@ -248,6 +302,43 @@ export function useGameState() {
       if (intervalRef.current) clearInterval(intervalRef.current);
     };
   }, [state.element]);
+
+  // Resolve pending breedings whose timer has elapsed.
+  useEffect(() => {
+    if (!hydrated) return;
+    const tick = () => {
+      setState((prev) => {
+        if (prev.pendingBreedings.length === 0) return prev;
+        const now = Date.now();
+        const ripe = prev.pendingBreedings.filter((p) => p.readyAt <= now);
+        if (ripe.length === 0) return prev;
+        const remaining = prev.pendingBreedings.filter((p) => p.readyAt > now);
+        const newTames: string[] = [];
+        const newResults: BreedingResult[] = [];
+        for (const p of ripe) {
+          const males = p.offspringGenders.filter((g) => g === "male").length;
+          const females = p.offspringGenders.length - males;
+          for (let i = 0; i < p.offspringGenders.length; i++) newTames.push(p.templateId);
+          newResults.push({
+            id: p.id,
+            creatureName: p.creatureName,
+            males,
+            females,
+          });
+        }
+        return {
+          ...prev,
+          pendingBreedings: remaining,
+          tamedCreatures: [...prev.tamedCreatures, ...newTames],
+          breedingResults: [...prev.breedingResults, ...newResults],
+        };
+      });
+    };
+    tick();
+    const id = setInterval(tick, 5000);
+    return () => clearInterval(id);
+  }, [hydrated]);
+
 
 
   const chooseElement = useCallback((element: Element) => {
@@ -472,10 +563,59 @@ export function useGameState() {
         // unlockedElements, discoveredElements, discoveredPlaces persist.
         generation: prev.generation + 1,
         apprenticeAcknowledged: false,
+        pendingBreedings: [],
+        breedingResults: [],
       };
     });
     return ok;
   }, []);
+
+  /**
+   * Attempts to breed all male/female pairs of a species in the stable.
+   * Success chance = max(0, min(100, 81 - 6 * rarity))%. On success the
+   * parents are locked for BREEDING_DURATION_MS and offspring genders are
+   * pre-rolled. Returns the resulting state for the UI to announce.
+   */
+  const startBreeding = useCallback(
+    (
+      creatureName: string,
+      templateId: string,
+      pairs: number,
+      rarity: number,
+    ): { ok: boolean; success: boolean; chance: number; pairs: number } => {
+      if (pairs <= 0) return { ok: false, success: false, chance: 0, pairs: 0 };
+      const chance = Math.max(0, Math.min(100, 81 - 6 * Math.max(0, rarity)));
+      const success = Math.random() * 100 < chance;
+      if (!success) {
+        return { ok: true, success: false, chance, pairs };
+      }
+      const offspringGenders: CreatureGender[] = Array.from({ length: pairs }, () =>
+        Math.random() < 0.5 ? "male" : "female",
+      );
+      const entry: PendingBreed = {
+        id: `breed-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        creatureName,
+        templateId,
+        pairs,
+        readyAt: Date.now() + BREEDING_DURATION_MS,
+        offspringGenders,
+      };
+      setState((prev) => ({
+        ...prev,
+        pendingBreedings: [...prev.pendingBreedings, entry],
+      }));
+      return { ok: true, success: true, chance, pairs };
+    },
+    [],
+  );
+
+  const dismissBreedingResult = useCallback((id: string) => {
+    setState((prev) => ({
+      ...prev,
+      breedingResults: prev.breedingResults.filter((r) => r.id !== id),
+    }));
+  }, []);
+
 
   const reset = useCallback(() => {
     setState(INITIAL_STATE);
@@ -499,6 +639,8 @@ export function useGameState() {
     buildBuilding,
     acknowledgeApprentice,
     graduateApprentice,
+    startBreeding,
+    dismissBreedingResult,
     reset,
   };
 }
