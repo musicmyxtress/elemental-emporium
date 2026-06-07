@@ -528,10 +528,46 @@ export function useGameState() {
   }, []);
 
   const tameCreature = useCallback((creatureId: string) => {
-    setState((prev) => ({
-      ...prev,
-      tamedCreatures: [...prev.tamedCreatures, creatureId],
-    }));
+    setState((prev) => {
+      const tpl = getCreature(creatureId);
+      if (tpl?.magical) {
+        const instance: MagicalCreatureInstance = {
+          id: `mag-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+          templateId: creatureId,
+          level: 1,
+          xp: 0,
+        };
+        return { ...prev, magicalCreatures: [...prev.magicalCreatures, instance] };
+      }
+      return { ...prev, tamedCreatures: [...prev.tamedCreatures, creatureId] };
+    });
+  }, []);
+
+  /**
+   * Awards XP to a trained magical creature. Uses the same level curve as
+   * elements (xpToNextLevel) and caps at LEVEL_CAP.
+   */
+  const gainCreatureXp = useCallback((instanceId: string, amount: number) => {
+    if (amount <= 0) return;
+    setState((prev) => {
+      let changed = false;
+      const next = prev.magicalCreatures.map((m) => {
+        if (m.id !== instanceId) return m;
+        changed = true;
+        let level = m.level;
+        let xp = m.xp + amount;
+        while (level < LEVEL_CAP && xp >= xpToNextLevel(level)) {
+          xp -= xpToNextLevel(level);
+          level += 1;
+        }
+        if (level >= LEVEL_CAP) {
+          level = LEVEL_CAP;
+          xp = 0;
+        }
+        return { ...m, level, xp };
+      });
+      return changed ? { ...prev, magicalCreatures: next } : prev;
+    });
   }, []);
 
   const buildBuilding = useCallback((buildingId: string): boolean => {
