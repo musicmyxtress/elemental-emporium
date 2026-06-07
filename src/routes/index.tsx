@@ -355,7 +355,7 @@ function GameScreen({
   function handleExplore() {
     const place = rollUndiscoveredPlace(discoveredPlaces, shelvedPlaces);
     const event = rollEvent();
-    const creature = rollCreature(shelvedCreatures);
+    const creature = rollCreature(elementLevels, shelvedCreatures);
 
     const outcomes: Discovery[] = [];
     if (place) {
