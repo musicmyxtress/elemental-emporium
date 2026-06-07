@@ -559,6 +559,7 @@ function GameScreen({
         discovery={discovery}
         crystals={crystals}
         unlockedElements={unlockedElements}
+        elementLevels={elementLevels}
         onStudy={handleStudy}
         onFightOrLeave={handleFightOrLeave}
         onTame={handleTame}
