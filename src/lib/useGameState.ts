@@ -72,6 +72,8 @@ export interface GameState {
   buildings: string[];
   /** Tamed creature template ids; duplicates allowed (one entry per individual). */
   tamedCreatures: string[];
+  /** Trained level per magical creature template id. Defaults to 1 when missing. */
+  magicalLevels: Record<string, number>;
   /** Element ids the player has encountered during exploration. */
   discoveredElements: string[];
   /** Generation count. 1 for the original mage; +1 each time an apprentice graduates. */
@@ -116,6 +118,7 @@ const INITIAL_STATE: GameState = {
   shelvedCreatures: {},
   buildings: [],
   tamedCreatures: [],
+  magicalLevels: {},
   discoveredElements: STARTER_UNLOCKED_ELEMENTS,
   generation: 1,
   apprenticeAcknowledged: false,
@@ -187,6 +190,7 @@ function loadState(): GameState {
         tamedCreatures: Array.isArray(parsed.tamedCreatures)
           ? parsed.tamedCreatures.filter((x): x is string => typeof x === "string")
           : [],
+        magicalLevels: sanitizeRecord(parsed.magicalLevels),
         discoveredElements: Array.isArray(parsed.discoveredElements)
           ? parsed.discoveredElements.filter((x): x is string => typeof x === "string")
           : STARTER_UNLOCKED_ELEMENTS,
@@ -560,6 +564,7 @@ export function useGameState() {
         shelvedCreatures: {},
         buildings: [],
         tamedCreatures: [creatureId],
+        magicalLevels: {},
         // unlockedElements, discoveredElements, discoveredPlaces persist.
         generation: prev.generation + 1,
         apprenticeAcknowledged: false,
@@ -617,6 +622,25 @@ export function useGameState() {
   }, []);
 
 
+  /**
+   * Increments the trained level of a magical creature template the player
+   * owns at least one of. Returns the new level, or null on failure.
+   */
+  const trainMagicalCreature = useCallback((creatureId: string): number | null => {
+    let result: number | null = null;
+    setState((prev) => {
+      if (!prev.tamedCreatures.includes(creatureId)) return prev;
+      const current = prev.magicalLevels[creatureId] ?? 1;
+      const next = current + 1;
+      result = next;
+      return {
+        ...prev,
+        magicalLevels: { ...prev.magicalLevels, [creatureId]: next },
+      };
+    });
+    return result;
+  }, []);
+
   const reset = useCallback(() => {
     setState(INITIAL_STATE);
   }, []);
@@ -641,6 +665,7 @@ export function useGameState() {
     graduateApprentice,
     startBreeding,
     dismissBreedingResult,
+    trainMagicalCreature,
     reset,
   };
 }
