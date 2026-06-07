@@ -564,6 +564,7 @@ export function useGameState() {
         shelvedCreatures: {},
         buildings: [],
         tamedCreatures: [creatureId],
+        magicalLevels: {},
         // unlockedElements, discoveredElements, discoveredPlaces persist.
         generation: prev.generation + 1,
         apprenticeAcknowledged: false,
