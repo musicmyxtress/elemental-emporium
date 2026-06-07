@@ -512,6 +512,7 @@ function GameScreen({
                   buildings={buildings}
                   tamedCreatures={tamedCreatures}
                   pendingBreedings={pendingBreedings}
+                  elementLevels={elementLevels}
                   onStartBreeding={onStartBreeding}
                 />
               )}
