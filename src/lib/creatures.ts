@@ -57,6 +57,19 @@ export function getCreatureHp(creature: Creature, trainedLevel?: number): number
 }
 
 /**
+ * Damage per hit for a creature.
+ * Rolls a random integer from effective level (inclusive) up to
+ * effective level × rarity (inclusive).
+ */
+export function getCreatureDamage(creature: Creature, trainedLevel?: number): number {
+  const rarity = Math.max(1, creature.rarity);
+  const level = getEffectiveLevel(creature, trainedLevel);
+  const min = level;
+  const max = level * rarity;
+  return Math.floor(Math.random() * (max - min + 1)) + min;
+}
+
+/**
  * Per-tick production amount for a creature.
  * - Non-magical creatures produce their rarity in their production element.
  * - Magical creatures produce 2× rarity, plus another `rarity` for every 3
