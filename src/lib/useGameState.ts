@@ -119,6 +119,8 @@ const INITIAL_STATE: GameState = {
   discoveredElements: STARTER_UNLOCKED_ELEMENTS,
   generation: 1,
   apprenticeAcknowledged: false,
+  pendingBreedings: [],
+  breedingResults: [],
 };
 
 
