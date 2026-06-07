@@ -308,6 +308,16 @@ type Discovery =
   | { kind: "event"; event: RandomEvent }
   | { kind: "nothing" };
 
+/** Active turn-based encounter state. */
+interface CombatState {
+  creature: Creature;
+  creatureHp: number;
+  creatureMaxHp: number;
+  log: string[];
+  /** 'player' = waiting for a spell choice; 'win'/'lose' = encounter over. */
+  phase: "player" | "win" | "lose";
+}
+
 function GameScreen({
   element,
   generation,
