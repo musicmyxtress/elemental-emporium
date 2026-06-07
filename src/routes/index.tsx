@@ -91,11 +91,11 @@ function Index() {
       ? state.unlockedElements
       : ELEMENTS.map((e) => e.id);
     return (
-      <ChooseElementScreen
-        onChoose={chooseElement}
-        availableElementIds={availableIds}
+      <PreGameFlow
         isApprentice={isApprentice}
         generation={state.generation}
+        availableElementIds={availableIds}
+        onChoose={chooseElement}
       />
     );
   }
@@ -137,6 +137,71 @@ function Index() {
 
 
 
+function PreGameFlow({
+  isApprentice,
+  generation,
+  availableElementIds,
+  onChoose,
+}: {
+  isApprentice: boolean;
+  generation: number;
+  availableElementIds: string[];
+  onChoose: (e: string) => void;
+}) {
+  const [introDone, setIntroDone] = useState(false);
+  if (isApprentice && !introDone) {
+    return <ApprenticeIntroScreen generation={generation} onContinue={() => setIntroDone(true)} />;
+  }
+  return (
+    <ChooseElementScreen
+      onChoose={onChoose}
+      availableElementIds={availableElementIds}
+      isApprentice={isApprentice}
+      generation={generation}
+    />
+  );
+}
+
+function ApprenticeIntroScreen({
+  generation,
+  onContinue,
+}: {
+  generation: number;
+  onContinue: () => void;
+}) {
+  const headingRef = useRef<HTMLHeadingElement>(null);
+  useEffect(() => {
+    headingRef.current?.focus();
+  }, []);
+  return (
+    <main className="mx-auto flex min-h-screen max-w-2xl flex-col justify-center px-6 py-12">
+      <h1
+        ref={headingRef}
+        tabIndex={-1}
+        className="text-2xl font-semibold leading-relaxed text-foreground sm:text-3xl"
+      >
+        A new emporium awaits
+      </h1>
+      <div className="mt-6 space-y-4 text-base leading-relaxed text-muted-foreground">
+        <p>
+          You are the apprentice, generation {generation}. Your master's lessons are behind you, and
+          the road ahead is your own. With the creature and fragments your master gifted you, you
+          set off to a quiet corner of the world to raise your own emporium.
+        </p>
+        <p>
+          Everything your master discovered — the elements they unlocked, the places they mapped —
+          travels with you in memory. The fragments, crystals, buildings, and other creatures stay
+          behind. What you build from here is yours.
+        </p>
+      </div>
+      <div className="mt-10">
+        <Button onClick={onContinue} aria-label="Continue the story as the apprentice">
+          Continue as the apprentice
+        </Button>
+      </div>
+    </main>
+  );
+}
 
 function ChooseElementScreen({
   onChoose,
