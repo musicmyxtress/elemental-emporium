@@ -1330,8 +1330,12 @@ function HomeBasePanel({
   tamedCreatures,
   resources,
   buildings,
+  currentHp,
+  maxHp,
+  isSleeping,
   onBuildBuilding,
   onGraduateApprentice,
+  onStartSleep,
 }: {
   masteredElement: string;
   masteredLevel: number;
@@ -1339,8 +1343,12 @@ function HomeBasePanel({
   tamedCreatures: string[];
   resources: Record<string, number>;
   buildings: string[];
+  currentHp: number;
+  maxHp: number;
+  isSleeping: boolean;
   onBuildBuilding: (buildingId: string) => boolean;
   onGraduateApprentice: (creatureId: string) => boolean;
+  onStartSleep: () => boolean;
 }) {
   const [announcement, setAnnouncement] = useState("");
   const [graduateOpen, setGraduateOpen] = useState(false);
