@@ -587,12 +587,31 @@ function GameScreen({
         >
           {activeTabLabel}
         </h1>
-        {activeTab === "home-base" && (
-          <Button type="button" onClick={handleExplore}>
-            Explore
-          </Button>
-        )}
+        <div className="flex items-center gap-3">
+          <p className="text-sm font-medium tabular-nums text-foreground" aria-label={`Health: ${currentHp} of ${maxHp}`}>
+            HP {currentHp}/{maxHp}
+          </p>
+          {activeTab === "home-base" && (
+            <Button
+              type="button"
+              onClick={handleExplore}
+              disabled={isSleeping}
+              aria-label={isSleeping ? "You are sleeping; cannot explore" : "Explore"}
+            >
+              Explore
+            </Button>
+          )}
+        </div>
       </header>
+      {isSleeping && (
+        <p
+          role="status"
+          aria-live="polite"
+          className="mt-4 rounded-md border bg-muted/50 p-3 text-sm text-foreground"
+        >
+          Sleeping… you wake in {Math.ceil(sleepRemainingMs / 1000)}s. Your creatures keep producing fragments.
+        </p>
+      )}
 
       <Tabs
         value={activeTab}
