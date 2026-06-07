@@ -97,6 +97,12 @@ export interface GameState {
   pendingBreedings: PendingBreed[];
   /** Resolved breedings awaiting the player's acknowledgement. */
   breedingResults: BreedingResult[];
+  /** Total element level-ups the player has earned (drives max HP). */
+  levelUpsTotal: number;
+  /** Current HP; clamped to getMaxHp(levelUpsTotal). */
+  currentHp: number;
+  /** Timestamp (ms) at which a sleep ends. 0 when not sleeping. */
+  sleepUntil: number;
 }
 
 /** Build costs for player-constructable buildings. */
