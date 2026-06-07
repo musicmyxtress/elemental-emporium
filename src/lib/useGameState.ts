@@ -837,17 +837,22 @@ export function useGameState() {
     return ok;
   }, []);
 
-  // Restore HP and clear sleepUntil once the sleep timer elapses.
+  // Restore HP and clear sleepUntil once the sleep timer elapses; also
+  // prune expired defensive spell buffs.
   useEffect(() => {
     if (!hydrated) return;
     const id = setInterval(() => {
       setState((prev) => {
-        if (prev.sleepUntil === 0) return prev;
-        if (Date.now() < prev.sleepUntil) return prev;
+        const now = Date.now();
+        const wokeUp = prev.sleepUntil > 0 && now >= prev.sleepUntil;
+        const activeBuffs = prev.spellBuffs.filter((b) => b.expiresAt > now);
+        const buffsExpired = activeBuffs.length !== prev.spellBuffs.length;
+        if (!wokeUp && !buffsExpired) return prev;
         return {
           ...prev,
-          sleepUntil: 0,
-          currentHp: getMaxHp(prev.levelUpsTotal),
+          sleepUntil: wokeUp ? 0 : prev.sleepUntil,
+          currentHp: wokeUp ? getMaxHp(prev.levelUpsTotal) : prev.currentHp,
+          spellBuffs: activeBuffs,
         };
       });
     }, 500);
