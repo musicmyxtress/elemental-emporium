@@ -622,6 +622,25 @@ export function useGameState() {
   }, []);
 
 
+  /**
+   * Increments the trained level of a magical creature template the player
+   * owns at least one of. Returns the new level, or null on failure.
+   */
+  const trainMagicalCreature = useCallback((creatureId: string): number | null => {
+    let result: number | null = null;
+    setState((prev) => {
+      if (!prev.tamedCreatures.includes(creatureId)) return prev;
+      const current = prev.magicalLevels[creatureId] ?? 1;
+      const next = current + 1;
+      result = next;
+      return {
+        ...prev,
+        magicalLevels: { ...prev.magicalLevels, [creatureId]: next },
+      };
+    });
+    return result;
+  }, []);
+
   const reset = useCallback(() => {
     setState(INITIAL_STATE);
   }, []);
