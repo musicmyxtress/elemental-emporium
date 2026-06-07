@@ -665,6 +665,7 @@ export function useGameState() {
     graduateApprentice,
     startBreeding,
     dismissBreedingResult,
+    trainMagicalCreature,
     reset,
   };
 }
