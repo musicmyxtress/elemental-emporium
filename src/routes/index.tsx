@@ -1321,13 +1321,20 @@ function CombatDialog({
         <DialogFooter className="flex flex-wrap gap-2 sm:flex-row">
           {phase === "player" && spells.length === 0 && (
             <p className="text-sm text-muted-foreground">
-              You have no offensive spells unlocked yet. You may only flee.
+              You have no spells unlocked yet. You may only flee.
             </p>
           )}
           {phase === "player" &&
             spells.map((spell) => {
               const have = resources[fragmentResourceId(spell.element)] ?? 0;
               const affordable = have >= spell.cost;
+              let label: string;
+              if (spell.type === "offensive") {
+                const { min, max } = getSpellDamageRange(spell, elementLevels);
+                label = `Cast ${spell.name}, costs ${spell.cost} ${spell.element} fragments, deals ${min} to ${max} damage`;
+              } else {
+                label = `Cast ${spell.name}, costs ${spell.cost} ${spell.element} fragments, defensive buff`;
+              }
               return (
                 <Button
                   key={spell.id}
@@ -1336,7 +1343,7 @@ function CombatDialog({
                   disabled={!affordable}
                   aria-label={
                     affordable
-                      ? `Cast ${spell.name}, costs ${spell.cost} ${spell.element} fragments, deals ${spell.damageMin} to ${spell.damageMax} damage`
+                      ? label
                       : `Cast ${spell.name} requires ${spell.cost} ${spell.element} fragments — not enough`
                   }
                 >
