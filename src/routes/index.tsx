@@ -1199,6 +1199,104 @@ function DiscoveryDialog({
   );
 }
 
+function CombatDialog({
+  combat,
+  currentHp,
+  maxHp,
+  spells,
+  resources,
+  onCast,
+  onFlee,
+  onClose,
+}: {
+  combat: CombatState | null;
+  currentHp: number;
+  maxHp: number;
+  spells: Spell[];
+  resources: Record<string, number>;
+  onCast: (spellId: string) => void;
+  onFlee: () => void;
+  onClose: () => void;
+}) {
+  const open = combat !== null;
+  if (!combat) {
+    return (
+      <Dialog open={open} onOpenChange={(o) => (!o ? onClose() : undefined)}>
+        <DialogContent />
+      </Dialog>
+    );
+  }
+  const { creature, creatureHp, creatureMaxHp, log, phase } = combat;
+  const isOver = phase === "win" || phase === "lose";
+  const title = isOver
+    ? phase === "win"
+      ? `Victory over ${creature.name}`
+      : `${creature.name} defeats you`
+    : `Fighting ${creature.name}`;
+  return (
+    <Dialog open={open} onOpenChange={(o) => (!o && isOver ? onClose() : undefined)}>
+      <DialogContent
+        onPointerDownOutside={(e) => e.preventDefault()}
+        onEscapeKeyDown={(e) => e.preventDefault()}
+        onInteractOutside={(e) => e.preventDefault()}
+      >
+        <DialogHeader>
+          <DialogTitle>{title}</DialogTitle>
+          <DialogDescription>
+            You: {currentHp} / {maxHp} HP. {creature.name}: {creatureHp} / {creatureMaxHp} HP.
+          </DialogDescription>
+        </DialogHeader>
+        <div
+          role="log"
+          aria-live="polite"
+          className="max-h-48 space-y-1 overflow-y-auto rounded-md border bg-muted/40 p-3 text-sm text-foreground"
+        >
+          {log.map((line, i) => (
+            <p key={i}>{line}</p>
+          ))}
+        </div>
+        <DialogFooter className="flex flex-wrap gap-2 sm:flex-row">
+          {phase === "player" && spells.length === 0 && (
+            <p className="text-sm text-muted-foreground">
+              You have no offensive spells unlocked yet. You may only flee.
+            </p>
+          )}
+          {phase === "player" &&
+            spells.map((spell) => {
+              const have = resources[fragmentResourceId(spell.element)] ?? 0;
+              const affordable = have >= spell.cost;
+              return (
+                <Button
+                  key={spell.id}
+                  type="button"
+                  onClick={() => onCast(spell.id)}
+                  disabled={!affordable}
+                  aria-label={
+                    affordable
+                      ? `Cast ${spell.name}, costs ${spell.cost} ${spell.element} fragments, deals ${spell.damageMin} to ${spell.damageMax} damage`
+                      : `Cast ${spell.name} requires ${spell.cost} ${spell.element} fragments — not enough`
+                  }
+                >
+                  {spell.name} ({spell.cost} {spell.element})
+                </Button>
+              );
+            })}
+          {phase === "player" && (
+            <Button type="button" variant="outline" onClick={onFlee}>
+              Flee
+            </Button>
+          )}
+          {isOver && (
+            <Button type="button" onClick={onClose} autoFocus>
+              Continue
+            </Button>
+          )}
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 
 
 
