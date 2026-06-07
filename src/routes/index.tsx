@@ -639,8 +639,12 @@ function GameScreen({
                   tamedCreatures={tamedCreatures}
                   resources={resources}
                   buildings={buildings}
+                  currentHp={currentHp}
+                  maxHp={maxHp}
+                  isSleeping={isSleeping}
                   onBuildBuilding={onBuildBuilding}
                   onGraduateApprentice={onGraduateApprentice}
+                  onStartSleep={onStartSleep}
                 />
               )}
               {tab.value === "stable" && (
