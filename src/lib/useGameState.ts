@@ -162,8 +162,11 @@ function loadState(): GameState {
       const parsed = JSON.parse(raw) as Partial<GameState>;
       const element = typeof parsed.element === "string" ? parsed.element : null;
       const elementLevels = sanitizeRecord(parsed.elementLevels);
-      if (element && (elementLevels[element] ?? 0) < 1) {
-        elementLevels[element] = 1;
+      if (element) {
+        for (const starter of STARTER_UNLOCKED_ELEMENTS) {
+          if ((elementLevels[starter] ?? 0) < 1) elementLevels[starter] = 1;
+        }
+        if ((elementLevels[element] ?? 0) < 1) elementLevels[element] = 1;
       }
       const baseResources: Record<string, number> =
         parsed.resources && typeof parsed.resources === "object"
