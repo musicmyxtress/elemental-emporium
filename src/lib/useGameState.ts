@@ -118,6 +118,7 @@ const INITIAL_STATE: GameState = {
   shelvedCreatures: {},
   buildings: [],
   tamedCreatures: [],
+  magicalLevels: {},
   discoveredElements: STARTER_UNLOCKED_ELEMENTS,
   generation: 1,
   apprenticeAcknowledged: false,
