@@ -29,7 +29,7 @@ import {
   getCreatureDamage,
   type Creature,
 } from "@/lib/creatures";
-import { getUnlockedSpells, type Spell } from "@/lib/spells";
+import { getUnlockedSpells, getSpellDamageRange, type Spell, type CastResult } from "@/lib/spells";
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
@@ -399,8 +399,8 @@ function GameScreen({
   currentHp: number;
   maxHp: number;
   sleepUntil: number;
-  onCastSpell: (spellId: string) => { spell: Spell; damage: number } | null;
-  onDamagePlayer: (amount: number) => boolean;
+  onCastSpell: (spellId: string) => CastResult | null;
+  onDamagePlayer: (amount: number) => { defeated: boolean; blocked: boolean; actualDamage: number };
   onStartSleep: () => boolean;
   onReset: () => void;
 }) {
@@ -511,6 +511,37 @@ function GameScreen({
       });
       return;
     }
+
+    if ("buffApplied" in cast) {
+      const log = [
+        ...combat.log,
+        cast.spell.actionText,
+        `You are shielded by ${cast.spell.name}.`,
+      ];
+      const dmg = getCreatureDamage(combat.creature);
+      const result = onDamagePlayer(dmg);
+      let creatureLog: string;
+      if (result.blocked) {
+        creatureLog = `${combat.creature.name} strikes at you, but your Water Wall absorbs the blow!`;
+      } else {
+        creatureLog = `${combat.creature.name} strikes you for ${result.actualDamage} damage.`;
+      }
+      const log2 = [...log, creatureLog];
+      if (result.defeated) {
+        setCombat({
+          ...combat,
+          log: [
+            ...log2,
+            "You collapse. Half of your fragments slip away as you fall into a forced sleep.",
+          ],
+          phase: "lose",
+        });
+        return;
+      }
+      setCombat({ ...combat, log: log2, phase: "player" });
+      return;
+    }
+
     const newCreatureHp = Math.max(0, combat.creatureHp - cast.damage);
     const log = [
       ...combat.log,
@@ -523,9 +554,15 @@ function GameScreen({
     }
     // Creature retaliates immediately.
     const dmg = getCreatureDamage(combat.creature);
-    const defeated = onDamagePlayer(dmg);
-    const log2 = [...log, `${combat.creature.name} strikes you for ${dmg} damage.`];
-    if (defeated) {
+    const result = onDamagePlayer(dmg);
+    let creatureLog: string;
+    if (result.blocked) {
+      creatureLog = `${combat.creature.name} strikes at you, but your Water Wall absorbs the blow!`;
+    } else {
+      creatureLog = `${combat.creature.name} strikes you for ${result.actualDamage} damage.`;
+    }
+    const log2 = [...log, creatureLog];
+    if (result.defeated) {
       setCombat({
         ...combat,
         creatureHp: newCreatureHp,
@@ -711,6 +748,7 @@ function GameScreen({
         maxHp={maxHp}
         spells={getUnlockedSpells(elementLevels, unlockedElements)}
         resources={resources}
+        elementLevels={elementLevels}
         onCast={handleCast}
         onFlee={handleFlee}
         onClose={handleCloseCombat}
@@ -1228,6 +1266,7 @@ function CombatDialog({
   maxHp,
   spells,
   resources,
+  elementLevels,
   onCast,
   onFlee,
   onClose,
@@ -1237,6 +1276,7 @@ function CombatDialog({
   maxHp: number;
   spells: Spell[];
   resources: Record<string, number>;
+  elementLevels: Record<string, number>;
   onCast: (spellId: string) => void;
   onFlee: () => void;
   onClose: () => void;
@@ -1281,13 +1321,20 @@ function CombatDialog({
         <DialogFooter className="flex flex-wrap gap-2 sm:flex-row">
           {phase === "player" && spells.length === 0 && (
             <p className="text-sm text-muted-foreground">
-              You have no offensive spells unlocked yet. You may only flee.
+              You have no spells unlocked yet. You may only flee.
             </p>
           )}
           {phase === "player" &&
             spells.map((spell) => {
               const have = resources[fragmentResourceId(spell.element)] ?? 0;
               const affordable = have >= spell.cost;
+              let label: string;
+              if (spell.type === "offensive") {
+                const { min, max } = getSpellDamageRange(spell, elementLevels);
+                label = `Cast ${spell.name}, costs ${spell.cost} ${spell.element} fragments, deals ${min} to ${max} damage`;
+              } else {
+                label = `Cast ${spell.name}, costs ${spell.cost} ${spell.element} fragments, defensive buff`;
+              }
               return (
                 <Button
                   key={spell.id}
@@ -1296,7 +1343,7 @@ function CombatDialog({
                   disabled={!affordable}
                   aria-label={
                     affordable
-                      ? `Cast ${spell.name}, costs ${spell.cost} ${spell.element} fragments, deals ${spell.damageMin} to ${spell.damageMax} damage`
+                      ? label
                       : `Cast ${spell.name} requires ${spell.cost} ${spell.element} fragments — not enough`
                   }
                 >

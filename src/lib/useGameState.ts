@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { getPlace } from "./places";
 import { xpToNextLevel, fragmentResourceId, FRAGMENTS_PER_CRYSTAL, LEVEL_CAP } from "./elements";
 import { getCreature, getProductionAmount, type CreatureGender } from "./creatures";
-import { SPELLS, rollSpellDamage, type Spell } from "./spells";
+import { SPELLS, rollSpellDamage, type Spell, type CastResult } from "./spells";
 
 /** Base maximum HP at character creation, before any level-ups. */
 export const STARTING_MAX_HP = 8;
@@ -103,6 +103,8 @@ export interface GameState {
   currentHp: number;
   /** Timestamp (ms) at which a sleep ends. 0 when not sleeping. */
   sleepUntil: number;
+  /** Active defensive spell buffs with expiration timestamps. */
+  spellBuffs: { spellId: string; expiresAt: number }[];
 }
 
 /** Build costs for player-constructable buildings. */
@@ -146,6 +148,7 @@ const INITIAL_STATE: GameState = {
   levelUpsTotal: 0,
   currentHp: STARTING_MAX_HP,
   sleepUntil: 0,
+  spellBuffs: [],
 };
 
 
@@ -255,6 +258,15 @@ function loadState(): GameState {
           typeof parsed.sleepUntil === "number" && parsed.sleepUntil > 0
             ? parsed.sleepUntil
             : 0,
+        spellBuffs: Array.isArray(parsed.spellBuffs)
+          ? (parsed.spellBuffs as unknown[]).filter(
+              (b): b is { spellId: string; expiresAt: number } =>
+                b !== null &&
+                typeof b === "object" &&
+                typeof (b as Record<string, unknown>).spellId === "string" &&
+                typeof (b as Record<string, unknown>).expiresAt === "number",
+            )
+          : [],
       };
     }
   } catch {
@@ -715,16 +727,33 @@ export function useGameState() {
    * to act (e.g. asleep).
    */
   const castSpell = useCallback(
-    (spellId: string): { spell: Spell; damage: number } | null => {
+    (spellId: string): CastResult | null => {
       const spell = SPELLS.find((s) => s.id === spellId);
       if (!spell) return null;
-      let result: { spell: Spell; damage: number } | null = null;
+      let result: CastResult | null = null;
       setState((prev) => {
         if (prev.sleepUntil > Date.now()) return prev;
         const key = fragmentResourceId(spell.element);
         const have = prev.resources[key] ?? 0;
         if (have < spell.cost) return prev;
-        const damage = rollSpellDamage(spell);
+
+        if (spell.type === "defensive") {
+          const buff = {
+            spellId: spell.id,
+            expiresAt: Date.now() + (spell.durationMs ?? 0),
+          };
+          result = { spell, buffApplied: true as const };
+          return {
+            ...prev,
+            resources: { ...prev.resources, [key]: have - spell.cost },
+            spellBuffs: [
+              ...prev.spellBuffs.filter((b) => b.spellId !== spell.id),
+              buff,
+            ],
+          };
+        }
+
+        const damage = rollSpellDamage(spell, prev.elementLevels);
         result = { spell, damage };
         return {
           ...prev,
@@ -737,33 +766,63 @@ export function useGameState() {
   );
 
   /**
-   * Subtracts damage from the player's HP. If HP reaches 0, halves every
+   * Subtracts damage from the player's HP, checking active defensive buffs
+   * like Water Wall for a chance to block. If HP reaches 0, halves every
    * fragment pile and forces the player to sleep for SLEEP_DURATION_MS.
-   * Returns true when this hit defeated the player.
+   * Returns whether the player was defeated, whether damage was blocked,
+   * and the actual damage taken.
    */
-  const damagePlayer = useCallback((amount: number): boolean => {
-    let defeated = false;
-    setState((prev) => {
-      const next = Math.max(0, prev.currentHp - Math.max(0, amount));
-      if (next > 0) {
-        return { ...prev, currentHp: next };
-      }
-      defeated = true;
-      const resources = { ...prev.resources };
-      for (const k of Object.keys(resources)) {
-        if (k.endsWith("-fragment")) {
-          resources[k] = Math.floor((resources[k] ?? 0) / 2);
-        }
-      }
-      return {
-        ...prev,
-        resources,
-        currentHp: 0,
-        sleepUntil: Date.now() + SLEEP_DURATION_MS,
+  const damagePlayer = useCallback(
+    (amount: number): { defeated: boolean; blocked: boolean; actualDamage: number } => {
+      let result: { defeated: boolean; blocked: boolean; actualDamage: number } = {
+        defeated: false,
+        blocked: false,
+        actualDamage: 0,
       };
-    });
-    return defeated;
-  }, []);
+      setState((prev) => {
+        const now = Date.now();
+        let damage = Math.max(0, amount);
+
+        const waterWall = prev.spellBuffs.find(
+          (b) => b.spellId === "water-wall" && b.expiresAt > now,
+        );
+        if (waterWall) {
+          const waterLevel = prev.elementLevels["water"] ?? 0;
+          const blockChance =
+            waterLevel *
+            (SPELLS.find((s) => s.id === "water-wall")?.blockChancePerLevel ?? 0);
+          if (Math.random() * 100 < blockChance) {
+            damage = 0;
+          }
+        }
+
+        const nextHp = Math.max(0, prev.currentHp - damage);
+        result = {
+          defeated: nextHp === 0,
+          blocked: damage === 0 && amount > 0,
+          actualDamage: damage,
+        };
+
+        if (nextHp > 0) {
+          return { ...prev, currentHp: nextHp };
+        }
+        const resources = { ...prev.resources };
+        for (const k of Object.keys(resources)) {
+          if (k.endsWith("-fragment")) {
+            resources[k] = Math.floor((resources[k] ?? 0) / 2);
+          }
+        }
+        return {
+          ...prev,
+          resources,
+          currentHp: 0,
+          sleepUntil: Date.now() + SLEEP_DURATION_MS,
+        };
+      });
+      return result;
+    },
+    [],
+  );
 
   /** Starts a voluntary sleep that restores HP after SLEEP_DURATION_MS. */
   const startSleep = useCallback((): boolean => {
@@ -778,17 +837,22 @@ export function useGameState() {
     return ok;
   }, []);
 
-  // Restore HP and clear sleepUntil once the sleep timer elapses.
+  // Restore HP and clear sleepUntil once the sleep timer elapses; also
+  // prune expired defensive spell buffs.
   useEffect(() => {
     if (!hydrated) return;
     const id = setInterval(() => {
       setState((prev) => {
-        if (prev.sleepUntil === 0) return prev;
-        if (Date.now() < prev.sleepUntil) return prev;
+        const now = Date.now();
+        const wokeUp = prev.sleepUntil > 0 && now >= prev.sleepUntil;
+        const activeBuffs = prev.spellBuffs.filter((b) => b.expiresAt > now);
+        const buffsExpired = activeBuffs.length !== prev.spellBuffs.length;
+        if (!wokeUp && !buffsExpired) return prev;
         return {
           ...prev,
-          sleepUntil: 0,
-          currentHp: getMaxHp(prev.levelUpsTotal),
+          sleepUntil: wokeUp ? 0 : prev.sleepUntil,
+          currentHp: wokeUp ? getMaxHp(prev.levelUpsTotal) : prev.currentHp,
+          spellBuffs: activeBuffs,
         };
       });
     }, 500);
