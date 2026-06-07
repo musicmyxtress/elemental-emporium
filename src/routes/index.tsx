@@ -386,6 +386,12 @@ function GameScreen({
     rarity: number,
   ) => { ok: boolean; success: boolean; chance: number; pairs: number };
   onDismissBreedingResult: (id: string) => void;
+  currentHp: number;
+  maxHp: number;
+  sleepUntil: number;
+  onCastSpell: (spellId: string) => { spell: Spell; damage: number } | null;
+  onDamagePlayer: (amount: number) => boolean;
+  onStartSleep: () => boolean;
   onReset: () => void;
 }) {
   const headingRef = useRef<HTMLHeadingElement>(null);
