@@ -82,6 +82,9 @@ function Index() {
     graduateApprentice,
     startBreeding,
     dismissBreedingResult,
+    castSpell,
+    damagePlayer,
+    startSleep,
     reset,
   } = useGameState();
 
