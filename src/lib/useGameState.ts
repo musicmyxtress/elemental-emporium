@@ -143,6 +143,9 @@ const INITIAL_STATE: GameState = {
   apprenticeAcknowledged: false,
   pendingBreedings: [],
   breedingResults: [],
+  levelUpsTotal: 0,
+  currentHp: STARTING_MAX_HP,
+  sleepUntil: 0,
 };
 
 
