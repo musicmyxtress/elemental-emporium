@@ -934,10 +934,11 @@ function StatsPanel({
   );
 }
 
-function describeCreature(creature: Creature): string {
+function describeCreature(creature: Creature, elementLevels?: Record<string, number>): string {
   const genderLabel = creature.gender === "male" ? "male" : "female";
   const magicLabel = creature.magical ? "magical" : "non-magical";
-  const produces = `${creature.elementProduction.element} (${getProductionAmount(creature)}/tick)`;
+  const trainedLevels = elementLevels?.[creature.elementProduction.element] ?? 0;
+  const produces = `${creature.elementProduction.element} (${getProductionAmount(creature, trainedLevels)}/tick)`;
   const consumes = creature.elementConsumption
     ? ` and consumes ${creature.elementConsumption.element} (${getConsumptionAmount(creature)}/tick)`
     : "";
