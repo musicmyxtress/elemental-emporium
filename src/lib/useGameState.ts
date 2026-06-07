@@ -237,6 +237,16 @@ function loadState(): GameState {
                 typeof r.females === "number",
             )
           : [],
+        magicalCreatures: Array.isArray(parsed.magicalCreatures)
+          ? (parsed.magicalCreatures as MagicalCreatureInstance[]).filter(
+              (m) =>
+                m &&
+                typeof m.id === "string" &&
+                typeof m.templateId === "string" &&
+                typeof m.level === "number" &&
+                typeof m.xp === "number",
+            )
+          : [],
       };
     }
   } catch {
