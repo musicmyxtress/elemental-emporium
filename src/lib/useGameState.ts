@@ -563,10 +563,59 @@ export function useGameState() {
         // unlockedElements, discoveredElements, discoveredPlaces persist.
         generation: prev.generation + 1,
         apprenticeAcknowledged: false,
+        pendingBreedings: [],
+        breedingResults: [],
       };
     });
     return ok;
   }, []);
+
+  /**
+   * Attempts to breed all male/female pairs of a species in the stable.
+   * Success chance = max(0, min(100, 81 - 6 * rarity))%. On success the
+   * parents are locked for BREEDING_DURATION_MS and offspring genders are
+   * pre-rolled. Returns the resulting state for the UI to announce.
+   */
+  const startBreeding = useCallback(
+    (
+      creatureName: string,
+      templateId: string,
+      pairs: number,
+      rarity: number,
+    ): { ok: boolean; success: boolean; chance: number; pairs: number } => {
+      if (pairs <= 0) return { ok: false, success: false, chance: 0, pairs: 0 };
+      const chance = Math.max(0, Math.min(100, 81 - 6 * Math.max(0, rarity)));
+      const success = Math.random() * 100 < chance;
+      if (!success) {
+        return { ok: true, success: false, chance, pairs };
+      }
+      const offspringGenders: CreatureGender[] = Array.from({ length: pairs }, () =>
+        Math.random() < 0.5 ? "male" : "female",
+      );
+      const entry: PendingBreed = {
+        id: `breed-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        creatureName,
+        templateId,
+        pairs,
+        readyAt: Date.now() + BREEDING_DURATION_MS,
+        offspringGenders,
+      };
+      setState((prev) => ({
+        ...prev,
+        pendingBreedings: [...prev.pendingBreedings, entry],
+      }));
+      return { ok: true, success: true, chance, pairs };
+    },
+    [],
+  );
+
+  const dismissBreedingResult = useCallback((id: string) => {
+    setState((prev) => ({
+      ...prev,
+      breedingResults: prev.breedingResults.filter((r) => r.id !== id),
+    }));
+  }, []);
+
 
   const reset = useCallback(() => {
     setState(INITIAL_STATE);
