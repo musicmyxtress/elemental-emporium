@@ -820,6 +820,9 @@ export function useGameState() {
     startBreeding,
     dismissBreedingResult,
     trainMagicalCreature,
+    castSpell,
+    damagePlayer,
+    startSleep,
     reset,
   };
 }
