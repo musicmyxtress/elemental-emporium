@@ -1179,8 +1179,8 @@ function DiscoveryDialog({
     shown?.kind === "locked-creature" &&
     isElementLocked(shown.creature.elementProduction.element);
 
-  let title = "Nothing stirs";
-  let text = "You explore for a while, but find nothing of note this time.";
+  let title = "";
+  let text = "";
   if (shown?.kind === "place" || (shown?.kind === "locked-place" && !isPlaceLocked)) {
     const place = shown.place;
     title = `You discovered ${place.name}`;
@@ -1198,6 +1198,9 @@ function DiscoveryDialog({
   } else if (shown?.kind === "event") {
     title = shown.event.title;
     text = shown.event.text;
+  } else if (shown?.kind === "nothing") {
+    title = "Nothing stirs";
+    text = "You explore for a while, but find nothing of note this time.";
   }
 
   // Compute tame cost / affordability for live creature encounters.
