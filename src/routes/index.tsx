@@ -66,6 +66,7 @@ function Index() {
     startBreeding,
     dismissBreedingResult,
     trainMagicalCreature,
+    gainElementXp,
     castSpell,
     damagePlayer,
     startSleep,
@@ -134,6 +135,7 @@ function Index() {
       onStartBreeding={startBreeding}
       onDismissBreedingResult={dismissBreedingResult}
       onTrainMagicalCreature={trainMagicalCreature}
+      onGainElementXp={gainElementXp}
       elementLevels={state.elementLevels}
       elementXp={state.elementXp}
       currentHp={state.currentHp}
@@ -336,6 +338,7 @@ function GameScreen({
   onStartBreeding,
   onDismissBreedingResult,
   onTrainMagicalCreature,
+  onGainElementXp,
   currentHp,
   maxHp,
   sleepUntil,
@@ -383,6 +386,7 @@ function GameScreen({
   ) => { ok: boolean; success: boolean; chance: number; pairs: number };
   onDismissBreedingResult: (id: string) => void;
   onTrainMagicalCreature: (creatureId: string) => number | null;
+  onGainElementXp: (element: string, amount: number) => void;
   currentHp: number;
   maxHp: number;
   sleepUntil: number;
@@ -536,7 +540,25 @@ function GameScreen({
       `${cast.spell.name} deals ${cast.damage} damage to ${combat.creature.name}.`,
     ];
     if (newCreatureHp === 0) {
-      setCombat({ ...combat, creatureHp: 0, log: [...log, `You defeated ${combat.creature.name}!`], phase: "win" });
+      const reward = (combat.creature.level + combat.creature.rarity) * 2;
+      const fragElement = combat.creature.elementProduction.element;
+      onApplyEvent((s) => ({
+        ...s,
+        resources: {
+          ...s.resources,
+          [fragmentResourceId(fragElement)]: (s.resources[fragmentResourceId(fragElement)] ?? 0) + reward,
+        },
+      }));
+      onGainElementXp(element, reward);
+      setCombat({
+        ...combat,
+        creatureHp: 0,
+        log: [
+          ...log,
+          `You defeated ${combat.creature.name}! Gained ${reward} ${fragElement} fragments and ${reward} XP.`,
+        ],
+        phase: "win",
+      });
       return;
     }
     // Creature retaliates immediately.
