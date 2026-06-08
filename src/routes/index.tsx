@@ -293,6 +293,18 @@ type Discovery =
   | { kind: "event"; event: RandomEvent }
   | { kind: "nothing" };
 
+/** A damage-over-time effect applied to the enemy. */
+interface DotEffect {
+  spellId: string;
+  spellName: string;
+  /** Damage dealt when the counter expires. */
+  damage: number;
+  /** Enemy turns remaining until the next tick. */
+  turnsUntilNext: number;
+  /** Enemy turns between ticks (used to reset after triggering). */
+  triggerEvery: number;
+}
+
 /** Active turn-based encounter state. */
 interface CombatState {
   creature: Creature;
@@ -301,6 +313,27 @@ interface CombatState {
   log: string[];
   /** 'player' = waiting for a spell choice; 'win'/'lose' = encounter over. */
   phase: "player" | "win" | "lose";
+  dotEffects: DotEffect[];
+}
+
+/** Ticks all active DoTs, returning updated effects and any triggered damage. */
+function tickDots(dotEffects: DotEffect[]): {
+  updatedDots: DotEffect[];
+  dotLogs: string[];
+  totalDamage: number;
+} {
+  let totalDamage = 0;
+  const dotLogs: string[] = [];
+  const updatedDots = dotEffects.map((dot) => {
+    const next = dot.turnsUntilNext - 1;
+    if (next <= 0) {
+      totalDamage += dot.damage;
+      dotLogs.push(`${dot.spellName} surges — ${dot.damage} damage seeps through.`);
+      return { ...dot, turnsUntilNext: dot.triggerEvery };
+    }
+    return { ...dot, turnsUntilNext: next };
+  });
+  return { updatedDots, dotLogs, totalDamage };
 }
 
 function GameScreen({
@@ -488,6 +521,7 @@ function GameScreen({
       creatureMaxHp: getCreatureHp(creature),
       log: [`A wild ${creature.name} squares up to fight.`],
       phase: "player",
+      dotEffects: [],
     });
   }
 
@@ -496,94 +530,78 @@ function GameScreen({
     if (!combat || combat.phase !== "player" || isSleeping) return;
     const cast = onCastSpell(spellId);
     if (!cast) {
-      setCombat({
-        ...combat,
-        log: [...combat.log, "You can't afford to cast that spell."],
-      });
+      setCombat({ ...combat, log: [...combat.log, "You can't afford to cast that spell."] });
       return;
     }
+
+    let log = [...combat.log];
+    let creatureHp = combat.creatureHp;
+    let dotEffects = combat.dotEffects;
 
     if ("buffApplied" in cast) {
-      const log = [
-        ...combat.log,
-        cast.spell.actionText,
-        `You are shielded by ${cast.spell.name}.`,
-      ];
-      const dmg = getCreatureDamage(combat.creature);
-      const result = onDamagePlayer(dmg);
-      let creatureLog: string;
-      if (result.blocked) {
-        creatureLog = `${combat.creature.name} strikes at you, but your Water Wall absorbs the blow!`;
-      } else {
-        creatureLog = `${combat.creature.name} strikes you for ${result.actualDamage} damage.`;
-      }
-      const log2 = [...log, creatureLog];
-      if (result.defeated) {
-        setCombat({
-          ...combat,
-          log: [
-            ...log2,
-            "You collapse. Half of your fragments slip away as you fall into a forced sleep.",
-          ],
-          phase: "lose",
-        });
+      log = [...log, cast.spell.actionText, `You are shielded by ${cast.spell.name}.`];
+    } else if ("dotApplied" in cast) {
+      const triggerEvery = cast.spell.dotEvery ?? 2;
+      const newDot: DotEffect = {
+        spellId: cast.spell.id,
+        spellName: cast.spell.name,
+        damage: cast.dotDamage,
+        turnsUntilNext: triggerEvery,
+        triggerEvery,
+      };
+      const existingIdx = dotEffects.findIndex((d) => d.spellId === cast.spell.id);
+      dotEffects = existingIdx >= 0
+        ? dotEffects.map((d, i) => (i === existingIdx ? newDot : d))
+        : [...dotEffects, newDot];
+      log = [...log, cast.spell.actionText, `${cast.spell.name} takes hold — ${cast.dotDamage} damage every ${triggerEvery} turns.`];
+    } else {
+      // Offensive spell — deal immediate damage to creature.
+      creatureHp = Math.max(0, creatureHp - cast.damage);
+      log = [...log, cast.spell.actionText, `${cast.spell.name} deals ${cast.damage} damage to ${combat.creature.name}.`];
+      if (creatureHp === 0) {
+        const reward = (combat.creature.level + combat.creature.rarity) * 2;
+        const fragElement = combat.creature.elementProduction.element;
+        onApplyEvent((s) => ({
+          ...s,
+          resources: { ...s.resources, [fragmentResourceId(fragElement)]: (s.resources[fragmentResourceId(fragElement)] ?? 0) + reward },
+        }));
+        onGainElementXp(element, reward);
+        setCombat({ ...combat, creatureHp: 0, dotEffects, log: [...log, `You defeated ${combat.creature.name}! Gained ${reward} ${fragElement} fragments and ${reward} XP.`], phase: "win" });
         return;
       }
-      setCombat({ ...combat, log: log2, phase: "player" });
+    }
+
+    // Creature retaliates.
+    const dmg = getCreatureDamage(combat.creature);
+    const result = onDamagePlayer(dmg);
+    log = result.blocked
+      ? [...log, `${combat.creature.name} strikes at you, but your Water Wall absorbs the blow!`]
+      : [...log, `${combat.creature.name} strikes you for ${result.actualDamage} damage.`];
+    if (result.defeated) {
+      setCombat({ ...combat, creatureHp, dotEffects, log: [...log, "You collapse. Half of your fragments slip away as you fall into a forced sleep."], phase: "lose" });
       return;
     }
 
-    const newCreatureHp = Math.max(0, combat.creatureHp - cast.damage);
-    const log = [
-      ...combat.log,
-      cast.spell.actionText,
-      `${cast.spell.name} deals ${cast.damage} damage to ${combat.creature.name}.`,
-    ];
-    if (newCreatureHp === 0) {
-      const reward = (combat.creature.level + combat.creature.rarity) * 2;
-      const fragElement = combat.creature.elementProduction.element;
-      onApplyEvent((s) => ({
-        ...s,
-        resources: {
-          ...s.resources,
-          [fragmentResourceId(fragElement)]: (s.resources[fragmentResourceId(fragElement)] ?? 0) + reward,
-        },
-      }));
-      onGainElementXp(element, reward);
-      setCombat({
-        ...combat,
-        creatureHp: 0,
-        log: [
-          ...log,
-          `You defeated ${combat.creature.name}! Gained ${reward} ${fragElement} fragments and ${reward} XP.`,
-        ],
-        phase: "win",
-      });
-      return;
+    // Tick active DoTs after each enemy turn.
+    const { updatedDots, dotLogs, totalDamage } = tickDots(dotEffects);
+    log = [...log, ...dotLogs];
+    dotEffects = updatedDots;
+    if (totalDamage > 0) {
+      creatureHp = Math.max(0, creatureHp - totalDamage);
+      if (creatureHp === 0) {
+        const reward = (combat.creature.level + combat.creature.rarity) * 2;
+        const fragElement = combat.creature.elementProduction.element;
+        onApplyEvent((s) => ({
+          ...s,
+          resources: { ...s.resources, [fragmentResourceId(fragElement)]: (s.resources[fragmentResourceId(fragElement)] ?? 0) + reward },
+        }));
+        onGainElementXp(element, reward);
+        setCombat({ ...combat, creatureHp: 0, dotEffects, log: [...log, `You defeated ${combat.creature.name}! Gained ${reward} ${fragElement} fragments and ${reward} XP.`], phase: "win" });
+        return;
+      }
     }
-    // Creature retaliates immediately.
-    const dmg = getCreatureDamage(combat.creature);
-    const result = onDamagePlayer(dmg);
-    let creatureLog: string;
-    if (result.blocked) {
-      creatureLog = `${combat.creature.name} strikes at you, but your Water Wall absorbs the blow!`;
-    } else {
-      creatureLog = `${combat.creature.name} strikes you for ${result.actualDamage} damage.`;
-    }
-    const log2 = [...log, creatureLog];
-    if (result.defeated) {
-      setCombat({
-        ...combat,
-        creatureHp: newCreatureHp,
-        log: [
-          ...log2,
-          "You collapse. Half of your fragments slip away as you fall into a forced sleep.",
-        ],
-        phase: "lose",
-      });
-      return;
-    }
-    setCombat({ ...combat, creatureHp: newCreatureHp, log: log2, phase: "player" });
+
+    setCombat({ ...combat, creatureHp, dotEffects, log, phase: "player" });
   }
 
   function handleFlee() {
@@ -1372,6 +1390,11 @@ function CombatDialog({
               if (spell.type === "offensive") {
                 const { min, max } = getSpellDamageRange(spell, elementLevels);
                 label = `Cast ${spell.name}, costs ${spell.cost} ${spell.element} fragments, deals ${min} to ${max} damage`;
+              } else if (spell.type === "dot") {
+                const dotDmg = spell.dotScaleElement
+                  ? Math.max(1, elementLevels[spell.dotScaleElement] ?? 1)
+                  : 1;
+                label = `Cast ${spell.name}, costs ${spell.cost} ${spell.element} fragments, deals ${dotDmg} damage every ${spell.dotEvery ?? 2} enemy turns`;
               } else {
                 label = `Cast ${spell.name}, costs ${spell.cost} ${spell.element} fragments, defensive buff`;
               }

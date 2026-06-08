@@ -24,11 +24,15 @@ export interface Spell {
   damageMax: number;
   /** If set, damageMin and damageMax are multiplied by the player's level in this element. */
   damageScaleElement?: string;
-  type: "offensive" | "defensive";
+  type: "offensive" | "defensive" | "dot";
   /** Duration in ms for defensive buffs. */
   durationMs?: number;
   /** Block chance percent per level in the spell's element. Only for defensive spells. */
   blockChancePerLevel?: number;
+  /** Enemy turns between each DoT tick. Only for dot spells. */
+  dotEvery?: number;
+  /** If set, DoT damage per tick equals the player's level in this element. */
+  dotScaleElement?: string;
 }
 
 export const SPELLS: Spell[] = [
@@ -59,11 +63,25 @@ export const SPELLS: Spell[] = [
     durationMs: 5 * 60 * 1000,
     blockChancePerLevel: 2,
   },
+  {
+    id: "drown",
+    name: "Drown",
+    element: "earth",
+    level: 1,
+    cost: 5,
+    actionText: "draws moisture from deep earth to flood your enemy's lungs.",
+    damageMin: 0,
+    damageMax: 0,
+    type: "dot",
+    dotEvery: 2,
+    dotScaleElement: "water",
+  },
 ];
 
 export type CastResult =
   | { spell: Spell; damage: number }
-  | { spell: Spell; buffApplied: true };
+  | { spell: Spell; buffApplied: true }
+  | { spell: Spell; dotApplied: true; dotDamage: number };
 
 /** Returns every spell whose element is unlocked and whose level is met. */
 export function getUnlockedSpells(

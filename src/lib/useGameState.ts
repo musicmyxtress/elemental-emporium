@@ -778,6 +778,17 @@ export function useGameState() {
           };
         }
 
+        if (spell.type === "dot") {
+          const dotDamage = spell.dotScaleElement
+            ? Math.max(1, prev.elementLevels[spell.dotScaleElement] ?? 1)
+            : 1;
+          result = { spell, dotApplied: true as const, dotDamage };
+          return {
+            ...prev,
+            resources: { ...prev.resources, [key]: have - spell.cost },
+          };
+        }
+
         const damage = rollSpellDamage(spell, prev.elementLevels);
         result = { spell, damage };
         return {
