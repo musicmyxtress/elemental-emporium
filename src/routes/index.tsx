@@ -740,6 +740,12 @@ function GameScreen({
         onFight={handleFight}
         onLeave={handleLeave}
         onTame={handleTame}
+        onCollect={() => {
+          if (discovery?.kind === "place") {
+            onCollectFromPlace(discovery.place.id);
+          }
+          setDiscovery(null);
+        }}
         onDismiss={() => setDiscovery(null)}
       />
       <CombatDialog
@@ -1141,6 +1147,7 @@ function DiscoveryDialog({
   onFight,
   onLeave,
   onTame,
+  onCollect,
   onDismiss,
 }: {
   discovery: Discovery | null;
@@ -1150,6 +1157,7 @@ function DiscoveryDialog({
   onFight: () => void;
   onLeave: () => void;
   onTame: () => void;
+  onCollect: () => void;
   onDismiss: () => void;
 }) {
   const open = discovery !== null;
@@ -1210,9 +1218,14 @@ function DiscoveryDialog({
         </DialogHeader>
         <DialogFooter className="flex flex-wrap gap-2 sm:flex-row">
           {isPlaceLocked && (
-            <Button type="button" onClick={onStudy}>
-              Study and move on
-            </Button>
+            <>
+              <Button type="button" onClick={onStudy}>
+                Study
+              </Button>
+              <Button type="button" variant="outline" onClick={onDismiss}>
+                Okay
+              </Button>
+            </>
           )}
           {isCreatureLocked && (
             <>
@@ -1246,11 +1259,16 @@ function DiscoveryDialog({
               </Button>
             </>
           )}
+          {discovery?.kind === "place" && (
+            <Button type="button" onClick={onCollect}>
+              Collect {discovery.place.resource.label}
+            </Button>
+          )}
           {(discovery?.kind === "place" ||
             discovery?.kind === "event" ||
             discovery?.kind === "nothing" ||
             (discovery?.kind === "locked-place" && !isPlaceLocked)) && (
-            <Button type="button" onClick={onDismiss}>
+            <Button type="button" variant="outline" onClick={onDismiss}>
               Okay
             </Button>
           )}
