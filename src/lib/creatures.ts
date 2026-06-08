@@ -54,6 +54,16 @@ export const CREATURES: Creature[] = [
     elementProduction: { element: "water", amount: 2 },
   },
   {
+    id: "gopher",
+    name: "Gopher",
+    description: "a small stocky rodent with powerful claws and fur-lined cheek pouches.",
+    rarity: 1,
+    level: 1,
+    gender: "male",
+    magical: false,
+    elementProduction: { element: "earth", amount: 1 },
+  },
+  {
     id: "mole",
     name: "Mole",
     description: "A cylindrical bodied mammal with tiny eyes and powerful digging claws.",
