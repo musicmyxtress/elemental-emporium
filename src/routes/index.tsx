@@ -1147,6 +1147,7 @@ function DiscoveryDialog({
   onFight,
   onLeave,
   onTame,
+  onCollect,
   onDismiss,
 }: {
   discovery: Discovery | null;
@@ -1156,6 +1157,7 @@ function DiscoveryDialog({
   onFight: () => void;
   onLeave: () => void;
   onTame: () => void;
+  onCollect: () => void;
   onDismiss: () => void;
 }) {
   const open = discovery !== null;
