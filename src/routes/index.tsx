@@ -7,7 +7,6 @@ import {
   BUILDING_COSTS,
   APPRENTICE_LEVEL,
   getMaxHp,
-  SLEEP_DURATION_MS,
 } from "@/lib/useGameState";
 import {
   ELEMENTS,
@@ -147,8 +146,6 @@ function Index() {
     />
   );
 }
-
-
 
 function PreGameFlow({
   isApprentice,
@@ -703,7 +700,12 @@ function GameScreen({
 
               )}
               {tab.value === "stats" && (
-                <StatsPanel elementLevels={elementLevels} elementXp={elementXp} generation={generation} />
+                <StatsPanel
+                  elementLevels={elementLevels}
+                  elementXp={elementXp}
+                  unlockedElements={unlockedElements}
+                  generation={generation}
+                />
               )}
             </section>
           </TabsContent>
@@ -771,7 +773,6 @@ function GameScreen({
         {creatureAnnouncement}
       </div>
     </main>
-
   );
 }
 
@@ -841,7 +842,6 @@ function ApprenticeArrivalDialog({
     </Dialog>
   );
 }
-
 
 function PlacesPanel({
   discoveredPlaces,
@@ -927,7 +927,6 @@ function PlacesPanel({
     </>
   );
 }
-
 
 function FragmentsAndCrystalsPanel({
   resources,
@@ -1059,12 +1058,16 @@ function FragmentsAndCrystalsPanel({
 function StatsPanel({
   elementLevels,
   elementXp,
+  unlockedElements,
   generation,
 }: {
   elementLevels: GameState["elementLevels"];
   elementXp: GameState["elementXp"];
+  unlockedElements: string[];
   generation: number;
 }) {
+  const elements = ALL_ELEMENT_INFO.filter((el) => unlockedElements.includes(el.id));
+
   return (
     <>
       <h3 className="text-base font-medium text-foreground">Generations</h3>
@@ -1072,58 +1075,52 @@ function StatsPanel({
         You are on generation {generation}.
       </p>
       <ul className="mt-4 grid gap-3" role="list">
-        {ELEMENTS.map((el) => {
-        const level = elementLevels[el.id] ?? 0;
-        const xp = elementXp[el.id] ?? 0;
-        const needed = level >= 1 ? xpToNextLevel(level) : 0;
-        const pct = needed > 0 ? Math.min(100, Math.round((xp / needed) * 100)) : 0;
-        return (
-          <li
-            key={el.id}
-            className="rounded-xl border bg-background p-4 text-left"
-          >
-            <div className="flex items-baseline justify-between gap-3">
-              <h3 className="text-base font-medium text-foreground">
-                <span aria-hidden="true" className="mr-2">
-                  {el.emoji}
-                </span>
-                {el.name}
-              </h3>
-              <span
-                className="text-sm font-medium tabular-nums text-foreground"
-                aria-label={`Level ${level}`}
-              >
-                Level {level}
-              </span>
-            </div>
-            {level >= 1 ? (
-              <>
-                <div
-                  className="mt-3 h-2 w-full overflow-hidden rounded-full bg-muted"
-                  role="progressbar"
-                  aria-valuemin={0}
-                  aria-valuemax={needed}
-                  aria-valuenow={xp}
-                  aria-label={`${el.name} experience: ${xp} of ${needed} toward level ${level + 1}`}
+        {elements.map((el) => {
+          const level = elementLevels[el.id] ?? 0;
+          const xp = elementXp[el.id] ?? 0;
+          const needed = level >= 1 ? xpToNextLevel(level) : 0;
+          const pct = needed > 0 ? Math.min(100, Math.round((xp / needed) * 100)) : 0;
+          return (
+            <li key={el.id} className="rounded-xl border bg-background p-4 text-left">
+              <div className="flex items-baseline justify-between gap-3">
+                <h3 className="text-base font-medium text-foreground">
+                  <span aria-hidden="true" className="mr-2">
+                    {el.emoji}
+                  </span>
+                  {el.name}
+                </h3>
+                <span
+                  className="text-sm font-medium tabular-nums text-foreground"
+                  aria-label={`Level ${level}`}
                 >
+                  Level {level}
+                </span>
+              </div>
+              {level >= 1 ? (
+                <>
                   <div
-                    className="h-full bg-foreground/70"
-                    style={{ width: `${pct}%` }}
-                  />
-                </div>
-                <p className="mt-2 text-xs text-muted-foreground tabular-nums">
-                  {xp} / {needed} XP toward level {level + 1}
+                    className="mt-3 h-2 w-full overflow-hidden rounded-full bg-muted"
+                    role="progressbar"
+                    aria-valuemin={0}
+                    aria-valuemax={needed}
+                    aria-valuenow={xp}
+                    aria-label={`${el.name} experience: ${xp} of ${needed} toward level ${level + 1}`}
+                  >
+                    <div className="h-full bg-foreground/70" style={{ width: `${pct}%` }} />
+                  </div>
+                  <p className="mt-2 text-xs text-muted-foreground tabular-nums">
+                    {xp} / {needed} XP toward level {level + 1}
+                  </p>
+                </>
+              ) : (
+                <p className="mt-2 text-xs text-muted-foreground">
+                  Untrained. Master this element to begin gaining levels.
                 </p>
-              </>
-            ) : (
-              <p className="mt-2 text-xs text-muted-foreground">
-                Untrained. Master this element to begin gaining levels.
-              </p>
-            )}
-          </li>
-        );
-      })}
-    </ul>
+              )}
+            </li>
+          );
+        })}
+      </ul>
     </>
   );
 }
@@ -1306,15 +1303,9 @@ function CombatDialog({
   onFlee: () => void;
   onClose: () => void;
 }) {
-  const open = combat !== null;
-  if (!combat) {
-    return (
-      <Dialog open={open} onOpenChange={(o) => (!o ? onClose() : undefined)}>
-        <DialogContent />
-      </Dialog>
-    );
-  }
+  if (!combat) return null;
   const { creature, creatureHp, creatureMaxHp, log, phase } = combat;
+  const open = true;
   const isOver = phase === "win" || phase === "lose";
   const title = isOver
     ? phase === "win"
@@ -1391,9 +1382,6 @@ function CombatDialog({
     </Dialog>
   );
 }
-
-
-
 
 function HomeBasePanel({
   masteredElement,

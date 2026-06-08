@@ -45,8 +45,6 @@ export const BREEDING_DURATION_MS = 30 * 60 * 1000;
  * become available once unlocked. */
 export type Element = string;
 
-export const ALL_ELEMENTS: Element[] = ["air", "earth", "fire", "water"];
-
 export type ElementRecord<T> = Record<string, T>;
 
 export interface GameState {

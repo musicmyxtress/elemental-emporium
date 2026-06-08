@@ -3,8 +3,6 @@ export type CreatureGender = "male" | "female";
 export interface ElementFlow {
   /** Element id (e.g. "air", "plant", "fire"). */
   element: string;
-  /** Amount produced or consumed per tick (units to be defined later). */
-  amount: number;
 }
 
 export interface Creature {
@@ -23,16 +21,27 @@ export interface Creature {
   gender: CreatureGender;
   /** Whether the creature wields magic. Magical creatures also consume an element. */
   magical: boolean;
-  /** The element this creature produces. */
+  /** The element this creature produces fragments of. */
   elementProduction: ElementFlow;
   /**
-   * The element this creature consumes. Required when `magical` is true; must
-   * be undefined when `magical` is false.
+   * The element this creature consumes fragments of each tick. Required when
+   * `magical` is true; must be undefined when `magical` is false.
    */
   elementConsumption?: ElementFlow;
 }
 
 export const CREATURES: Creature[] = [
+  // ── Non-magical ────────────────────────────────────────────────────────────
+  {
+    id: "gopher",
+    name: "Gopher",
+    description: "a small stocky rodent with powerful claws and fur-lined cheek pouches.",
+    rarity: 1,
+    level: 1,
+    gender: "male",
+    magical: false,
+    elementProduction: { element: "earth" },
+  },
   {
     id: "salamander",
     name: "Salamander",
@@ -41,7 +50,7 @@ export const CREATURES: Creature[] = [
     level: 1,
     gender: "male",
     magical: false,
-    elementProduction: { element: "fire", amount: 2 },
+    elementProduction: { element: "fire" },
   },
   {
     id: "duck",
@@ -51,28 +60,19 @@ export const CREATURES: Creature[] = [
     level: 1,
     gender: "female",
     magical: false,
-    elementProduction: { element: "water", amount: 2 },
-  },
-  {
-    id: "gopher",
-    name: "Gopher",
-    description: "a small stocky rodent with powerful claws and fur-lined cheek pouches.",
-    rarity: 1,
-    level: 1,
-    gender: "male",
-    magical: false,
-    elementProduction: { element: "earth", amount: 1 },
+    elementProduction: { element: "water" },
   },
   {
     id: "mole",
     name: "Mole",
-    description: "A cylindrical bodied mammal with tiny eyes and powerful digging claws.",
+    description: "a cylindrical bodied mammal with tiny eyes and powerful digging claws.",
     rarity: 2,
     level: 1,
     gender: "male",
     magical: false,
-    elementProduction: { element: "earth", amount: 2 },
+    elementProduction: { element: "earth" },
   },
+  // ── Magical ────────────────────────────────────────────────────────────────
   {
     id: "phoenix",
     name: "Phoenix",
@@ -81,8 +81,8 @@ export const CREATURES: Creature[] = [
     level: 3,
     gender: "female",
     magical: true,
-    elementProduction: { element: "fire", amount: 3 },
-    elementConsumption: { element: "air", amount: 3 },
+    elementProduction: { element: "fire" },
+    elementConsumption: { element: "air" },
   },
   {
     id: "sea-serpent",
@@ -92,8 +92,8 @@ export const CREATURES: Creature[] = [
     level: 3,
     gender: "male",
     magical: true,
-    elementProduction: { element: "water", amount: 3 },
-    elementConsumption: { element: "earth", amount: 3 },
+    elementProduction: { element: "water" },
+    elementConsumption: { element: "earth" },
   },
   {
     id: "stone-golem",
@@ -103,8 +103,8 @@ export const CREATURES: Creature[] = [
     level: 3,
     gender: "male",
     magical: true,
-    elementProduction: { element: "earth", amount: 3 },
-    elementConsumption: { element: "fire", amount: 3 },
+    elementProduction: { element: "earth" },
+    elementConsumption: { element: "fire" },
   },
   {
     id: "sylph",
@@ -114,8 +114,8 @@ export const CREATURES: Creature[] = [
     level: 3,
     gender: "female",
     magical: true,
-    elementProduction: { element: "air", amount: 3 },
-    elementConsumption: { element: "water", amount: 3 },
+    elementProduction: { element: "air" },
+    elementConsumption: { element: "water" },
   },
   {
     id: "dryad",
@@ -125,8 +125,8 @@ export const CREATURES: Creature[] = [
     level: 5,
     gender: "female",
     magical: true,
-    elementProduction: { element: "plant", amount: 4 },
-    elementConsumption: { element: "water", amount: 4 },
+    elementProduction: { element: "plant" },
+    elementConsumption: { element: "water" },
   },
   {
     id: "magma-drake",
@@ -136,8 +136,8 @@ export const CREATURES: Creature[] = [
     level: 5,
     gender: "male",
     magical: true,
-    elementProduction: { element: "lava", amount: 4 },
-    elementConsumption: { element: "fire", amount: 4 },
+    elementProduction: { element: "lava" },
+    elementConsumption: { element: "fire" },
   },
   {
     id: "chrono-hare",
@@ -147,8 +147,8 @@ export const CREATURES: Creature[] = [
     level: 8,
     gender: "male",
     magical: true,
-    elementProduction: { element: "time", amount: 5 },
-    elementConsumption: { element: "air", amount: 5 },
+    elementProduction: { element: "time" },
+    elementConsumption: { element: "air" },
   },
   {
     id: "luminary",
@@ -158,8 +158,8 @@ export const CREATURES: Creature[] = [
     level: 8,
     gender: "female",
     magical: true,
-    elementProduction: { element: "light", amount: 5 },
-    elementConsumption: { element: "fire", amount: 5 },
+    elementProduction: { element: "light" },
+    elementConsumption: { element: "fire" },
   },
   {
     id: "shadow-wraith",
@@ -169,14 +169,14 @@ export const CREATURES: Creature[] = [
     level: 8,
     gender: "male",
     magical: true,
-    elementProduction: { element: "darkness", amount: 5 },
-    elementConsumption: { element: "time", amount: 5 },
+    elementProduction: { element: "darkness" },
+    elementConsumption: { element: "time" },
   },
 ];
 
 /**
- * Effective level for HP / production scaling.
- * - Non-magical creatures: fixed at their template `level`.
+ * Effective level for HP / damage scaling.
+ * - Non-magical creatures: their template `level` (minimum 1).
  * - Magical creatures: their trained level (defaults to 1).
  */
 export function getEffectiveLevel(creature: Creature, trainedLevel?: number): number {
@@ -192,23 +192,21 @@ export function getCreatureHp(creature: Creature, trainedLevel?: number): number
 }
 
 /**
- * Damage per hit for a creature.
- * Rolls a random integer from effective level (inclusive) up to
- * effective level × rarity (inclusive).
+ * Damage per hit for a creature. Rolls a random integer from effective level
+ * (inclusive) up to effective level × rarity (inclusive), minimum 1.
  */
 export function getCreatureDamage(creature: Creature, trainedLevel?: number): number {
   const rarity = Math.max(1, creature.rarity);
   const level = getEffectiveLevel(creature, trainedLevel);
   const min = level;
   const max = level * rarity;
-  return Math.floor(Math.random() * (max - min + 1)) + min;
+  return Math.max(1, Math.floor(Math.random() * (max - min + 1)) + min);
 }
 
 /**
- * Per-tick production amount for a creature.
- * - Non-magical creatures produce their rarity in their production element.
- * - Magical creatures produce 2× rarity, plus another `rarity` for every 3
- *   trained levels (so rarity 5 magical gains +5 production every 3 levels).
+ * Per-tick fragment production for a creature.
+ * - Non-magical: produces `rarity` fragments of their element.
+ * - Magical: produces `2 × rarity` base, plus `rarity` more for every 3 trained levels.
  */
 export function getProductionAmount(creature: Creature, trainedLevel?: number): number {
   const base = Math.max(1, creature.rarity);
@@ -218,9 +216,9 @@ export function getProductionAmount(creature: Creature, trainedLevel?: number): 
 }
 
 /**
- * Per-tick consumption amount for a creature.
- * - Non-magical creatures consume nothing (returns 0).
- * - Magical creatures consume their rarity level in their consumption element.
+ * Per-tick fragment consumption for a creature.
+ * - Non-magical: 0 (no consumption).
+ * - Magical: consumes `rarity` fragments of their consumption element.
  */
 export function getConsumptionAmount(creature: Creature): number {
   if (!creature.magical || !creature.elementConsumption) return 0;
@@ -234,9 +232,9 @@ export function getCreature(id: string): Creature | undefined {
 
 /**
  * Returns a random creature eligible to encounter, weighted so lower-rarity
- * creatures are more likely than higher-rarity ones. Filters out creatures
- * that are temporarily shelved (e.g. because the player studied one whose
- * element they have not unlocked). Returns null when no creatures remain.
+ * creatures are more likely than higher-rarity ones. Filters to creatures
+ * whose minimum element level the player meets, and excludes temporarily
+ * shelved creatures. Returns null when no creatures are eligible.
  */
 export function rollCreature(
   elementLevels: Record<string, number>,
@@ -244,10 +242,8 @@ export function rollCreature(
   now: number = Date.now(),
 ): Creature | null {
   const available = CREATURES.filter((c) => {
-    const shelvedUntil = shelvedCreatures[c.id] ?? 0;
-    if (shelvedUntil > now) return false;
-    const playerLevel = elementLevels[c.elementProduction.element] ?? 0;
-    return playerLevel >= c.level;
+    if ((shelvedCreatures[c.id] ?? 0) > now) return false;
+    return (elementLevels[c.elementProduction.element] ?? 0) >= c.level;
   });
   if (available.length === 0) return null;
   const weights = available.map((c) => 1 / Math.max(1, c.rarity));
