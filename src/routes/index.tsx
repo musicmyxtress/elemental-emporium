@@ -1218,9 +1218,14 @@ function DiscoveryDialog({
         </DialogHeader>
         <DialogFooter className="flex flex-wrap gap-2 sm:flex-row">
           {isPlaceLocked && (
-            <Button type="button" onClick={onStudy}>
-              Study and move on
-            </Button>
+            <>
+              <Button type="button" onClick={onStudy}>
+                Study
+              </Button>
+              <Button type="button" variant="outline" onClick={onDismiss}>
+                Okay
+              </Button>
+            </>
           )}
           {isCreatureLocked && (
             <>
