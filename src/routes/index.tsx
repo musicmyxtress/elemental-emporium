@@ -43,22 +43,6 @@ import {
 import { Button } from "@/components/ui/button";
 
 export const Route = createFileRoute("/")({
-  head: () => ({
-    meta: [
-      { title: "Mage's Path — An Accessible Incremental RPG" },
-      {
-        name: "description",
-        content:
-          "A VoiceOver-friendly incremental RPG. Choose your element and gather fragments of your mastered magic.",
-      },
-      { property: "og:title", content: "Mage's Path — An Accessible Incremental RPG" },
-      {
-        property: "og:description",
-        content:
-          "A VoiceOver-friendly incremental RPG. Choose your element and gather fragments of your mastered magic.",
-      },
-    ],
-  }),
   component: Index,
 });
 

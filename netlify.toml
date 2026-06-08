@@ -1,12 +1,7 @@
 [build]
   command = "bun run build"
-  publish = ".netlify/static"
+  publish = "dist"
 
 [build.environment]
   NODE_VERSION = "20"
   BUN_VERSION = "latest"
-
-[[redirects]]
-  from = "/*"
-  to = "/.netlify/functions/server"
-  status = 200
