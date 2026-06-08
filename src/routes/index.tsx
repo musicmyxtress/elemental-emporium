@@ -1259,11 +1259,16 @@ function DiscoveryDialog({
               </Button>
             </>
           )}
+          {discovery?.kind === "place" && (
+            <Button type="button" onClick={onCollect}>
+              Collect {discovery.place.resource.label}
+            </Button>
+          )}
           {(discovery?.kind === "place" ||
             discovery?.kind === "event" ||
             discovery?.kind === "nothing" ||
             (discovery?.kind === "locked-place" && !isPlaceLocked)) && (
-            <Button type="button" onClick={onDismiss}>
+            <Button type="button" variant="outline" onClick={onDismiss}>
               Okay
             </Button>
           )}
