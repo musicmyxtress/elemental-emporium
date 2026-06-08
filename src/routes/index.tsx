@@ -740,6 +740,12 @@ function GameScreen({
         onFight={handleFight}
         onLeave={handleLeave}
         onTame={handleTame}
+        onCollect={() => {
+          if (discovery?.kind === "place") {
+            onCollectFromPlace(discovery.place.id);
+          }
+          setDiscovery(null);
+        }}
         onDismiss={() => setDiscovery(null)}
       />
       <CombatDialog
