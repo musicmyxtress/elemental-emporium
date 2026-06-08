@@ -363,7 +363,7 @@ export function useGameState() {
               if ((resources[consumeKey] ?? 0) < consumption) continue;
               resources[consumeKey] = (resources[consumeKey] ?? 0) - consumption;
             }
-            const trained = prev.magicalLevels[id] ?? 1;
+            const trained = prev.magicalLevels[id] ?? creature.level;
             const amount = getProductionAmount(creature, trained);
             resources[fragmentResourceId(creature.elementProduction.element)] =
               (resources[fragmentResourceId(creature.elementProduction.element)] ?? 0) + amount;
@@ -734,7 +734,7 @@ export function useGameState() {
     let result: number | null = null;
     setState((prev) => {
       if (!prev.tamedCreatures.includes(creatureId)) return prev;
-      const current = prev.magicalLevels[creatureId] ?? 1;
+      const current = prev.magicalLevels[creatureId] ?? (getCreature(creatureId)?.level ?? 1);
       const next = current + 1;
       result = next;
       return {

@@ -1930,7 +1930,7 @@ function MenageriePanel({
 
   if (selectedId && groups.has(selectedId)) {
     const { creature, count } = groups.get(selectedId)!;
-    const trainedLevel = magicalLevels[selectedId] ?? 1;
+    const trainedLevel = magicalLevels[selectedId] ?? creature.level;
     const production = getProductionAmount(creature, trainedLevel);
     const consumption = getConsumptionAmount(creature);
     const productionElement = creature.elementProduction.element;
@@ -2006,7 +2006,7 @@ function MenageriePanel({
       <ul className="mt-4 grid gap-2" role="list">
         {sortedIds.map((id) => {
           const { creature, count } = groups.get(id)!;
-          const trainedLevel = magicalLevels[id] ?? 1;
+          const trainedLevel = magicalLevels[id] ?? creature.level;
           return (
             <li key={id}>
               <button

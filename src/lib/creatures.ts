@@ -77,8 +77,8 @@ export const CREATURES: Creature[] = [
     id: "phoenix",
     name: "Phoenix",
     description: "a radiant bird of flame that rises reborn from its own ashes.",
-    rarity: 3,
-    level: 3,
+    rarity: 6,
+    level: 8,
     gender: "female",
     magical: true,
     elementProduction: { element: "fire" },
@@ -206,13 +206,13 @@ export function getCreatureDamage(creature: Creature, trainedLevel?: number): nu
 /**
  * Per-tick fragment production for a creature.
  * - Non-magical: produces `rarity` fragments of their element.
- * - Magical: produces `2 × rarity` base, plus `rarity` more for every 3 trained levels.
+ * - Magical: produces `rarity × trainedLevel` fragments; trained level
+ *   defaults to `creature.level` (its encounter level) when not yet set.
  */
 export function getProductionAmount(creature: Creature, trainedLevel?: number): number {
-  const base = Math.max(1, creature.rarity);
-  if (!creature.magical) return base;
-  const trained = Math.max(1, trainedLevel ?? 1);
-  return base * 2 + base * Math.floor(trained / 3);
+  if (!creature.magical) return Math.max(1, creature.rarity);
+  const level = Math.max(1, trainedLevel ?? creature.level);
+  return creature.rarity * level;
 }
 
 /**
