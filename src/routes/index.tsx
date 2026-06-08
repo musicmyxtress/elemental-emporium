@@ -744,7 +744,6 @@ function GameScreen({
           if (discovery?.kind === "place") {
             onCollectFromPlace(discovery.place.id);
           }
-          setDiscovery(null);
         }}
         onDismiss={() => setDiscovery(null)}
       />
