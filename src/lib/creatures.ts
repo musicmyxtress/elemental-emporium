@@ -32,12 +32,38 @@ export interface Creature {
   elementConsumption?: ElementFlow;
 }
 
-/**
- * The internal pool of encounterable creatures. The player never sees this
- * list directly — creatures appear during exploration. Intentionally left
- * empty for now; specific creatures will be added later.
- */
-export const CREATURES: Creature[] = [];
+export const CREATURES: Creature[] = [
+  {
+    id: "salamander",
+    name: "Salamander",
+    description: "a tiny lizard with a blunt snout and short limbs.",
+    rarity: 2,
+    level: 1,
+    gender: "male",
+    magical: false,
+    elementProduction: { element: "fire", amount: 2 },
+  },
+  {
+    id: "duck",
+    name: "Duck",
+    description: "an odd, broad billed aquatic bird with webbed feet.",
+    rarity: 2,
+    level: 1,
+    gender: "female",
+    magical: false,
+    elementProduction: { element: "water", amount: 2 },
+  },
+  {
+    id: "mole",
+    name: "Mole",
+    description: "A cylindrical bodied mammal with tiny eyes and powerful digging claws.",
+    rarity: 2,
+    level: 1,
+    gender: "male",
+    magical: false,
+    elementProduction: { element: "earth", amount: 2 },
+  },
+];
 
 /**
  * Effective level for HP / production scaling.
