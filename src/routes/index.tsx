@@ -240,13 +240,13 @@ function ChooseElementScreen({
     ? availableElementIds
         .map((id) => {
           const starter = ELEMENTS.find((e) => e.id === id);
-          if (starter) return { id, name: starter.name, emoji: starter.emoji, description: starter.description };
+          if (starter) return { id, name: starter.name, emoji: starter.emoji };
           const info = getElementInfo(id);
           if (!info) return null;
-          return { id, name: info.name, emoji: info.emoji, description: `Master the ${info.name.toLowerCase()} element.` };
+          return { id, name: info.name, emoji: info.emoji };
         })
-        .filter((x): x is { id: string; name: string; emoji: string; description: string } => Boolean(x))
-    : ELEMENTS.map((el) => ({ id: el.id, name: el.name, emoji: el.emoji, description: el.description }));
+        .filter((x): x is { id: string; name: string; emoji: string } => Boolean(x))
+    : ELEMENTS.map((el) => ({ id: el.id, name: el.name, emoji: el.emoji }));
 
   const heading = isApprentice
     ? `You are the new apprentice, generation ${generation}. Your master sent you out into the world to build your own emporium. Which of your unlocked elements will you specialize in?`
@@ -271,13 +271,12 @@ function ChooseElementScreen({
                 type="button"
                 onClick={() => onChoose(el.id)}
                 className="group flex h-full w-full flex-col items-start gap-2 rounded-xl border bg-card p-5 text-left transition-colors hover:bg-muted focus-visible:bg-muted"
-                aria-label={`Specialize in ${el.name}. ${el.description}`}
+                aria-label={`Specialize in ${el.name}`}
               >
                 <span aria-hidden="true" className="text-4xl">
                   {el.emoji}
                 </span>
-                <span className="text-lg font-medium text-foreground">{el.name}</span>
-                <span className="text-sm text-muted-foreground">{el.description}</span>
+                <span className="text-lg font-medium text-foreground">Specialize in {el.name}</span>
               </button>
             </li>
           ))}
