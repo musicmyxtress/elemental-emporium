@@ -1160,6 +1160,11 @@ function DiscoveryDialog({
   onDismiss: () => void;
 }) {
   const open = discovery !== null;
+  // Hold onto the last non-null discovery so that the dialog content does not
+  // flash to the "Nothing stirs" fallback while it animates closed.
+  const lastDiscoveryRef = useRef<Discovery | null>(null);
+  if (discovery !== null) lastDiscoveryRef.current = discovery;
+  const shown = discovery ?? lastDiscoveryRef.current;
 
   // Re-evaluate lock status at render time so that if an element was
   // unlocked elsewhere (e.g. by studying a different place/creature) the
