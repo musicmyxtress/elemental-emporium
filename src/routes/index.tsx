@@ -596,7 +596,7 @@ function GameScreen({
   }
 
   function handleTame() {
-    if (discovery?.kind !== "creature") return;
+    if (discovery?.kind !== "creature" && discovery?.kind !== "locked-creature") return;
     const c = discovery.creature;
     const cost = c.rarity * 2;
     const ok = onSpendCrystals(c.elementProduction.element, cost);
@@ -606,7 +606,9 @@ function GameScreen({
       );
       return;
     }
-    setCreatureAnnouncement(`Tamed ${c.name} for ${cost} ${c.elementProduction.element} crystals.`);
+    const reward = (c.level + c.rarity) * 2;
+    onGainElementXp(element, reward);
+    setCreatureAnnouncement(`Tamed ${c.name} for ${cost} ${c.elementProduction.element} crystals. Gained ${reward} XP.`);
     onTameCreature(c.id);
     setDiscovery(null);
   }
