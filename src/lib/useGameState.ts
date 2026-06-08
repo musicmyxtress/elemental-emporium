@@ -354,17 +354,25 @@ export function useGameState() {
         // Tamed creatures keep producing even during sleep.
         for (const id of prev.tamedCreatures) {
           const creature = getCreature(id);
-          if (!creature || !creature.magical) continue;
-          const consumption = getConsumptionAmount(creature);
-          if (creature.elementConsumption && consumption > 0) {
-            const consumeKey = fragmentResourceId(creature.elementConsumption.element);
-            if ((resources[consumeKey] ?? 0) < consumption) continue;
-            resources[consumeKey] = (resources[consumeKey] ?? 0) - consumption;
+          if (!creature) continue;
+          if (creature.magical) {
+            // Magical creatures consume first; skip production if they can't afford it.
+            const consumption = getConsumptionAmount(creature);
+            if (creature.elementConsumption && consumption > 0) {
+              const consumeKey = fragmentResourceId(creature.elementConsumption.element);
+              if ((resources[consumeKey] ?? 0) < consumption) continue;
+              resources[consumeKey] = (resources[consumeKey] ?? 0) - consumption;
+            }
+            const trained = prev.magicalLevels[id] ?? 1;
+            const amount = getProductionAmount(creature, trained);
+            resources[fragmentResourceId(creature.elementProduction.element)] =
+              (resources[fragmentResourceId(creature.elementProduction.element)] ?? 0) + amount;
+          } else {
+            // Non-magical creatures produce a small amount with no consumption.
+            const amount = getProductionAmount(creature);
+            resources[fragmentResourceId(creature.elementProduction.element)] =
+              (resources[fragmentResourceId(creature.elementProduction.element)] ?? 0) + amount;
           }
-          const trained = prev.magicalLevels[id] ?? 1;
-          const amount = getProductionAmount(creature, trained);
-          const key = fragmentResourceId(creature.elementProduction.element);
-          resources[key] = (resources[key] ?? 0) + amount;
         }
         return { ...prev, resources };
       });
