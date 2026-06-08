@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { getPlace } from "./places";
 import { xpToNextLevel, fragmentResourceId, FRAGMENTS_PER_CRYSTAL, LEVEL_CAP } from "./elements";
-import { getCreature, getProductionAmount, type CreatureGender } from "./creatures";
+import { getCreature, getProductionAmount, getConsumptionAmount, type CreatureGender } from "./creatures";
 import { SPELLS, rollSpellDamage, type Spell, type CastResult } from "./spells";
 
 /** Base maximum HP at character creation, before any level-ups. */
@@ -107,9 +107,10 @@ export interface GameState {
   spellBuffs: { spellId: string; expiresAt: number }[];
 }
 
-/** Build costs for player-constructable buildings. */
+/** Build costs for player-constructable buildings (resource costs only). */
 export const BUILDING_COSTS: Record<string, Record<string, number>> = {
   stable: { wood: 50, stone: 50 },
+  menagerie: { wood: 200, stone: 200 },
 };
 
 /** The mastered element level at which an apprentice arrives. */
@@ -356,6 +357,12 @@ export function useGameState() {
         for (const id of prev.tamedCreatures) {
           const creature = getCreature(id);
           if (!creature || !creature.magical) continue;
+          const consumption = getConsumptionAmount(creature);
+          if (creature.elementConsumption && consumption > 0) {
+            const consumeKey = fragmentResourceId(creature.elementConsumption.element);
+            if ((resources[consumeKey] ?? 0) < consumption) continue;
+            resources[consumeKey] = (resources[consumeKey] ?? 0) - consumption;
+          }
           const trained = prev.magicalLevels[id] ?? 1;
           const amount = getProductionAmount(creature, trained);
           const key = fragmentResourceId(creature.elementProduction.element);
@@ -579,7 +586,7 @@ export function useGameState() {
     }));
   }, []);
 
-  const buildBuilding = useCallback((buildingId: string): boolean => {
+  const buildBuilding = useCallback((buildingId: string, crystalCosts?: Record<string, number>): boolean => {
     const costs = BUILDING_COSTS[buildingId];
     if (!costs) return false;
     let ok = false;
@@ -588,14 +595,26 @@ export function useGameState() {
       for (const [res, amount] of Object.entries(costs)) {
         if ((prev.resources[res] ?? 0) < amount) return prev;
       }
+      if (crystalCosts) {
+        for (const [elementId, amount] of Object.entries(crystalCosts)) {
+          if ((prev.crystals[elementId] ?? 0) < amount) return prev;
+        }
+      }
       ok = true;
       const nextResources = { ...prev.resources };
       for (const [res, amount] of Object.entries(costs)) {
         nextResources[res] = (nextResources[res] ?? 0) - amount;
       }
+      const nextCrystals = { ...prev.crystals };
+      if (crystalCosts) {
+        for (const [elementId, amount] of Object.entries(crystalCosts)) {
+          nextCrystals[elementId] = (nextCrystals[elementId] ?? 0) - amount;
+        }
+      }
       return {
         ...prev,
         resources: nextResources,
+        crystals: nextCrystals,
         buildings: [...prev.buildings, buildingId],
       };
     });

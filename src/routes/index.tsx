@@ -66,6 +66,7 @@ function Index() {
     graduateApprentice,
     startBreeding,
     dismissBreedingResult,
+    trainMagicalCreature,
     castSpell,
     damagePlayer,
     startSleep,
@@ -115,6 +116,7 @@ function Index() {
       discoveredElements={state.discoveredElements}
       buildings={state.buildings}
       tamedCreatures={state.tamedCreatures}
+      magicalLevels={state.magicalLevels}
       pendingBreedings={state.pendingBreedings}
       breedingResults={state.breedingResults}
       onDiscoverPlace={discoverPlace}
@@ -132,6 +134,7 @@ function Index() {
       onGraduateApprentice={graduateApprentice}
       onStartBreeding={startBreeding}
       onDismissBreedingResult={dismissBreedingResult}
+      onTrainMagicalCreature={trainMagicalCreature}
       elementLevels={state.elementLevels}
       elementXp={state.elementXp}
       currentHp={state.currentHp}
@@ -316,6 +319,7 @@ function GameScreen({
   discoveredElements,
   buildings,
   tamedCreatures,
+  magicalLevels,
   pendingBreedings,
   breedingResults,
   elementLevels,
@@ -335,6 +339,7 @@ function GameScreen({
   onGraduateApprentice,
   onStartBreeding,
   onDismissBreedingResult,
+  onTrainMagicalCreature,
   currentHp,
   maxHp,
   sleepUntil,
@@ -356,6 +361,7 @@ function GameScreen({
   discoveredElements: string[];
   buildings: string[];
   tamedCreatures: string[];
+  magicalLevels: GameState["magicalLevels"];
   pendingBreedings: GameState["pendingBreedings"];
   breedingResults: GameState["breedingResults"];
   elementLevels: GameState["elementLevels"];
@@ -370,7 +376,7 @@ function GameScreen({
   onConvertFragments: (elementId: string) => boolean;
   onSpendCrystals: (elementId: string, amount: number) => boolean;
   onTameCreature: (creatureId: string) => void;
-  onBuildBuilding: (buildingId: string) => boolean;
+  onBuildBuilding: (buildingId: string, crystalCosts?: Record<string, number>) => boolean;
   onAcknowledgeApprentice: () => void;
   onGraduateApprentice: (creatureId: string) => boolean;
   onStartBreeding: (
@@ -380,6 +386,7 @@ function GameScreen({
     rarity: number,
   ) => { ok: boolean; success: boolean; chance: number; pairs: number };
   onDismissBreedingResult: (id: string) => void;
+  onTrainMagicalCreature: (creatureId: string) => number | null;
   currentHp: number;
   maxHp: number;
   sleepUntil: number;
@@ -659,6 +666,8 @@ function GameScreen({
                   generation={generation}
                   tamedCreatures={tamedCreatures}
                   resources={resources}
+                  crystals={crystals}
+                  unlockedElements={unlockedElements}
                   buildings={buildings}
                   currentHp={currentHp}
                   maxHp={maxHp}
@@ -674,6 +683,14 @@ function GameScreen({
                   tamedCreatures={tamedCreatures}
                   pendingBreedings={pendingBreedings}
                   onStartBreeding={onStartBreeding}
+                />
+              )}
+              {tab.value === "menagerie" && (
+                <MenageriePanel
+                  buildings={buildings}
+                  tamedCreatures={tamedCreatures}
+                  magicalLevels={magicalLevels}
+                  onTrainMagicalCreature={onTrainMagicalCreature}
                 />
               )}
               {tab.value === "fragments-and-crystals" && (
@@ -1385,6 +1402,8 @@ function HomeBasePanel({
   generation,
   tamedCreatures,
   resources,
+  crystals,
+  unlockedElements,
   buildings,
   currentHp,
   maxHp,
@@ -1398,11 +1417,13 @@ function HomeBasePanel({
   generation: number;
   tamedCreatures: string[];
   resources: Record<string, number>;
+  crystals: Record<string, number>;
+  unlockedElements: string[];
   buildings: string[];
   currentHp: number;
   maxHp: number;
   isSleeping: boolean;
-  onBuildBuilding: (buildingId: string) => boolean;
+  onBuildBuilding: (buildingId: string, crystalCosts?: Record<string, number>) => boolean;
   onGraduateApprentice: (creatureId: string) => boolean;
   onStartSleep: () => boolean;
 }) {
@@ -1428,6 +1449,30 @@ function HomeBasePanel({
   const costsLabel = Object.entries(stableCosts)
     .map(([res, amt]) => `${amt} ${res}`)
     .join(" and ");
+
+  const menagerieBuilt = buildings.includes("menagerie");
+  const menagerieCosts = BUILDING_COSTS.menagerie;
+  const menagerieCrystalCosts = Object.fromEntries(unlockedElements.map((id) => [id, 2]));
+  const canBuildMenagerie =
+    !menagerieBuilt &&
+    Object.entries(menagerieCosts).every(([res, amt]) => (resources[res] ?? 0) >= amt) &&
+    unlockedElements.every((id) => (crystals[id] ?? 0) >= 2);
+
+  function handleBuildMenagerie() {
+    const ok = onBuildBuilding("menagerie", menagerieCrystalCosts);
+    setAnnouncement(
+      ok
+        ? "Menagerie built. The Menagerie tab is now available."
+        : "Not enough resources or crystals to build the menagerie.",
+    );
+  }
+
+  const menagerieResourceLabel = Object.entries(menagerieCosts)
+    .map(([res, amt]) => `${amt} ${res}`)
+    .join(", ");
+  const menagerieCrystalLabel = unlockedElements.length > 0
+    ? `2 of each unlocked crystal (${unlockedElements.join(", ")})`
+    : "2 of each unlocked crystal";
 
   const wood = resources["wood"] ?? 0;
   const stone = resources["stone"] ?? 0;
@@ -1552,6 +1597,32 @@ function HomeBasePanel({
                 }
               >
                 Build stable ({costsLabel})
+              </Button>
+            )}
+          </div>
+        </li>
+        <li className="rounded-xl border bg-background p-4 text-left">
+          <h3 className="text-base font-medium text-foreground">Menagerie</h3>
+          <p className="mt-1 text-sm text-muted-foreground">
+            House your tamed magical creatures and train them to produce more fragments.
+            Costs {menagerieResourceLabel}, plus {menagerieCrystalLabel}.
+          </p>
+          <div className="mt-3">
+            {menagerieBuilt ? (
+              <p className="text-sm text-foreground">Built. Open the Menagerie tab to manage it.</p>
+            ) : (
+              <Button
+                type="button"
+                size="sm"
+                onClick={handleBuildMenagerie}
+                disabled={!canBuildMenagerie}
+                aria-label={
+                  canBuildMenagerie
+                    ? `Build the menagerie for ${menagerieResourceLabel} and ${menagerieCrystalLabel}`
+                    : `Building the menagerie requires ${menagerieResourceLabel} and ${menagerieCrystalLabel}`
+                }
+              >
+                Build menagerie ({menagerieResourceLabel})
               </Button>
             )}
           </div>
@@ -1822,6 +1893,153 @@ function StablePanel({
   );
 }
 
+
+function MenageriePanel({
+  buildings,
+  tamedCreatures,
+  magicalLevels,
+  onTrainMagicalCreature,
+}: {
+  buildings: string[];
+  tamedCreatures: string[];
+  magicalLevels: Record<string, number>;
+  onTrainMagicalCreature: (creatureId: string) => number | null;
+}) {
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [announcement, setAnnouncement] = useState("");
+
+  if (!buildings.includes("menagerie")) {
+    return (
+      <p className="mt-3 text-sm">
+        You have not built a menagerie yet. Visit the Home Base tab to construct one.
+      </p>
+    );
+  }
+
+  const instances = tamedCreatures
+    .map((id) => getCreature(id))
+    .filter((c): c is Creature => Boolean(c) && c!.magical);
+
+  if (instances.length === 0) {
+    return (
+      <p className="mt-3 text-sm">
+        Your menagerie is empty. Tame magical creatures during exploration to house them here.
+      </p>
+    );
+  }
+
+  // Group by template id so duplicates of the same species roll up.
+  const groups = new Map<string, { creature: Creature; count: number }>();
+  for (const c of instances) {
+    const existing = groups.get(c.id);
+    if (existing) existing.count += 1;
+    else groups.set(c.id, { creature: c, count: 1 });
+  }
+  const sortedIds = Array.from(groups.keys()).sort((a, b) => {
+    const nameA = groups.get(a)!.creature.name;
+    const nameB = groups.get(b)!.creature.name;
+    return nameA.localeCompare(nameB);
+  });
+
+  if (selectedId && groups.has(selectedId)) {
+    const { creature, count } = groups.get(selectedId)!;
+    const trainedLevel = magicalLevels[selectedId] ?? 1;
+    const production = getProductionAmount(creature, trainedLevel);
+    const consumption = getConsumptionAmount(creature);
+    const productionElement = creature.elementProduction.element;
+    const consumptionElement = creature.elementConsumption?.element ?? "";
+
+    function handleTrain() {
+      const next = onTrainMagicalCreature(selectedId!);
+      if (next !== null) {
+        setAnnouncement(`${creature.name} trained to level ${next}.`);
+      }
+    }
+
+    return (
+      <div className="mt-4">
+        <button
+          type="button"
+          onClick={() => setSelectedId(null)}
+          className="text-sm text-foreground underline underline-offset-2 hover:no-underline focus-visible:no-underline"
+        >
+          Back to menagerie
+        </button>
+        <h3 className="mt-3 text-base font-medium text-foreground">{creature.name}</h3>
+        <dl className="mt-3 grid gap-2 text-sm text-foreground">
+          <div className="flex justify-between">
+            <dt className="text-muted-foreground">Count</dt>
+            <dd className="font-medium tabular-nums">{count}</dd>
+          </div>
+          <div className="flex justify-between">
+            <dt className="text-muted-foreground">Trained level</dt>
+            <dd className="font-medium tabular-nums">{trainedLevel}</dd>
+          </div>
+          <div className="flex justify-between">
+            <dt className="text-muted-foreground">Fragment production</dt>
+            <dd
+              className="font-medium tabular-nums"
+              aria-label={`${production} ${productionElement} fragments per tick`}
+            >
+              +{production} {productionElement} per tick
+            </dd>
+          </div>
+          <div className="flex justify-between">
+            <dt className="text-muted-foreground">Fragment consumption</dt>
+            <dd
+              className="font-medium tabular-nums"
+              aria-label={`${consumption} ${consumptionElement} fragments consumed per tick`}
+            >
+              −{consumption} {consumptionElement} per tick
+            </dd>
+          </div>
+        </dl>
+        <div className="mt-4">
+          <Button
+            type="button"
+            size="sm"
+            onClick={handleTrain}
+            aria-label={`Train ${creature.name} from level ${trainedLevel} to level ${trainedLevel + 1}`}
+          >
+            Train (level {trainedLevel} → {trainedLevel + 1})
+          </Button>
+        </div>
+        <div role="status" aria-live="polite" className="sr-only">
+          {announcement}
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <>
+      <p className="mt-3 text-sm">
+        Your magical creatures. Select one to see details and train them.
+      </p>
+      <ul className="mt-4 grid gap-2" role="list">
+        {sortedIds.map((id) => {
+          const { creature, count } = groups.get(id)!;
+          const trainedLevel = magicalLevels[id] ?? 1;
+          return (
+            <li key={id}>
+              <button
+                type="button"
+                onClick={() => setSelectedId(id)}
+                className="flex w-full items-center justify-between rounded-lg border bg-background px-4 py-2 text-sm text-foreground transition-colors hover:bg-muted focus-visible:bg-muted"
+                aria-label={`${creature.name}, ${count}, level ${trainedLevel}. View details.`}
+              >
+                <span>{creature.name}</span>
+                <span className="font-medium tabular-nums text-muted-foreground">
+                  {count} · lv {trainedLevel}
+                </span>
+              </button>
+            </li>
+          );
+        })}
+      </ul>
+    </>
+  );
+}
 
 const TABS = [
   { value: "home-base", label: "Home Base" },
