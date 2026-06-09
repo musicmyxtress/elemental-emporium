@@ -66,7 +66,7 @@ export const SPELLS: Spell[] = [
   {
     id: "drown",
     name: "Drown",
-    element: "earth",
+    element: "water",
     level: 1,
     cost: 5,
     actionText: "draws moisture from deep earth to flood your enemy's lungs.",
