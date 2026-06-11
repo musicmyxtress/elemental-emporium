@@ -515,7 +515,7 @@ function GameScreen({
   /** Begins turn-based combat against the discovered creature. */
   function handleFight() {
     if (isSleeping) return;
-    if (discovery?.kind !== "creature" && discovery?.kind !== "locked-creature") return;
+    if (discovery?.kind !== "creature") return;
     const creature = discovery.creature;
     setDiscovery(null);
     setCombat({
@@ -620,7 +620,7 @@ function GameScreen({
   }
 
   function handleTame() {
-    if (discovery?.kind !== "creature" && discovery?.kind !== "locked-creature") return;
+    if (discovery?.kind !== "creature") return;
     const c = discovery.creature;
     const cost = c.rarity * 2;
     const ok = onSpendCrystals(c.elementProduction.element, cost);
