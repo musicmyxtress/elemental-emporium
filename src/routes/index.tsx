@@ -28,7 +28,7 @@ import {
   getCreatureDamage,
   type Creature,
 } from "@/lib/creatures";
-import { getUnlockedSpells, getSpellDamageRange, type Spell, type CastResult } from "@/lib/spells";
+import { getUnlockedSpells, getSpellDamageRange, computeIncomingDamage, type Spell, type CastResult } from "@/lib/spells";
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
@@ -141,6 +141,7 @@ function Index() {
       currentHp={state.currentHp}
       maxHp={getMaxHp(state.levelUpsTotal)}
       sleepUntil={state.sleepUntil}
+      spellBuffs={state.spellBuffs}
       onCastSpell={castSpell}
       onDamagePlayer={damagePlayer}
       onStartSleep={startSleep}
@@ -375,6 +376,7 @@ function GameScreen({
   currentHp,
   maxHp,
   sleepUntil,
+  spellBuffs,
   onCastSpell,
   onDamagePlayer,
   onStartSleep,
@@ -423,8 +425,9 @@ function GameScreen({
   currentHp: number;
   maxHp: number;
   sleepUntil: number;
+  spellBuffs: GameState["spellBuffs"];
   onCastSpell: (spellId: string) => CastResult | null;
-  onDamagePlayer: (amount: number) => { defeated: boolean; blocked: boolean; actualDamage: number };
+  onDamagePlayer: (amount: number) => void;
   onStartSleep: () => boolean;
   onReset: () => void;
 }) {
@@ -571,13 +574,16 @@ function GameScreen({
       }
     }
 
-    // Creature retaliates.
-    const dmg = getCreatureDamage(combat.creature);
-    const result = onDamagePlayer(dmg);
-    log = result.blocked
+    // Creature retaliates. Resolve block chance here (pure, before any setState)
+    // so the log message reflects the real damage rather than the default 0.
+    const raw = getCreatureDamage(combat.creature);
+    const { actualDamage, blocked } = computeIncomingDamage(raw, spellBuffs, elementLevels);
+    const defeated = currentHp - actualDamage <= 0;
+    onDamagePlayer(actualDamage);
+    log = blocked
       ? [...log, `${combat.creature.name} strikes at you, but your Water Wall absorbs the blow!`]
-      : [...log, `${combat.creature.name} strikes you for ${result.actualDamage} damage.`];
-    if (result.defeated) {
+      : [...log, `${combat.creature.name} strikes you for ${actualDamage} damage.`];
+    if (defeated) {
       setCombat({ ...combat, creatureHp, dotEffects, log: [...log, "You collapse. Half of your fragments slip away as you fall into a forced sleep."], phase: "lose" });
       return;
     }

@@ -802,63 +802,31 @@ export function useGameState() {
   );
 
   /**
-   * Subtracts damage from the player's HP, checking active defensive buffs
-   * like Water Wall for a chance to block. If HP reaches 0, halves every
-   * fragment pile and forces the player to sleep for SLEEP_DURATION_MS.
-   * Returns whether the player was defeated, whether damage was blocked,
-   * and the actual damage taken.
+   * Applies pre-computed damage to the player's HP. The caller is responsible
+   * for resolving block chance before calling (use computeIncomingDamage from
+   * spells.ts). If HP reaches 0, halves every fragment pile and forces sleep.
    */
-  const damagePlayer = useCallback(
-    (amount: number): { defeated: boolean; blocked: boolean; actualDamage: number } => {
-      let result: { defeated: boolean; blocked: boolean; actualDamage: number } = {
-        defeated: false,
-        blocked: false,
-        actualDamage: 0,
+  const damagePlayer = useCallback((amount: number): void => {
+    setState((prev) => {
+      const damage = Math.max(0, amount);
+      const nextHp = Math.max(0, prev.currentHp - damage);
+      if (nextHp > 0) {
+        return { ...prev, currentHp: nextHp };
+      }
+      const resources = { ...prev.resources };
+      for (const k of Object.keys(resources)) {
+        if (k.endsWith("-fragment")) {
+          resources[k] = Math.floor((resources[k] ?? 0) / 2);
+        }
+      }
+      return {
+        ...prev,
+        resources,
+        currentHp: 0,
+        sleepUntil: Date.now() + SLEEP_DURATION_MS,
       };
-      setState((prev) => {
-        const now = Date.now();
-        let damage = Math.max(0, amount);
-
-        const waterWall = prev.spellBuffs.find(
-          (b) => b.spellId === "water-wall" && b.expiresAt > now,
-        );
-        if (waterWall) {
-          const waterLevel = prev.elementLevels["water"] ?? 0;
-          const blockChance =
-            waterLevel *
-            (SPELLS.find((s) => s.id === "water-wall")?.blockChancePerLevel ?? 0);
-          if (Math.random() * 100 < blockChance) {
-            damage = 0;
-          }
-        }
-
-        const nextHp = Math.max(0, prev.currentHp - damage);
-        result = {
-          defeated: nextHp === 0,
-          blocked: damage === 0 && amount > 0,
-          actualDamage: damage,
-        };
-
-        if (nextHp > 0) {
-          return { ...prev, currentHp: nextHp };
-        }
-        const resources = { ...prev.resources };
-        for (const k of Object.keys(resources)) {
-          if (k.endsWith("-fragment")) {
-            resources[k] = Math.floor((resources[k] ?? 0) / 2);
-          }
-        }
-        return {
-          ...prev,
-          resources,
-          currentHp: 0,
-          sleepUntil: Date.now() + SLEEP_DURATION_MS,
-        };
-      });
-      return result;
-    },
-    [],
-  );
+    });
+  }, []);
 
   /** Starts a voluntary sleep that restores HP after SLEEP_DURATION_MS. */
   const startSleep = useCallback((): boolean => {

@@ -82,6 +82,31 @@ export type CastResult =
   | { spell: Spell; buffApplied: true }
   | { spell: Spell; dotApplied: true; dotDamage: number };
 
+/**
+ * Resolves raw incoming damage through active defensive buffs.
+ * Call this in the component (before any setState) so the log message is
+ * computed synchronously — not via a setState-closure which React 18 batches.
+ */
+export function computeIncomingDamage(
+  rawDamage: number,
+  spellBuffs: { spellId: string; expiresAt: number }[],
+  elementLevels: Record<string, number>,
+): { actualDamage: number; blocked: boolean } {
+  const now = Date.now();
+  const waterWall = spellBuffs.find(
+    (b) => b.spellId === "water-wall" && b.expiresAt > now,
+  );
+  if (waterWall) {
+    const waterLevel = elementLevels["water"] ?? 0;
+    const blockChance =
+      waterLevel * (SPELLS.find((s) => s.id === "water-wall")?.blockChancePerLevel ?? 0);
+    if (Math.random() * 100 < blockChance) {
+      return { actualDamage: 0, blocked: true };
+    }
+  }
+  return { actualDamage: Math.max(0, rawDamage), blocked: false };
+}
+
 /** Returns every spell whose element is unlocked and whose level is met. */
 export function getUnlockedSpells(
   elementLevels: Record<string, number>,
