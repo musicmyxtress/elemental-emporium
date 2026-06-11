@@ -53,10 +53,9 @@ export const SPELLS: Spell[] = [
     id: "water-wall",
     name: "Water Wall",
     element: "water",
-    level: 1,
+    level: 5,
     cost: 5,
-    actionText:
-      "A shimmering wall of water rises before you, ready to deflect blows.",
+    actionText: "A shimmering wall of water rises before you, ready to deflect blows.",
     damageMin: 0,
     damageMax: 0,
     type: "defensive",
