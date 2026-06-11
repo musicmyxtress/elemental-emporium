@@ -743,7 +743,9 @@ function GameScreen({
                   crystals={crystals}
                   unlockedElements={unlockedElements}
                   discoveredElements={discoveredElements}
+                  elementLevels={elementLevels}
                   onConvertFragments={onConvertFragments}
+                  onGainElementXp={onGainElementXp}
                 />
 
               )}
@@ -981,23 +983,29 @@ function FragmentsAndCrystalsPanel({
   crystals,
   unlockedElements,
   discoveredElements,
+  elementLevels,
   onConvertFragments,
+  onGainElementXp,
 }: {
   resources: Record<string, number>;
   crystals: Record<string, number>;
   unlockedElements: string[];
   discoveredElements: string[];
+  elementLevels: Record<string, number>;
   onConvertFragments: (elementId: string) => boolean;
+  onGainElementXp: (element: string, amount: number) => void;
 }) {
   const [announcement, setAnnouncement] = useState("");
 
   function handleConvert(elementId: string, label: string) {
     const ok = onConvertFragments(elementId);
-    setAnnouncement(
-      ok
-        ? `Converted ${FRAGMENTS_PER_CRYSTAL} ${label} fragments into 1 ${label} crystal.`
-        : `Not enough ${label} fragments. ${FRAGMENTS_PER_CRYSTAL} required.`,
-    );
+    if (ok) {
+      const xp = 50 * Math.max(1, elementLevels[elementId] ?? 1);
+      onGainElementXp(elementId, xp);
+      setAnnouncement(`Converted ${FRAGMENTS_PER_CRYSTAL} ${label} fragments into 1 ${label} crystal. Gained ${xp} ${label} XP.`);
+    } else {
+      setAnnouncement(`Not enough ${label} fragments. ${FRAGMENTS_PER_CRYSTAL} required.`);
+    }
   }
 
   const unlocked = ALL_ELEMENT_INFO.filter((el) => unlockedElements.includes(el.id));
