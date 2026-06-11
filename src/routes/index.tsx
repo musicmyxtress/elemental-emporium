@@ -562,7 +562,7 @@ function GameScreen({
       creatureHp = Math.max(0, creatureHp - cast.damage);
       log = [...log, cast.spell.actionText, `${cast.spell.name} deals ${cast.damage} damage to ${combat.creature.name}.`];
       if (creatureHp === 0) {
-        const reward = (combat.creature.level + combat.creature.rarity) * 2;
+        const reward = (combat.creature.level + combat.creature.rarity) * 5;
         const fragElement = combat.creature.elementProduction.element;
         onApplyEvent((s) => ({
           ...s,
@@ -595,7 +595,7 @@ function GameScreen({
     if (totalDamage > 0) {
       creatureHp = Math.max(0, creatureHp - totalDamage);
       if (creatureHp === 0) {
-        const reward = (combat.creature.level + combat.creature.rarity) * 2;
+        const reward = (combat.creature.level + combat.creature.rarity) * 5;
         const fragElement = combat.creature.elementProduction.element;
         onApplyEvent((s) => ({
           ...s,
@@ -630,7 +630,7 @@ function GameScreen({
       );
       return;
     }
-    const reward = (c.level + c.rarity) * 2;
+    const reward = (c.level + c.rarity) * 5;
     onGainElementXp(element, reward);
     setCreatureAnnouncement(`Tamed ${c.name} for ${cost} ${c.elementProduction.element} crystals. Gained ${reward} XP.`);
     onTameCreature(c.id);
