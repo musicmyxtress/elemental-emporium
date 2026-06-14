@@ -314,7 +314,7 @@ interface CombatState {
   creatureMaxHp: number;
   log: string[];
   /** 'player' = waiting for a spell choice; 'win'/'lose' = encounter over. */
-  phase: "player" | "win" | "lose";
+  phase: "player" | "win" | "fled" | "lose";
   dotEffects: DotEffect[];
 }
 
@@ -614,7 +614,7 @@ function GameScreen({
 
   function handleFlee() {
     if (!combat) return;
-    setCombat({ ...combat, log: [...combat.log, "You flee from combat."], phase: "win" });
+    setCombat({ ...combat, log: [...combat.log, "You flee from combat."], phase: "fled" });
   }
 
   function handleCloseCombat() {
@@ -1366,11 +1366,13 @@ function CombatDialog({
   if (!combat) return null;
   const { creature, creatureHp, creatureMaxHp, log, phase } = combat;
   const open = true;
-  const isOver = phase === "win" || phase === "lose";
+  const isOver = phase === "win" || phase === "fled" || phase === "lose";
   const title = isOver
     ? phase === "win"
       ? `Victory over ${creature.name}`
-      : `${creature.name} defeats you`
+      : phase === "fled"
+        ? "You fled from combat."
+        : `${creature.name} defeats you`
     : `Fighting ${creature.name}`;
   return (
     <Dialog open={open} onOpenChange={(o) => (!o && isOver ? onClose() : undefined)}>

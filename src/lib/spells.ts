@@ -50,6 +50,18 @@ export const SPELLS: Spell[] = [
     type: "offensive",
   },
   {
+    id: "gust-of-wind",
+    name: "Gust of Wind",
+    element: "air",
+    level: 1,
+    cost: 3,
+    actionText: "conjures a sharp gust of wind which you drive into your enemy.",
+    damageMin: 1,
+    damageMax: 2,
+    damageScaleElement: "air",
+    type: "offensive",
+  },
+  {
     id: "water-wall",
     name: "Water Wall",
     element: "water",
