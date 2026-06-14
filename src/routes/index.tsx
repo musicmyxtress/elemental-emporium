@@ -736,7 +736,9 @@ function GameScreen({
                   buildings={buildings}
                   tamedCreatures={tamedCreatures}
                   magicalLevels={magicalLevels}
+                  pendingBreedings={pendingBreedings}
                   onTrainMagicalCreature={onTrainMagicalCreature}
+                  onStartBreeding={onStartBreeding}
                 />
               )}
               {tab.value === "fragments-and-crystals" && (
@@ -1950,15 +1952,29 @@ function MenageriePanel({
   buildings,
   tamedCreatures,
   magicalLevels,
+  pendingBreedings,
   onTrainMagicalCreature,
+  onStartBreeding,
 }: {
   buildings: string[];
   tamedCreatures: TamedCreature[];
   magicalLevels: Record<string, number>;
+  pendingBreedings: GameState["pendingBreedings"];
   onTrainMagicalCreature: (creatureId: string) => number | null;
+  onStartBreeding: (
+    creatureName: string,
+    templateId: string,
+    pairs: number,
+    rarity: number,
+  ) => { ok: boolean; success: boolean; chance: number; pairs: number };
 }) {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [announcement, setAnnouncement] = useState("");
+  const [, setNow] = useState(Date.now());
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 30000);
+    return () => clearInterval(id);
+  }, []);
 
   if (!buildings.includes("menagerie")) {
     return (
@@ -1982,31 +1998,56 @@ function MenageriePanel({
     );
   }
 
-  // Group by template id so duplicates of the same species roll up.
-  const groups = new Map<string, { creature: Creature; count: number }>();
+  // Group by template id; track individual members for gender breakdown.
+  const groups = new Map<string, { creature: Creature; members: Creature[] }>();
   for (const c of instances) {
     const existing = groups.get(c.id);
-    if (existing) existing.count += 1;
-    else groups.set(c.id, { creature: c, count: 1 });
+    if (existing) existing.members.push(c);
+    else groups.set(c.id, { creature: c, members: [c] });
   }
-  const sortedIds = Array.from(groups.keys()).sort((a, b) => {
-    const nameA = groups.get(a)!.creature.name;
-    const nameB = groups.get(b)!.creature.name;
-    return nameA.localeCompare(nameB);
-  });
+  const sortedIds = Array.from(groups.keys()).sort((a, b) =>
+    groups.get(a)!.creature.name.localeCompare(groups.get(b)!.creature.name),
+  );
+
+  // Pairs locked in a breeding per species name.
+  const lockedPairs = new Map<string, number>();
+  for (const p of pendingBreedings) {
+    lockedPairs.set(p.creatureName, (lockedPairs.get(p.creatureName) ?? 0) + p.pairs);
+  }
 
   if (selectedId && groups.has(selectedId)) {
-    const { creature, count } = groups.get(selectedId)!;
+    const { creature, members } = groups.get(selectedId)!;
     const trainedLevel = magicalLevels[selectedId] ?? creature.level;
     const production = getProductionAmount(creature, trainedLevel);
     const consumption = getConsumptionAmount(creature);
     const productionElement = creature.elementProduction.element;
     const consumptionElement = creature.elementConsumption?.element ?? "";
+    const totalMales = members.filter((m) => m.gender === "male").length;
+    const totalFemales = members.filter((m) => m.gender === "female").length;
+    const locked = lockedPairs.get(creature.name) ?? 0;
+    const males = Math.max(0, totalMales - locked);
+    const females = Math.max(0, totalFemales - locked);
+    const pairs = Math.min(males, females);
+    const chance = Math.max(0, Math.min(100, 81 - 6 * creature.rarity));
+    const speciesPendings = pendingBreedings.filter((p) => p.creatureName === creature.name);
 
     function handleTrain() {
       const next = onTrainMagicalCreature(selectedId!);
       if (next !== null) {
         setAnnouncement(`${creature.name} trained to level ${next}.`);
+      }
+    }
+
+    function handleBreed() {
+      if (pairs <= 0) return;
+      const res = onStartBreeding(creature.name, creature.id, pairs, creature.rarity);
+      if (!res.ok) return;
+      if (res.success) {
+        setAnnouncement(
+          `Breeding succeeded with ${res.pairs} pair${res.pairs === 1 ? "" : "s"}. Parents will rest for 30 minutes.`,
+        );
+      } else {
+        setAnnouncement(`Breeding failed (chance was ${res.chance}%). Try again when you're ready.`);
       }
     }
 
@@ -2021,10 +2062,6 @@ function MenageriePanel({
         </button>
         <h3 className="mt-3 text-base font-medium text-foreground">{creature.name}</h3>
         <dl className="mt-3 grid gap-2 text-sm text-foreground">
-          <div className="flex justify-between">
-            <dt className="text-muted-foreground">Count</dt>
-            <dd className="font-medium tabular-nums">{count}</dd>
-          </div>
           <div className="flex justify-between">
             <dt className="text-muted-foreground">Trained level</dt>
             <dd className="font-medium tabular-nums">{trainedLevel}</dd>
@@ -2047,8 +2084,43 @@ function MenageriePanel({
               −{consumption} {consumptionElement} per tick
             </dd>
           </div>
+          <div className="flex justify-between">
+            <dt className="text-muted-foreground">Available males</dt>
+            <dd className="font-medium tabular-nums">{males}</dd>
+          </div>
+          <div className="flex justify-between">
+            <dt className="text-muted-foreground">Available females</dt>
+            <dd className="font-medium tabular-nums">{females}</dd>
+          </div>
+          <div className="flex justify-between">
+            <dt className="text-muted-foreground">Male/female pairs</dt>
+            <dd className="font-medium tabular-nums">{pairs}</dd>
+          </div>
+          <div className="flex justify-between">
+            <dt className="text-muted-foreground">Breeding success chance</dt>
+            <dd className="font-medium tabular-nums">{chance}%</dd>
+          </div>
+          {locked > 0 && (
+            <div className="flex justify-between">
+              <dt className="text-muted-foreground">Pairs currently breeding</dt>
+              <dd className="font-medium tabular-nums">{locked}</dd>
+            </div>
+          )}
         </dl>
-        <div className="mt-4">
+        {speciesPendings.length > 0 && (
+          <ul className="mt-3 space-y-1 text-sm text-muted-foreground" role="list">
+            {speciesPendings.map((p) => {
+              const minsLeft = Math.max(0, Math.ceil((p.readyAt - Date.now()) / 60000));
+              return (
+                <li key={p.id}>
+                  {p.pairs} pair{p.pairs === 1 ? "" : "s"} breeding — about {minsLeft} minute
+                  {minsLeft === 1 ? "" : "s"} left.
+                </li>
+              );
+            })}
+          </ul>
+        )}
+        <div className="mt-4 flex flex-wrap gap-2">
           <Button
             type="button"
             size="sm"
@@ -2056,6 +2128,19 @@ function MenageriePanel({
             aria-label={`Train ${creature.name} from level ${trainedLevel} to level ${trainedLevel + 1}`}
           >
             Train (level {trainedLevel} → {trainedLevel + 1})
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            onClick={handleBreed}
+            disabled={pairs === 0}
+            aria-label={
+              pairs === 0
+                ? `Breed ${creature.name}, requires at least one available male/female pair`
+                : `Breed ${creature.name}, ${chance}% chance of success`
+            }
+          >
+            Breed ({chance}%)
           </Button>
         </div>
         <div role="status" aria-live="polite" className="sr-only">
