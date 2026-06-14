@@ -1039,17 +1039,9 @@ function FragmentsAndCrystalsPanel({
         </div>
         {isUnlocked ? (
           <>
-            <div className="mt-2 grid grid-cols-2 gap-2 text-sm text-foreground">
-              <p>
-                <span className="block text-xs text-muted-foreground" aria-hidden="true">Fragments</span>
-                <span className="block font-medium tabular-nums" aria-hidden="true">{fragments}</span>
-                <span className="sr-only">{fragments} {el.name} fragments</span>
-              </p>
-              <p>
-                <span className="block text-xs text-muted-foreground" aria-hidden="true">Crystals</span>
-                <span className="block font-medium tabular-nums" aria-hidden="true">{crystalCount}</span>
-                <span className="sr-only">{crystalCount} {el.name} crystals</span>
-              </p>
+            <div className="mt-2 space-y-0.5 text-sm text-foreground">
+              <p className="tabular-nums">{fragments} {el.name.toLowerCase()} fragments</p>
+              <p className="tabular-nums">{crystalCount} {el.name.toLowerCase()} crystals</p>
             </div>
             <div className="mt-3">
               <Button
