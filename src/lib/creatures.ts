@@ -72,6 +72,16 @@ export const CREATURES: Creature[] = [
     magical: false,
     elementProduction: { element: "earth" },
   },
+  {
+    id: "goldfish",
+    name: "Goldfish",
+    description: "a small round-bodied fish with bright golden scales and flowing fins.",
+    rarity: 1,
+    level: 1,
+    gender: "female",
+    magical: false,
+    elementProduction: { element: "water" },
+  },
   // ── Magical ────────────────────────────────────────────────────────────────
   {
     id: "phoenix",
