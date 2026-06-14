@@ -1040,8 +1040,8 @@ function FragmentsAndCrystalsPanel({
         {isUnlocked ? (
           <>
             <div className="mt-2 space-y-0.5 text-sm text-foreground">
-              <p className="tabular-nums">{fragments} {el.name.toLowerCase()} fragments</p>
-              <p className="tabular-nums">{crystalCount} {el.name.toLowerCase()} crystals</p>
+              <p className="tabular-nums">{`${fragments} ${el.name.toLowerCase()} fragments`}</p>
+              <p className="tabular-nums">{`${crystalCount} ${el.name.toLowerCase()} crystals`}</p>
             </div>
             <div className="mt-3">
               <Button
@@ -1600,8 +1600,8 @@ function HomeBasePanel({
         </div>
       )}
 
-      <p className="mt-6 text-sm text-foreground">Wood: {wood}.</p>
-      <p className="text-sm text-foreground">Stone: {stone}.</p>
+      <p className="mt-6 text-sm text-foreground">{`Wood: ${wood}.`}</p>
+      <p className="text-sm text-foreground">{`Stone: ${stone}.`}</p>
 
       {hasApprentice && (
         <>
