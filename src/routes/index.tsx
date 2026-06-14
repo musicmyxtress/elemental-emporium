@@ -1039,20 +1039,18 @@ function FragmentsAndCrystalsPanel({
         </div>
         {isUnlocked ? (
           <>
-            <dl className="mt-2 grid grid-cols-2 gap-2 text-sm text-foreground">
-              <div aria-label={`${fragments} ${el.name} fragments`}>
-                <dt className="text-xs text-muted-foreground" aria-hidden="true">Fragments</dt>
-                <dd className="font-medium tabular-nums" aria-hidden="true">
-                  {fragments}
-                </dd>
-              </div>
-              <div aria-label={`${crystalCount} ${el.name} crystals`}>
-                <dt className="text-xs text-muted-foreground" aria-hidden="true">Crystals</dt>
-                <dd className="font-medium tabular-nums" aria-hidden="true">
-                  {crystalCount}
-                </dd>
-              </div>
-            </dl>
+            <div className="mt-2 grid grid-cols-2 gap-2 text-sm text-foreground">
+              <p>
+                <span className="block text-xs text-muted-foreground" aria-hidden="true">Fragments</span>
+                <span className="block font-medium tabular-nums" aria-hidden="true">{fragments}</span>
+                <span className="sr-only">{fragments} {el.name} fragments</span>
+              </p>
+              <p>
+                <span className="block text-xs text-muted-foreground" aria-hidden="true">Crystals</span>
+                <span className="block font-medium tabular-nums" aria-hidden="true">{crystalCount}</span>
+                <span className="sr-only">{crystalCount} {el.name} crystals</span>
+              </p>
+            </div>
             <div className="mt-3">
               <Button
                 type="button"
@@ -1848,34 +1846,40 @@ function StablePanel({
           Back to stable
         </button>
         <h3 className="mt-3 text-base font-medium text-foreground">{selectedName}</h3>
-        <dl className="mt-3 grid gap-2 text-sm text-foreground">
-          <div className="flex justify-between" aria-label={`Total fragment production: ${totalProduction} ${element} fragments per tick`}>
-            <dt className="text-muted-foreground" aria-hidden="true">Total fragment production</dt>
-            <dd className="font-medium tabular-nums" aria-hidden="true">{totalProduction} {element} per tick</dd>
-          </div>
-          <div className="flex justify-between" aria-label={`Available males: ${males}`}>
-            <dt className="text-muted-foreground" aria-hidden="true">Available males</dt>
-            <dd className="font-medium tabular-nums" aria-hidden="true">{males}</dd>
-          </div>
-          <div className="flex justify-between" aria-label={`Available females: ${females}`}>
-            <dt className="text-muted-foreground" aria-hidden="true">Available females</dt>
-            <dd className="font-medium tabular-nums" aria-hidden="true">{females}</dd>
-          </div>
-          <div className="flex justify-between" aria-label={`Male/female pairs: ${pairs}`}>
-            <dt className="text-muted-foreground" aria-hidden="true">Male/female pairs</dt>
-            <dd className="font-medium tabular-nums" aria-hidden="true">{pairs}</dd>
-          </div>
-          <div className="flex justify-between" aria-label={`Breeding success chance: ${chance}%`}>
-            <dt className="text-muted-foreground" aria-hidden="true">Breeding success chance</dt>
-            <dd className="font-medium tabular-nums" aria-hidden="true">{chance}%</dd>
-          </div>
+        <div className="mt-3 grid gap-2 text-sm text-foreground">
+          <p className="flex justify-between">
+            <span className="text-muted-foreground" aria-hidden="true">Total fragment production</span>
+            <span className="font-medium tabular-nums" aria-hidden="true">{totalProduction} {element} per tick</span>
+            <span className="sr-only">Total fragment production: {totalProduction} {element} fragments per tick</span>
+          </p>
+          <p className="flex justify-between">
+            <span className="text-muted-foreground" aria-hidden="true">Available males</span>
+            <span className="font-medium tabular-nums" aria-hidden="true">{males}</span>
+            <span className="sr-only">Available males: {males}</span>
+          </p>
+          <p className="flex justify-between">
+            <span className="text-muted-foreground" aria-hidden="true">Available females</span>
+            <span className="font-medium tabular-nums" aria-hidden="true">{females}</span>
+            <span className="sr-only">Available females: {females}</span>
+          </p>
+          <p className="flex justify-between">
+            <span className="text-muted-foreground" aria-hidden="true">Male/female pairs</span>
+            <span className="font-medium tabular-nums" aria-hidden="true">{pairs}</span>
+            <span className="sr-only">Male/female pairs: {pairs}</span>
+          </p>
+          <p className="flex justify-between">
+            <span className="text-muted-foreground" aria-hidden="true">Breeding success chance</span>
+            <span className="font-medium tabular-nums" aria-hidden="true">{chance}%</span>
+            <span className="sr-only">Breeding success chance: {chance}%</span>
+          </p>
           {locked > 0 && (
-            <div className="flex justify-between" aria-label={`Pairs currently breeding: ${locked}`}>
-              <dt className="text-muted-foreground" aria-hidden="true">Pairs currently breeding</dt>
-              <dd className="font-medium tabular-nums" aria-hidden="true">{locked}</dd>
-            </div>
+            <p className="flex justify-between">
+              <span className="text-muted-foreground" aria-hidden="true">Pairs currently breeding</span>
+              <span className="font-medium tabular-nums" aria-hidden="true">{locked}</span>
+              <span className="sr-only">Pairs currently breeding: {locked}</span>
+            </p>
           )}
-        </dl>
+        </div>
         {speciesPendings.length > 0 && (
           <ul className="mt-3 space-y-1 text-sm text-muted-foreground" role="list">
             {speciesPendings.map((p) => {
@@ -2052,42 +2056,50 @@ function MenageriePanel({
           Back to menagerie
         </button>
         <h3 className="mt-3 text-base font-medium text-foreground">{creature.name}</h3>
-        <dl className="mt-3 grid gap-2 text-sm text-foreground">
-          <div className="flex justify-between" aria-label={`Trained level: ${trainedLevel}`}>
-            <dt className="text-muted-foreground" aria-hidden="true">Trained level</dt>
-            <dd className="font-medium tabular-nums" aria-hidden="true">{trainedLevel}</dd>
-          </div>
-          <div className="flex justify-between" aria-label={`Fragment production: ${production} ${productionElement} fragments per tick`}>
-            <dt className="text-muted-foreground" aria-hidden="true">Fragment production</dt>
-            <dd className="font-medium tabular-nums" aria-hidden="true">+{production} {productionElement} per tick</dd>
-          </div>
-          <div className="flex justify-between" aria-label={`Fragment consumption: ${consumption} ${consumptionElement} fragments consumed per tick`}>
-            <dt className="text-muted-foreground" aria-hidden="true">Fragment consumption</dt>
-            <dd className="font-medium tabular-nums" aria-hidden="true">−{consumption} {consumptionElement} per tick</dd>
-          </div>
-          <div className="flex justify-between" aria-label={`Available males: ${males}`}>
-            <dt className="text-muted-foreground" aria-hidden="true">Available males</dt>
-            <dd className="font-medium tabular-nums" aria-hidden="true">{males}</dd>
-          </div>
-          <div className="flex justify-between" aria-label={`Available females: ${females}`}>
-            <dt className="text-muted-foreground" aria-hidden="true">Available females</dt>
-            <dd className="font-medium tabular-nums" aria-hidden="true">{females}</dd>
-          </div>
-          <div className="flex justify-between" aria-label={`Male/female pairs: ${pairs}`}>
-            <dt className="text-muted-foreground" aria-hidden="true">Male/female pairs</dt>
-            <dd className="font-medium tabular-nums" aria-hidden="true">{pairs}</dd>
-          </div>
-          <div className="flex justify-between" aria-label={`Breeding success chance: ${chance}%`}>
-            <dt className="text-muted-foreground" aria-hidden="true">Breeding success chance</dt>
-            <dd className="font-medium tabular-nums" aria-hidden="true">{chance}%</dd>
-          </div>
+        <div className="mt-3 grid gap-2 text-sm text-foreground">
+          <p className="flex justify-between">
+            <span className="text-muted-foreground" aria-hidden="true">Trained level</span>
+            <span className="font-medium tabular-nums" aria-hidden="true">{trainedLevel}</span>
+            <span className="sr-only">Trained level: {trainedLevel}</span>
+          </p>
+          <p className="flex justify-between">
+            <span className="text-muted-foreground" aria-hidden="true">Fragment production</span>
+            <span className="font-medium tabular-nums" aria-hidden="true">+{production} {productionElement} per tick</span>
+            <span className="sr-only">Fragment production: {production} {productionElement} fragments per tick</span>
+          </p>
+          <p className="flex justify-between">
+            <span className="text-muted-foreground" aria-hidden="true">Fragment consumption</span>
+            <span className="font-medium tabular-nums" aria-hidden="true">−{consumption} {consumptionElement} per tick</span>
+            <span className="sr-only">Fragment consumption: {consumption} {consumptionElement} fragments consumed per tick</span>
+          </p>
+          <p className="flex justify-between">
+            <span className="text-muted-foreground" aria-hidden="true">Available males</span>
+            <span className="font-medium tabular-nums" aria-hidden="true">{males}</span>
+            <span className="sr-only">Available males: {males}</span>
+          </p>
+          <p className="flex justify-between">
+            <span className="text-muted-foreground" aria-hidden="true">Available females</span>
+            <span className="font-medium tabular-nums" aria-hidden="true">{females}</span>
+            <span className="sr-only">Available females: {females}</span>
+          </p>
+          <p className="flex justify-between">
+            <span className="text-muted-foreground" aria-hidden="true">Male/female pairs</span>
+            <span className="font-medium tabular-nums" aria-hidden="true">{pairs}</span>
+            <span className="sr-only">Male/female pairs: {pairs}</span>
+          </p>
+          <p className="flex justify-between">
+            <span className="text-muted-foreground" aria-hidden="true">Breeding success chance</span>
+            <span className="font-medium tabular-nums" aria-hidden="true">{chance}%</span>
+            <span className="sr-only">Breeding success chance: {chance}%</span>
+          </p>
           {locked > 0 && (
-            <div className="flex justify-between" aria-label={`Pairs currently breeding: ${locked}`}>
-              <dt className="text-muted-foreground" aria-hidden="true">Pairs currently breeding</dt>
-              <dd className="font-medium tabular-nums" aria-hidden="true">{locked}</dd>
-            </div>
+            <p className="flex justify-between">
+              <span className="text-muted-foreground" aria-hidden="true">Pairs currently breeding</span>
+              <span className="font-medium tabular-nums" aria-hidden="true">{locked}</span>
+              <span className="sr-only">Pairs currently breeding: {locked}</span>
+            </p>
           )}
-        </dl>
+        </div>
         {speciesPendings.length > 0 && (
           <ul className="mt-3 space-y-1 text-sm text-muted-foreground" role="list">
             {speciesPendings.map((p) => {
