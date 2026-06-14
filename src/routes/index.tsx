@@ -687,6 +687,7 @@ function GameScreen({
       <Tabs
         value={activeTab}
         onValueChange={(v) => setActiveTab(v as (typeof TABS)[number]["value"])}
+        activationMode="manual"
         className="mt-6"
       >
         {TABS.map((tab) => (
