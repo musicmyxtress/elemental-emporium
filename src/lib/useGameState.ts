@@ -4,6 +4,12 @@ import { xpToNextLevel, fragmentResourceId, FRAGMENTS_PER_CRYSTAL, LEVEL_CAP } f
 import { getCreature, getProductionAmount, getConsumptionAmount, type CreatureGender } from "./creatures";
 import { SPELLS, rollSpellDamage, type Spell, type CastResult } from "./spells";
 
+/** A single tamed creature instance with its individually rolled gender. */
+export interface TamedCreature {
+  id: string;
+  gender: CreatureGender;
+}
+
 /** Base maximum HP at character creation, before any level-ups. */
 export const STARTING_MAX_HP = 8;
 /** HP gained for each element level the player acquires via XP. */
@@ -81,8 +87,8 @@ export interface GameState {
   shelvedCreatures: Record<string, number>;
   /** Ids of buildings the player has constructed in the home base. */
   buildings: string[];
-  /** Tamed creature template ids; duplicates allowed (one entry per individual). */
-  tamedCreatures: string[];
+  /** Tamed creature instances; duplicates allowed (one entry per individual). */
+  tamedCreatures: TamedCreature[];
   /** Trained level per magical creature template id. Defaults to 1 when missing. */
   magicalLevels: Record<string, number>;
   /** Element ids the player has encountered during exploration. */
@@ -212,7 +218,23 @@ function loadState(): GameState {
           ? parsed.buildings.filter((x): x is string => typeof x === "string")
           : [],
         tamedCreatures: Array.isArray(parsed.tamedCreatures)
-          ? parsed.tamedCreatures.filter((x): x is string => typeof x === "string")
+          ? (parsed.tamedCreatures as unknown[]).flatMap((x): TamedCreature[] => {
+              if (typeof x === "string") {
+                // Migrate old saves where tamedCreatures was string[].
+                const c = getCreature(x);
+                return c ? [{ id: x, gender: c.gender }] : [];
+              }
+              if (
+                x !== null &&
+                typeof x === "object" &&
+                typeof (x as Record<string, unknown>).id === "string" &&
+                ((x as Record<string, unknown>).gender === "male" ||
+                  (x as Record<string, unknown>).gender === "female")
+              ) {
+                return [x as TamedCreature];
+              }
+              return [];
+            })
           : [],
         magicalLevels: sanitizeRecord(parsed.magicalLevels),
         discoveredElements: Array.isArray(parsed.discoveredElements)
@@ -352,7 +374,7 @@ export function useGameState() {
           resources[masteredKey] = (resources[masteredKey] ?? 0) + 1;
         }
         // Tamed creatures keep producing even during sleep.
-        for (const id of prev.tamedCreatures) {
+        for (const { id } of prev.tamedCreatures) {
           const creature = getCreature(id);
           if (!creature) continue;
           if (creature.magical) {
@@ -392,12 +414,12 @@ export function useGameState() {
         const ripe = prev.pendingBreedings.filter((p) => p.readyAt <= now);
         if (ripe.length === 0) return prev;
         const remaining = prev.pendingBreedings.filter((p) => p.readyAt > now);
-        const newTames: string[] = [];
+        const newTames: TamedCreature[] = [];
         const newResults: BreedingResult[] = [];
         for (const p of ripe) {
           const males = p.offspringGenders.filter((g) => g === "male").length;
           const females = p.offspringGenders.length - males;
-          for (let i = 0; i < p.offspringGenders.length; i++) newTames.push(p.templateId);
+          for (const gender of p.offspringGenders) newTames.push({ id: p.templateId, gender });
           newResults.push({
             id: p.id,
             creatureName: p.creatureName,
@@ -585,10 +607,10 @@ export function useGameState() {
     return ok;
   }, []);
 
-  const tameCreature = useCallback((creatureId: string) => {
+  const tameCreature = useCallback((creatureId: string, gender: CreatureGender) => {
     setState((prev) => ({
       ...prev,
-      tamedCreatures: [...prev.tamedCreatures, creatureId],
+      tamedCreatures: [...prev.tamedCreatures, { id: creatureId, gender }],
     }));
   }, []);
 
@@ -648,8 +670,9 @@ export function useGameState() {
       const masteredLevel = prev.elementLevels[prev.element] ?? 0;
       if (masteredLevel < APPRENTICE_LEVEL) return prev;
       // Remove one instance of the chosen creature from the player's tames.
-      const idx = prev.tamedCreatures.indexOf(creatureId);
+      const idx = prev.tamedCreatures.findIndex((tc) => tc.id === creatureId);
       if (idx < 0) return prev;
+      const gifted = prev.tamedCreatures[idx];
       const fragmentKey = fragmentResourceId(prev.element);
       const fragmentGift = masteredLevel * 10;
       ok = true;
@@ -664,7 +687,7 @@ export function useGameState() {
         shelvedPlaces: {},
         shelvedCreatures: {},
         buildings: [],
-        tamedCreatures: [creatureId],
+        tamedCreatures: [gifted],
         magicalLevels: {},
         // unlockedElements, discoveredElements, discoveredPlaces persist.
         generation: prev.generation + 1,
@@ -733,7 +756,7 @@ export function useGameState() {
   const trainMagicalCreature = useCallback((creatureId: string): number | null => {
     let result: number | null = null;
     setState((prev) => {
-      if (!prev.tamedCreatures.includes(creatureId)) return prev;
+      if (!prev.tamedCreatures.some((tc) => tc.id === creatureId)) return prev;
       const current = prev.magicalLevels[creatureId] ?? (getCreature(creatureId)?.level ?? 1);
       const next = current + 1;
       result = next;

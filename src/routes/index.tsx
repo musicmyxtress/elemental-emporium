@@ -4,6 +4,7 @@ import {
   useGameState,
   type CollectResult,
   type GameState,
+  type TamedCreature,
   BUILDING_COSTS,
   APPRENTICE_LEVEL,
   getMaxHp,
@@ -394,7 +395,7 @@ function GameScreen({
   unlockedElements: string[];
   discoveredElements: string[];
   buildings: string[];
-  tamedCreatures: string[];
+  tamedCreatures: TamedCreature[];
   magicalLevels: GameState["magicalLevels"];
   pendingBreedings: GameState["pendingBreedings"];
   breedingResults: GameState["breedingResults"];
@@ -409,7 +410,7 @@ function GameScreen({
   onCollectFromPlace: (placeId: string) => CollectResult;
   onConvertFragments: (elementId: string) => boolean;
   onSpendCrystals: (elementId: string, amount: number) => boolean;
-  onTameCreature: (creatureId: string) => void;
+  onTameCreature: (creatureId: string, gender: TamedCreature["gender"]) => void;
   onBuildBuilding: (buildingId: string, crystalCosts?: Record<string, number>) => boolean;
   onAcknowledgeApprentice: () => void;
   onGraduateApprentice: (creatureId: string) => boolean;
@@ -467,8 +468,9 @@ function GameScreen({
     if (creature) {
       const elementId = creature.elementProduction.element;
       const locked = !unlockedElements.includes(elementId);
+      const rolledCreature = { ...creature, gender: Math.random() < 0.5 ? "male" as const : "female" as const };
       outcomes.push(
-        locked ? { kind: "locked-creature", creature } : { kind: "creature", creature },
+        locked ? { kind: "locked-creature", creature: rolledCreature } : { kind: "creature", creature: rolledCreature },
       );
     }
     if (event) outcomes.push({ kind: "event", event });
@@ -633,7 +635,7 @@ function GameScreen({
     const reward = (c.level + c.rarity) * 5;
     onGainElementXp(element, reward);
     setCreatureAnnouncement(`Tamed ${c.name} for ${cost} ${c.elementProduction.element} crystals. Gained ${reward} XP.`);
-    onTameCreature(c.id);
+    onTameCreature(c.id, c.gender);
     setDiscovery(null);
   }
 
@@ -1463,7 +1465,7 @@ function HomeBasePanel({
   masteredElement: string;
   masteredLevel: number;
   generation: number;
-  tamedCreatures: string[];
+  tamedCreatures: TamedCreature[];
   resources: Record<string, number>;
   crystals: Record<string, number>;
   unlockedElements: string[];
@@ -1532,7 +1534,7 @@ function HomeBasePanel({
   // Eligible creatures to gift: tamed creatures whose production element
   // matches the player's mastered element. Group by template id with counts.
   const eligible = tamedCreatures
-    .map((id) => ({ id, creature: getCreature(id) }))
+    .map((tc) => ({ id: tc.id, creature: getCreature(tc.id) }))
     .filter((x): x is { id: string; creature: Creature } =>
       Boolean(x.creature) && x.creature!.elementProduction.element === masteredElement,
     );
@@ -1747,7 +1749,7 @@ function StablePanel({
   onStartBreeding,
 }: {
   buildings: string[];
-  tamedCreatures: string[];
+  tamedCreatures: TamedCreature[];
   pendingBreedings: GameState["pendingBreedings"];
   onStartBreeding: (
     creatureName: string,
@@ -1776,8 +1778,10 @@ function StablePanel({
   // Resolve tamed instances into creature templates, then keep only non-magical
   // ones (the stable shelters non-magical creatures).
   const instances = tamedCreatures
-    .map((id) => getCreature(id))
-    .filter((c): c is Creature => Boolean(c) && !c!.magical);
+    .flatMap((tc): Creature[] => {
+      const c = getCreature(tc.id);
+      return c && !c.magical ? [{ ...c, gender: tc.gender }] : [];
+    });
 
   if (instances.length === 0) {
     return (
@@ -1949,7 +1953,7 @@ function MenageriePanel({
   onTrainMagicalCreature,
 }: {
   buildings: string[];
-  tamedCreatures: string[];
+  tamedCreatures: TamedCreature[];
   magicalLevels: Record<string, number>;
   onTrainMagicalCreature: (creatureId: string) => number | null;
 }) {
@@ -1965,8 +1969,10 @@ function MenageriePanel({
   }
 
   const instances = tamedCreatures
-    .map((id) => getCreature(id))
-    .filter((c): c is Creature => Boolean(c) && c!.magical);
+    .flatMap((tc): Creature[] => {
+      const c = getCreature(tc.id);
+      return c && c.magical ? [{ ...c, gender: tc.gender }] : [];
+    });
 
   if (instances.length === 0) {
     return (
