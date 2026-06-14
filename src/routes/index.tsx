@@ -1570,8 +1570,8 @@ function HomeBasePanel({
       </p>
 
       <h3 className="mt-6 text-base font-medium text-foreground">Health</h3>
-      <p className="mt-1 text-sm text-foreground tabular-nums">
-        {currentHp} / {maxHp} HP
+      <p className="mt-1 text-sm text-foreground tabular-nums" aria-label={`${currentHp} of ${maxHp} HP`}>
+        {`${currentHp} / ${maxHp} HP`}
       </p>
       {currentHp < maxHp && (
         <div className="mt-2">
