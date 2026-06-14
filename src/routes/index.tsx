@@ -1347,6 +1347,7 @@ function CombatDialog({
   onFlee: () => void;
   onClose: () => void;
 }) {
+  const [showLog, setShowLog] = useState(false);
   if (!combat) return null;
   const { creature, creatureHp, creatureMaxHp, log, phase } = combat;
   const open = true;
@@ -1371,14 +1372,29 @@ function CombatDialog({
             You: {currentHp} / {maxHp} HP. {creature.name}: {creatureHp} / {creatureMaxHp} HP.
           </DialogDescription>
         </DialogHeader>
-        <div
-          role="log"
-          aria-live="polite"
-          className="max-h-48 space-y-1 overflow-y-auto rounded-md border bg-muted/40 p-3 text-sm text-foreground"
-        >
-          {log.map((line, i) => (
-            <p key={i}>{line}</p>
-          ))}
+        <div role="log" aria-live="polite" aria-label="Battle events" className="sr-only">
+          {log.length > 0 ? log[log.length - 1] : ""}
+        </div>
+        <div>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => setShowLog((s) => !s)}
+            aria-expanded={showLog}
+          >
+            {showLog ? "Hide battle log" : "Show battle log"}
+          </Button>
+          {showLog && (
+            <div
+              aria-hidden="true"
+              className="mt-2 max-h-48 space-y-1 overflow-y-auto rounded-md border bg-muted/40 p-3 text-sm text-foreground"
+            >
+              {log.map((line, i) => (
+                <p key={i}>{line}</p>
+              ))}
+            </div>
+          )}
         </div>
         <DialogFooter className="flex flex-wrap gap-2 sm:flex-row">
           {phase === "player" && spells.length === 0 && (
@@ -1584,9 +1600,8 @@ function HomeBasePanel({
         </div>
       )}
 
-      <h3 className="mt-6 text-base font-medium text-foreground">Resources</h3>
-      <p className="mt-1 text-sm text-foreground">Wood: {wood}</p>
-      <p className="text-sm text-foreground">Stone: {stone}</p>
+      <p className="mt-6 text-sm text-foreground">Wood: {wood}.</p>
+      <p className="text-sm text-foreground">Stone: {stone}.</p>
 
       {hasApprentice && (
         <>
