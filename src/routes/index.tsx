@@ -675,12 +675,8 @@ function GameScreen({
         </div>
       </header>
       {isSleeping && (
-        <p
-          role="status"
-          aria-live="polite"
-          className="mt-4 rounded-md border bg-muted/50 p-3 text-sm text-foreground"
-        >
-          Sleeping… you wake in {Math.ceil(sleepRemainingMs / 1000)}s. Your creatures keep producing fragments.
+        <p className="mt-4 rounded-md border bg-muted/50 p-3 text-sm text-foreground">
+          {`Sleeping… you wake in ${Math.ceil(sleepRemainingMs / 1000)}s. Your creatures keep producing fragments.`}
         </p>
       )}
 
