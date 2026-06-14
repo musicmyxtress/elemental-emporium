@@ -127,7 +127,7 @@ export function getUnlockedSpells(
   return SPELLS.filter(
     (s) =>
       unlockedElements.includes(s.element) &&
-      (elementLevels[s.element] ?? 0) >= s.level,
+      Math.max(1, elementLevels[s.element] ?? 0) >= s.level,
   );
 }
 

@@ -281,9 +281,12 @@ export function rollCreature(
   shelvedCreatures: Record<string, number> = {},
   now: number = Date.now(),
 ): Creature | null {
+  const playerLevel = Object.values(elementLevels).length > 0
+    ? Math.max(...Object.values(elementLevels))
+    : 0;
   const available = CREATURES.filter((c) => {
     if ((shelvedCreatures[c.id] ?? 0) > now) return false;
-    return (elementLevels[c.elementProduction.element] ?? 0) >= c.level;
+    return playerLevel >= c.level;
   });
   if (available.length === 0) return null;
   const weights = available.map((c) => 1 / Math.max(1, c.rarity));
