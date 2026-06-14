@@ -1600,7 +1600,8 @@ function HomeBasePanel({
         </div>
       )}
 
-      <p className="mt-6 text-sm text-foreground">{`Wood: ${wood}.`}</p>
+      <h3 className="mt-6 text-base font-medium text-foreground">Resources</h3>
+      <p className="mt-1 text-sm text-foreground">{`Wood: ${wood}.`}</p>
       <p className="text-sm text-foreground">{`Stone: ${stone}.`}</p>
 
       {hasApprentice && (
