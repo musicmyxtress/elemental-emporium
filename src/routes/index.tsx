@@ -135,8 +135,7 @@ function GameScreen({ game }: { game: ReturnType<typeof useGame> }) {
           tabIndex={-1}
           className="text-2xl font-semibold text-foreground sm:text-3xl"
         >
-          <span aria-hidden="true">{el.emoji} </span>
-          {el.name} Emporium
+          Elemental Emporium
         </h1>
         <p className="text-sm text-muted-foreground" aria-live="off">
           {`${fragments} fragment${fragments === 1 ? "" : "s"} · ${crystals} crystal${crystals === 1 ? "" : "s"}`}

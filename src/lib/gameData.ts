@@ -35,7 +35,7 @@ export const ELEMENTS: ElementDef[] = [
 export const FRAGMENTS_PER_CRYSTAL = 50;
 export const BASE_GATHER = 5;
 export const BASE_PASSIVE = 1;
-export const PASSIVE_INTERVAL_MS = 2000;
+export const PASSIVE_INTERVAL_MS = 5000;
 
 export function fragmentKey(elementId: string): string {
   return `${elementId}-fragment`;
