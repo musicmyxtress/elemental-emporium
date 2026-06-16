@@ -230,7 +230,7 @@ function GameScreen({ game }: { game: ReturnType<typeof useGame> }) {
 
   return (
     <main className="mx-auto flex min-h-screen max-w-3xl flex-col px-6 pt-10 pb-32">
-      <header className="flex flex-wrap items-baseline justify-between gap-2">
+      <header>
         <h1
           ref={headingRef}
           tabIndex={-1}
@@ -238,9 +238,6 @@ function GameScreen({ game }: { game: ReturnType<typeof useGame> }) {
         >
           Elemental Emporium
         </h1>
-        <p className="text-sm text-muted-foreground" aria-live="off">
-          {`${crystals} crystal${crystals === 1 ? "" : "s"}`}
-        </p>
       </header>
 
       <Tabs
