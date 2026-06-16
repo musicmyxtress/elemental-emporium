@@ -239,7 +239,7 @@ function GameScreen({ game }: { game: ReturnType<typeof useGame> }) {
           Elemental Emporium
         </h1>
         <p className="text-sm text-muted-foreground" aria-live="off">
-          {`${fragments} fragment${fragments === 1 ? "" : "s"} · ${crystals} crystal${crystals === 1 ? "" : "s"}`}
+          {`${crystals} crystal${crystals === 1 ? "" : "s"}`}
         </p>
       </header>
 
@@ -252,7 +252,6 @@ function GameScreen({ game }: { game: ReturnType<typeof useGame> }) {
         <TabsContent value="home-base">
           <HomePanel
             elementName={el.name}
-            fragments={fragments}
             crystals={crystals}
             passiveAmount={passiveAmt}
             wood={wood}
@@ -382,7 +381,6 @@ function GameScreen({ game }: { game: ReturnType<typeof useGame> }) {
 
 function HomePanel({
   elementName,
-  fragments,
   crystals,
   passiveAmount,
   wood,
@@ -399,7 +397,6 @@ function HomePanel({
   onGraduate,
 }: {
   elementName: string;
-  fragments: number;
   crystals: number;
   passiveAmount: number;
   wood: number;
@@ -426,10 +423,6 @@ function HomePanel({
       <section aria-label="Home Base" className="rounded-2xl border bg-card p-8">
         <h2 className="text-lg font-semibold text-foreground">Resources</h2>
         <dl className="mt-4 grid gap-2 text-sm">
-          <div className="flex justify-between">
-            <dt className="text-muted-foreground">{elementName} fragments</dt>
-            <dd className="font-medium tabular-nums text-foreground">{fragments}</dd>
-          </div>
           <div className="flex justify-between">
             <dt className="text-muted-foreground">{elementName} crystals</dt>
             <dd className="font-medium tabular-nums text-foreground">{crystals}</dd>
