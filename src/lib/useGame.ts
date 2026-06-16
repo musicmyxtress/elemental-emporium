@@ -231,6 +231,9 @@ export function useGame() {
     let ok = false;
     setState((prev) => {
       if (def.isMagical ? !prev.builtMenagerie : !prev.builtStable) return prev;
+      const cost = def.rarity * 2 + def.level;
+      const available = prev.crystals[def.elementId] ?? 0;
+      if (available < cost) return prev;
       ok = true;
       const tamed: TamedCreature = { instanceId: crypto.randomUUID(), defId, tamedAt: Date.now() };
       const amount = def.level + def.rarity * 5;
@@ -238,6 +241,7 @@ export function useGame() {
       const masteryLevel = prev.element ? levelFromXp(newXp[prev.element] ?? 0) : 0;
       return {
         ...prev,
+        crystals: { ...prev.crystals, [def.elementId]: available - cost },
         stable: def.isMagical ? prev.stable : [...prev.stable, tamed],
         menagerie: def.isMagical ? [...prev.menagerie, tamed] : prev.menagerie,
         elementXp: newXp,
