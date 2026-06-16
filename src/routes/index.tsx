@@ -249,7 +249,6 @@ function GameScreen({ game }: { game: ReturnType<typeof useGame> }) {
         <TabsContent value="home-base">
           <HomePanel
             elementName={el.name}
-            crystals={crystals}
             passiveAmount={passiveAmt}
             wood={wood}
             stone={stone}
@@ -378,7 +377,6 @@ function GameScreen({ game }: { game: ReturnType<typeof useGame> }) {
 
 function HomePanel({
   elementName,
-  crystals,
   passiveAmount,
   wood,
   stone,
@@ -394,7 +392,6 @@ function HomePanel({
   onGraduate,
 }: {
   elementName: string;
-  crystals: number;
   passiveAmount: number;
   wood: number;
   stone: number;
@@ -420,10 +417,6 @@ function HomePanel({
       <section aria-label="Home Base" className="rounded-2xl border bg-card p-8">
         <h2 className="text-lg font-semibold text-foreground">Resources</h2>
         <dl className="mt-4 grid gap-2 text-sm">
-          <div className="flex justify-between">
-            <dt className="text-muted-foreground">{elementName} crystals</dt>
-            <dd className="font-medium tabular-nums text-foreground">{crystals}</dd>
-          </div>
           <div className="flex justify-between">
             <dt className="text-muted-foreground">Wood</dt>
             <dd className="font-medium tabular-nums text-foreground">{wood}</dd>
