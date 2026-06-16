@@ -30,6 +30,12 @@ export const ELEMENTS: ElementDef[] = [
     emoji: "💨",
     description: "The unseen breath. Present everywhere, never still.",
   },
+  {
+    id: "plant",
+    name: "Plant",
+    emoji: "🌱",
+    description: "The quiet growth. Patient, persistent, and ever-spreading.",
+  },
 ];
 
 export const FRAGMENTS_PER_CRYSTAL = 50;
