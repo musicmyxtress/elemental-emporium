@@ -89,3 +89,68 @@ export function passiveMultiplier(upgrades: string[]): number {
   if (upgrades.includes("passive-2x")) return 2;
   return 1;
 }
+
+export interface CreatureDef {
+  id: string;
+  name: string;
+  emoji: string;
+  elementId: string;
+  level: number;
+  rarity: number;
+  isMagical: boolean;
+  consumedElementId?: string;
+  producedElementId?: string;
+}
+
+export type PlaceKind = "elemental" | "forest" | "stone_mine";
+
+export interface PlaceDef {
+  id: string;
+  name: string;
+  emoji: string;
+  kind: PlaceKind;
+  elementId?: string;
+  rarity: number;
+  description: string;
+}
+
+export interface RandomEventChoice {
+  label: string;
+  effect: EventEffect;
+}
+
+export interface RandomEventDef {
+  id: string;
+  text: string;
+  choices: RandomEventChoice[];
+}
+
+export type EventEffect =
+  | { type: "fragments"; elementId: string; amount: number }
+  | { type: "xp"; elementId: string; amount: number }
+  | { type: "nothing" };
+
+export interface TamedCreature {
+  instanceId: string;
+  defId: string;
+  tamedAt: number;
+}
+
+export function xpForLevel(level: number): number {
+  return (level * (level - 1) / 2) * 1000;
+}
+
+export function levelFromXp(totalXp: number): number {
+  if (totalXp <= 0) return 1;
+  const k = totalXp / 1000;
+  return Math.floor((1 + Math.sqrt(1 + 8 * k)) / 2);
+}
+
+export function xpProgressInLevel(totalXp: number): { level: number; currentXp: number; neededXp: number } {
+  const level = levelFromXp(totalXp);
+  return {
+    level,
+    currentXp: totalXp - xpForLevel(level),
+    neededXp: xpForLevel(level + 1) - xpForLevel(level),
+  };
+}
