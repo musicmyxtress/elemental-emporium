@@ -142,8 +142,11 @@ function GameScreen({ game }: { game: ReturnType<typeof useGame> }) {
     const def = CREATURES.find((c) => c.id === defId)!;
     if (ok) {
       setAnnouncement(`Tamed ${def.name}. It has been added to your ${def.isMagical ? "menagerie" : "stable"}.`);
-    } else {
+    } else if (def.isMagical ? !game.state.builtMenagerie : !game.state.builtStable) {
       setAnnouncement(`You need to build a ${def.isMagical ? "menagerie" : "stable"} first.`);
+    } else {
+      const cost = def.rarity * 2 + def.level;
+      setAnnouncement(`Not enough ${def.elementId} crystals to tame ${def.name}. You need ${cost}.`);
     }
     setEncounterOpen(false);
   }
@@ -329,6 +332,7 @@ function GameScreen({ game }: { game: ReturnType<typeof useGame> }) {
           unlockedElements={game.state.unlockedElements}
           builtStable={game.state.builtStable}
           builtMenagerie={game.state.builtMenagerie}
+          crystals={game.state.crystals}
           onFight={handleFight}
           onTame={handleTame}
           onCollect={handleCollect}
@@ -794,6 +798,7 @@ function EncounterPanel({
   unlockedElements,
   builtStable,
   builtMenagerie,
+  crystals,
   onFight,
   onTame,
   onCollect,
@@ -806,6 +811,7 @@ function EncounterPanel({
   unlockedElements: string[];
   builtStable: boolean;
   builtMenagerie: boolean;
+  crystals: Record<string, number>;
   onFight: (defId: string) => void;
   onTame: (defId: string) => void;
   onCollect: (placeId: string) => void;
@@ -844,25 +850,33 @@ function EncounterPanel({
                   Study {ELEMENTS.find((e) => e.id === encounter.def.elementId)?.name ?? encounter.def.elementId}
                 </Button>
               ) : (
-                <>
-                  <Button type="button" variant="outline" onClick={() => onFight(encounter.def.id)}>
-                    Fight ({encounter.def.level + encounter.def.rarity * 5} fragments)
-                  </Button>
-                  <Button
-                    type="button"
-                    onClick={() => onTame(encounter.def.id)}
-                    disabled={encounter.def.isMagical ? !builtMenagerie : !builtStable}
-                    title={
-                      encounter.def.isMagical && !builtMenagerie
-                        ? "Build a Menagerie first"
-                        : !encounter.def.isMagical && !builtStable
-                          ? "Build a Stable first"
-                          : undefined
-                    }
-                  >
-                    Tame
-                  </Button>
-                </>
+                (() => {
+                  const built = encounter.def.isMagical ? builtMenagerie : builtStable;
+                  const cost = encounter.def.rarity * 2 + encounter.def.level;
+                  const available = crystals[encounter.def.elementId] ?? 0;
+                  const canAfford = available >= cost;
+                  return (
+                    <>
+                      <Button type="button" variant="outline" onClick={() => onFight(encounter.def.id)}>
+                        Fight ({encounter.def.level + encounter.def.rarity * 5} fragments)
+                      </Button>
+                      <Button
+                        type="button"
+                        onClick={() => onTame(encounter.def.id)}
+                        disabled={!built || !canAfford}
+                        title={
+                          !built
+                            ? `Build a ${encounter.def.isMagical ? "Menagerie" : "Stable"} first`
+                            : !canAfford
+                              ? `Need ${cost} ${encounter.def.elementId} crystals`
+                              : undefined
+                        }
+                      >
+                        Tame ({cost} crystal{cost === 1 ? "" : "s"})
+                      </Button>
+                    </>
+                  );
+                })()
               )}
               <Button type="button" variant="ghost" onClick={onClose}>
                 Leave
