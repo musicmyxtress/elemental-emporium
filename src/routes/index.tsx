@@ -66,13 +66,12 @@ function ChooseElement({ onChoose }: { onChoose: (id: string) => void }) {
                 type="button"
                 onClick={() => onChoose(el.id)}
                 className="group flex h-full w-full flex-col items-start gap-2 rounded-xl border bg-card p-5 text-left transition-colors hover:bg-muted focus-visible:bg-muted"
-                aria-label={`Choose ${el.name}: ${el.description}`}
+                aria-label={`Choose ${el.name}`}
               >
                 <span aria-hidden="true" className="text-4xl">
                   {el.emoji}
                 </span>
                 <span className="text-lg font-medium text-foreground">{el.name}</span>
-                <span className="text-sm text-muted-foreground">{el.description}</span>
               </button>
             </li>
           ))}
@@ -89,7 +88,7 @@ function GameScreen({ game }: { game: ReturnType<typeof useGame> }) {
   }, []);
 
   const [announcement, setAnnouncement] = useState("");
-  const [activeTab, setActiveTab] = useState("gather");
+  const [activeTab, setActiveTab] = useState("home-base");
 
   const el = ELEMENTS.find((e) => e.id === game.state.element)!;
   const fragKey = fragmentKey(el.id);
@@ -150,7 +149,7 @@ function GameScreen({ game }: { game: ReturnType<typeof useGame> }) {
         activationMode="manual"
         className="mt-6"
       >
-        <TabsContent value="gather">
+        <TabsContent value="home-base">
           <GatherPanel
             elementName={el.name}
             fragments={fragments}
@@ -161,7 +160,7 @@ function GameScreen({ game }: { game: ReturnType<typeof useGame> }) {
           />
         </TabsContent>
 
-        <TabsContent value="forge">
+        <TabsContent value="fragments">
           <ForgePanel
             elementName={el.name}
             fragments={fragments}
@@ -170,7 +169,7 @@ function GameScreen({ game }: { game: ReturnType<typeof useGame> }) {
           />
         </TabsContent>
 
-        <TabsContent value="upgrades">
+        <TabsContent value="stable">
           <UpgradesPanel
             elementName={el.name}
             crystals={crystals}
@@ -179,12 +178,19 @@ function GameScreen({ game }: { game: ReturnType<typeof useGame> }) {
           />
         </TabsContent>
 
+        <TabsContent value="menagerie">
+          <div className="py-12 text-center text-muted-foreground">
+            <p>Your menagerie is empty for now.</p>
+          </div>
+        </TabsContent>
+
         <div className="fixed inset-x-0 bottom-0 z-40 border-t bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">
           <div className="mx-auto max-w-3xl px-4 py-2">
             <TabsList className="flex h-auto gap-1">
-              <TabsTrigger value="gather">Gather</TabsTrigger>
-              <TabsTrigger value="forge">Forge</TabsTrigger>
-              <TabsTrigger value="upgrades">Upgrades</TabsTrigger>
+              <TabsTrigger value="home-base">Home Base</TabsTrigger>
+              <TabsTrigger value="fragments">Fragments and Crystals</TabsTrigger>
+              <TabsTrigger value="stable">Stable</TabsTrigger>
+              <TabsTrigger value="menagerie">Menagerie</TabsTrigger>
             </TabsList>
           </div>
         </div>
