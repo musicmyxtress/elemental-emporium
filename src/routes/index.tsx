@@ -153,9 +153,8 @@ function GameScreen({ game }: { game: ReturnType<typeof useGame> }) {
             elementName={el.name}
             fragments={fragments}
             crystals={crystals}
-            gatherAmount={gatherAmt}
             passiveAmount={passiveAmt}
-            onGather={handleGather}
+            onExplore={() => {}}
           />
         </TabsContent>
 
@@ -219,20 +218,18 @@ function GatherPanel({
   elementName,
   fragments,
   crystals,
-  gatherAmount,
   passiveAmount,
-  onGather,
+  onExplore,
 }: {
   elementName: string;
   fragments: number;
   crystals: number;
-  gatherAmount: number;
   passiveAmount: number;
-  onGather: () => void;
+  onExplore: () => void;
 }) {
   return (
     <section
-      aria-label="Gather"
+      aria-label="Home Base"
       className="rounded-2xl border bg-card p-8"
     >
       <h2 className="text-lg font-semibold text-foreground">Resources</h2>
@@ -248,7 +245,7 @@ function GatherPanel({
         <div className="flex justify-between">
           <dt className="text-muted-foreground">Passive income</dt>
           <dd className="font-medium tabular-nums text-foreground">
-            {passiveAmount} fragment{passiveAmount === 1 ? "" : "s"} / 2s
+            {passiveAmount} fragment{passiveAmount === 1 ? "" : "s"} / 5s
           </dd>
         </div>
       </dl>
@@ -257,10 +254,9 @@ function GatherPanel({
         <Button
           type="button"
           size="lg"
-          onClick={onGather}
-          aria-label={`Gather ${gatherAmount} ${elementName.toLowerCase()} fragment${gatherAmount === 1 ? "" : "s"}`}
+          onClick={onExplore}
         >
-          Gather ({gatherAmount} fragments)
+          Explore
         </Button>
       </div>
     </section>
