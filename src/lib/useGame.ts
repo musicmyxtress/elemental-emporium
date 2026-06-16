@@ -2,12 +2,8 @@ import { useState, useEffect, useCallback } from "react";
 import {
   fragmentKey,
   FRAGMENTS_PER_CRYSTAL,
-  BASE_GATHER,
   BASE_PASSIVE,
   PASSIVE_INTERVAL_MS,
-  UPGRADES,
-  gatherMultiplier,
-  passiveMultiplier,
   levelFromXp,
   type TamedCreature,
   type EventEffect,
@@ -18,7 +14,6 @@ export interface GameState {
   element: string | null;
   resources: Record<string, number>;
   crystals: Record<string, number>;
-  upgrades: string[];
   unlockedElements: string[];
   elementXp: Record<string, number>;
   builtStable: boolean;
@@ -40,7 +35,6 @@ function defaultState(): GameState {
     element: null,
     resources: {},
     crystals: {},
-    upgrades: [],
     unlockedElements: [...BASE_ELEMENTS],
     elementXp: {},
     builtStable: false,
@@ -82,9 +76,6 @@ function loadState(): GameState {
       element: typeof p.element === "string" ? p.element : null,
       resources: isRecord(p.resources) ? (p.resources as Record<string, number>) : {},
       crystals: isRecord(p.crystals) ? (p.crystals as Record<string, number>) : {},
-      upgrades: Array.isArray(p.upgrades)
-        ? p.upgrades.filter((x): x is string => typeof x === "string")
-        : [],
       unlockedElements: Array.isArray(p.unlockedElements)
         ? p.unlockedElements.filter((x): x is string => typeof x === "string")
         : d.unlockedElements,
@@ -158,7 +149,7 @@ export function useGame() {
         const now = Date.now();
         const newResources = { ...prev.resources };
 
-        const baseAmount = BASE_PASSIVE * passiveMultiplier(prev.upgrades);
+        const baseAmount = BASE_PASSIVE;
         const masteryKey = fragmentKey(masteryElement);
         newResources[masteryKey] = (newResources[masteryKey] ?? 0) + baseAmount;
 
@@ -194,17 +185,6 @@ export function useGame() {
     setState((prev) => ({ ...prev, element: elementId }));
   }, []);
 
-  const gather = useCallback((): number => {
-    let gained = 0;
-    setState((prev) => {
-      if (!prev.element) return prev;
-      gained = BASE_GATHER * gatherMultiplier(prev.upgrades);
-      const key = fragmentKey(prev.element);
-      return { ...prev, resources: { ...prev.resources, [key]: (prev.resources[key] ?? 0) + gained } };
-    });
-    return gained;
-  }, []);
-
   const forgeCrystal = useCallback((elementId: string): boolean => {
     const key = fragmentKey(elementId);
     let ok = false;
@@ -212,30 +192,16 @@ export function useGame() {
       const have = prev.resources[key] ?? 0;
       if (have < FRAGMENTS_PER_CRYSTAL) return prev;
       ok = true;
+      const level = levelFromXp(prev.elementXp[elementId] ?? 0);
+      const xpGained = 100 * level;
+      const newXp = { ...prev.elementXp, [elementId]: (prev.elementXp[elementId] ?? 0) + xpGained };
+      const masteryLevel = prev.element ? levelFromXp(newXp[prev.element] ?? 0) : 0;
       return {
         ...prev,
         resources: { ...prev.resources, [key]: have - FRAGMENTS_PER_CRYSTAL },
         crystals: { ...prev.crystals, [elementId]: (prev.crystals[elementId] ?? 0) + 1 },
-      };
-    });
-    return ok;
-  }, []);
-
-  const buyUpgrade = useCallback((upgradeId: string): boolean => {
-    const def = UPGRADES.find((u) => u.id === upgradeId);
-    if (!def) return false;
-    let ok = false;
-    setState((prev) => {
-      if (!prev.element) return prev;
-      if (prev.upgrades.includes(upgradeId)) return prev;
-      if (def.requires && !prev.upgrades.includes(def.requires)) return prev;
-      const available = prev.crystals[prev.element] ?? 0;
-      if (available < def.crystalCost) return prev;
-      ok = true;
-      return {
-        ...prev,
-        crystals: { ...prev.crystals, [prev.element]: available - def.crystalCost },
-        upgrades: [...prev.upgrades, upgradeId],
+        elementXp: newXp,
+        hasApprentice: prev.hasApprentice || (prev.element !== null && masteryLevel >= 20),
       };
     });
     return ok;
@@ -405,7 +371,6 @@ export function useGame() {
         element: null,
         resources: { [masteryKey]: allowance },
         crystals: {},
-        upgrades: [],
         unlockedElements: [...prev.unlockedElements],
         elementXp: {},
         builtStable: giftedBuiltStable,
@@ -427,9 +392,7 @@ export function useGame() {
     state,
     hydrated,
     chooseElement,
-    gather,
     forgeCrystal,
-    buyUpgrade,
     fightCreature,
     tameCreature,
     collectPlace,

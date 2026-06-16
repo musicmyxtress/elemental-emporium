@@ -3,11 +3,8 @@ import { useEffect, useRef, useState } from "react";
 import { useGame } from "@/lib/useGame";
 import {
   ELEMENTS,
-  UPGRADES,
   FRAGMENTS_PER_CRYSTAL,
   fragmentKey,
-  gatherMultiplier,
-  passiveMultiplier,
   BASE_PASSIVE,
   levelFromXp,
   xpProgressInLevel,
@@ -117,7 +114,7 @@ function GameScreen({ game }: { game: ReturnType<typeof useGame> }) {
   const fragKey = fragmentKey(el.id);
   const fragments = Math.floor(game.state.resources[fragKey] ?? 0);
   const crystals = game.state.crystals[el.id] ?? 0;
-  const passiveAmt = BASE_PASSIVE * passiveMultiplier(game.state.upgrades);
+  const passiveAmt = BASE_PASSIVE;
   const wood = Math.floor(game.state.resources["wood"] ?? 0);
   const stone = Math.floor(game.state.resources["stone"] ?? 0);
 
@@ -211,18 +208,6 @@ function GameScreen({ game }: { game: ReturnType<typeof useGame> }) {
     }
   }
 
-  function handleBuyUpgrade(upgradeId: string) {
-    const def = UPGRADES.find((u) => u.id === upgradeId)!;
-    const ok = game.buyUpgrade(upgradeId);
-    if (ok) {
-      setAnnouncement(`Purchased ${def.name}. ${def.description}`);
-    } else {
-      setAnnouncement(
-        `Cannot purchase ${def.name}. You need ${def.crystalCost} ${el.name.toLowerCase()} crystal${def.crystalCost === 1 ? "" : "s"}.`,
-      );
-    }
-  }
-
   function handleGraduate(giftedCreatureDefId: string | null) {
     game.graduate(giftedCreatureDefId);
     setGraduateOpen(false);
@@ -266,20 +251,12 @@ function GameScreen({ game }: { game: ReturnType<typeof useGame> }) {
         </TabsContent>
 
         <TabsContent value="fragments">
-          <div className="grid gap-6">
-            <ForgePanel
-              elementName={el.name}
-              fragments={fragments}
-              crystals={crystals}
-              onForge={handleForge}
-            />
-            <UpgradesPanel
-              elementName={el.name}
-              crystals={crystals}
-              owned={game.state.upgrades}
-              onBuy={handleBuyUpgrade}
-            />
-          </div>
+          <ForgePanel
+            elementName={el.name}
+            fragments={fragments}
+            crystals={crystals}
+            onForge={handleForge}
+          />
         </TabsContent>
 
         <TabsContent value="stable">
@@ -524,8 +501,8 @@ function ForgePanel({
     <section aria-label="Forge" className="rounded-2xl border bg-card p-8">
       <h2 className="text-lg font-semibold text-foreground">Forge Crystals</h2>
       <p className="mt-2 text-sm text-muted-foreground">
-        Convert {FRAGMENTS_PER_CRYSTAL} fragments into 1 crystal. Crystals are used to buy
-        upgrades.
+        Convert {FRAGMENTS_PER_CRYSTAL} fragments into 1 crystal. Crystals are used to build the
+        Menagerie, where magical creatures are tamed.
       </p>
       <dl className="mt-4 grid gap-2 text-sm">
         <div className="flex justify-between">
@@ -551,78 +528,6 @@ function ForgePanel({
           Forge crystal ({FRAGMENTS_PER_CRYSTAL} fragments)
         </Button>
       </div>
-    </section>
-  );
-}
-
-function UpgradesPanel({
-  elementName,
-  crystals,
-  owned,
-  onBuy,
-}: {
-  elementName: string;
-  crystals: number;
-  owned: string[];
-  onBuy: (id: string) => void;
-}) {
-  return (
-    <section aria-label="Upgrades" className="rounded-2xl border bg-card p-8">
-      <h2 className="text-lg font-semibold text-foreground">Upgrades</h2>
-      <p className="mt-2 text-sm text-muted-foreground">
-        You have {crystals} {elementName.toLowerCase()} crystal{crystals === 1 ? "" : "s"}.
-      </p>
-      <ul className="mt-4 grid gap-3" role="list">
-        {UPGRADES.map((u) => {
-          const isOwned = owned.includes(u.id);
-          const isUnlocked = !u.requires || owned.includes(u.requires);
-          const canAfford = crystals >= u.crystalCost;
-          const available = isUnlocked && !isOwned;
-          let ariaLabel: string;
-          if (isOwned) {
-            ariaLabel = `${u.name}, owned. ${u.description}`;
-          } else if (!isUnlocked) {
-            const dep = UPGRADES.find((d) => d.id === u.requires)!;
-            ariaLabel = `${u.name}, locked. Requires ${dep.name} first.`;
-          } else if (!canAfford) {
-            ariaLabel = `${u.name}, costs ${u.crystalCost} ${elementName.toLowerCase()} crystal${u.crystalCost === 1 ? "" : "s"}, not enough. ${u.description}`;
-          } else {
-            ariaLabel = `Buy ${u.name} for ${u.crystalCost} ${elementName.toLowerCase()} crystal${u.crystalCost === 1 ? "" : "s"}. ${u.description}`;
-          }
-          return (
-            <li key={u.id} className="rounded-xl border bg-background p-4">
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <h3 className="text-sm font-medium text-foreground">{u.name}</h3>
-                  <p className="mt-0.5 text-xs text-muted-foreground">{u.description}</p>
-                  {!isUnlocked && (
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      Requires: {UPGRADES.find((d) => d.id === u.requires)?.name}
-                    </p>
-                  )}
-                </div>
-                <div className="shrink-0">
-                  {isOwned ? (
-                    <span className="inline-block rounded-md bg-muted px-2 py-1 text-xs font-medium text-muted-foreground">
-                      Owned
-                    </span>
-                  ) : (
-                    <Button
-                      type="button"
-                      size="sm"
-                      onClick={() => onBuy(u.id)}
-                      disabled={!available || !canAfford}
-                      aria-label={ariaLabel}
-                    >
-                      {u.crystalCost} crystal{u.crystalCost === 1 ? "" : "s"}
-                    </Button>
-                  )}
-                </div>
-              </div>
-            </li>
-          );
-        })}
-      </ul>
     </section>
   );
 }
