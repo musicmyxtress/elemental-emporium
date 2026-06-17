@@ -157,15 +157,6 @@ function GameScreen({ game }: { game: ReturnType<typeof useGame> }) {
     if (gained > 0) {
       setAnnouncement(`Collected ${gained} ${resource} from ${def.name}.`);
     }
-    setEncounterOpen(false);
-  }
-
-  function handleCollectDiscovered(placeId: string) {
-    const { gained, resource } = game.collectPlace(placeId);
-    const def = PLACES.find((p) => p.id === placeId)!;
-    if (gained > 0) {
-      setAnnouncement(`Collected ${gained} ${resource} from ${def.name}.`);
-    }
   }
 
   function handleStudy(itemId: string, elementId: string) {
@@ -282,7 +273,7 @@ function GameScreen({ game }: { game: ReturnType<typeof useGame> }) {
           <PlacesPanel
             discoveredPlaces={game.state.discoveredPlaces}
             cooldowns={game.state.cooldowns}
-            onCollect={handleCollectDiscovered}
+            onCollect={handleCollect}
           />
         </TabsContent>
 
@@ -333,6 +324,7 @@ function GameScreen({ game }: { game: ReturnType<typeof useGame> }) {
           builtStable={game.state.builtStable}
           builtMenagerie={game.state.builtMenagerie}
           crystals={game.state.crystals}
+          cooldowns={game.state.cooldowns}
           onFight={handleFight}
           onTame={handleTame}
           onCollect={handleCollect}
@@ -681,6 +673,34 @@ function CooldownTimer({ expiresAt }: { expiresAt: number }) {
   return <span className="text-xs text-muted-foreground">{label}</span>;
 }
 
+function PlaceCollectControl({
+  placeId,
+  cooldownExpiry,
+  onCollect,
+  size,
+}: {
+  placeId: string;
+  cooldownExpiry: number;
+  onCollect: (placeId: string) => void;
+  size?: "sm" | "default" | "lg";
+}) {
+  const [now, setNow] = useState(Date.now());
+  const onCooldown = cooldownExpiry > now;
+  useEffect(() => {
+    if (!onCooldown) return;
+    const id = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, [onCooldown, cooldownExpiry]);
+  if (onCooldown) {
+    return <CooldownTimer expiresAt={cooldownExpiry} />;
+  }
+  return (
+    <Button type="button" size={size} onClick={() => onCollect(placeId)}>
+      Collect
+    </Button>
+  );
+}
+
 function PlacesPanel({
   discoveredPlaces,
   cooldowns,
@@ -704,9 +724,7 @@ function PlacesPanel({
         {discoveredPlaces.map((placeId) => {
           const def = PLACES.find((p) => p.id === placeId);
           if (!def) return null;
-          const now = Date.now();
-          const cooldownExpiry = cooldowns[placeId] ?? 0;
-          const onCooldown = def.kind === "elemental" && cooldownExpiry > now;
+          const cooldownExpiry = def.kind === "elemental" ? cooldowns[placeId] ?? 0 : 0;
           const elDef = def.elementId ? ELEMENTS.find((e) => e.id === def.elementId) : null;
           const yieldLabel =
             def.kind === "forest"
@@ -728,13 +746,12 @@ function PlacesPanel({
                   </div>
                 </div>
                 <div className="shrink-0 text-right">
-                  {onCooldown ? (
-                    <CooldownTimer expiresAt={cooldownExpiry} />
-                  ) : (
-                    <Button type="button" size="sm" onClick={() => onCollect(placeId)}>
-                      Collect
-                    </Button>
-                  )}
+                  <PlaceCollectControl
+                    placeId={placeId}
+                    cooldownExpiry={cooldownExpiry}
+                    onCollect={onCollect}
+                    size="sm"
+                  />
                 </div>
               </div>
             </li>
@@ -797,6 +814,7 @@ function EncounterPanel({
   builtStable,
   builtMenagerie,
   crystals,
+  cooldowns,
   onFight,
   onTame,
   onCollect,
@@ -810,6 +828,7 @@ function EncounterPanel({
   builtStable: boolean;
   builtMenagerie: boolean;
   crystals: Record<string, number>;
+  cooldowns: Record<string, number>;
   onFight: (defId: string) => void;
   onTame: (defId: string) => void;
   onCollect: (placeId: string) => void;
@@ -899,7 +918,7 @@ function EncounterPanel({
                 </p>
               )}
             </div>
-            <DialogFooter className="flex-wrap gap-2">
+            <DialogFooter className="flex-wrap items-center gap-2">
               {encounter.def.elementId &&
               !unlockedElements.includes(encounter.def.elementId) ? (
                 <Button
@@ -909,9 +928,11 @@ function EncounterPanel({
                   Study {ELEMENTS.find((e) => e.id === encounter.def.elementId)?.name ?? encounter.def.elementId}
                 </Button>
               ) : (
-                <Button type="button" onClick={() => onCollect(encounter.def.id)}>
-                  Collect
-                </Button>
+                <PlaceCollectControl
+                  placeId={encounter.def.id}
+                  cooldownExpiry={encounter.def.kind === "elemental" ? cooldowns[encounter.def.id] ?? 0 : 0}
+                  onCollect={onCollect}
+                />
               )}
               <Button type="button" variant="ghost" onClick={onClose}>
                 Leave
