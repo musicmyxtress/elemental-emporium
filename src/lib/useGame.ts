@@ -270,7 +270,7 @@ export function useGame() {
         const gained = def.rarity * 10;
         const key = fragmentKey(def.elementId!);
         newResources[key] = (newResources[key] ?? 0) + gained;
-        newCooldowns[placeId] = now + def.rarity * 2 * 1000;
+        newCooldowns[placeId] = now + def.rarity * 5 * 1000;
         result = { gained, resource: `${def.elementId} fragments` };
       }
       const newDiscovered = prev.discoveredPlaces.includes(placeId)
