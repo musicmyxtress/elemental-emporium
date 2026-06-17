@@ -396,7 +396,11 @@ function HomePanel({
   return (
     <div className="grid gap-6">
       <section aria-label="Home Base" className="rounded-2xl border bg-card p-8">
-        <h2 className="text-lg font-semibold text-foreground">Resources</h2>
+        <Button type="button" size="lg" onClick={onExplore}>
+          Explore
+        </Button>
+
+        <h2 className="mt-6 text-lg font-semibold text-foreground">Resources</h2>
         <dl className="mt-4 grid gap-2 text-sm">
           <div className="flex justify-between">
             <dt className="text-muted-foreground">Wood</dt>
@@ -413,12 +417,6 @@ function HomePanel({
             </dd>
           </div>
         </dl>
-
-        <div className="mt-6">
-          <Button type="button" size="lg" onClick={onExplore}>
-            Explore
-          </Button>
-        </div>
       </section>
 
       {hasApprentice && (
