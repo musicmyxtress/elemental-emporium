@@ -19,7 +19,10 @@ function shuffle<T>(arr: T[]): T[] {
 export function buildEncounterPool(state: GameState, now: number): EncounterItem[] {
   const items: EncounterItem[] = [
     ...CREATURES.map((def) => ({ kind: "creature" as const, def })),
-    ...PLACES.map((def) => ({ kind: "place" as const, def })),
+    ...PLACES.filter((def) => !state.discoveredPlaces.includes(def.id)).map((def) => ({
+      kind: "place" as const,
+      def,
+    })),
     ...RANDOM_EVENTS.map((def) => ({ kind: "event" as const, def })),
   ];
   const filtered = items.filter((item) => (state.cooldowns[item.def.id] ?? 0) <= now);
