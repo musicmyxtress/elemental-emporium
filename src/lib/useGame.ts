@@ -465,8 +465,8 @@ export function useGame() {
 
       let newStable: TamedCreature[] = [];
       let newMenagerie: TamedCreature[] = [];
-      let giftedBuiltStable = false;
-      let giftedBuiltMenagerie = false;
+      let builtStable = false;
+      let builtMenagerie = false;
 
       if (giftedCreatureDefId) {
         const allCreatures = [...prev.stable, ...prev.menagerie];
@@ -475,34 +475,27 @@ export function useGame() {
         if (gifted && def) {
           if (def.isMagical) {
             newMenagerie = [gifted];
-            giftedBuiltMenagerie = true;
+            builtMenagerie = true;
           } else {
             newStable = [gifted];
-            giftedBuiltStable = true;
+            builtStable = true;
           }
         }
       }
 
+      // Start from defaultState() so any status effect (shield, haste, future
+      // spell buffs, etc.) clears on graduation without needing a line here.
       return {
-        element: null,
+        ...defaultState(),
         resources: { [masteryKey]: allowance },
-        crystals: {},
         unlockedElements: [...prev.unlockedElements],
-        elementXp: {},
-        builtStable: giftedBuiltStable,
-        builtMenagerie: giftedBuiltMenagerie,
+        builtStable,
+        builtMenagerie,
         stable: newStable,
         menagerie: newMenagerie,
-        discoveredPlaces: [],
-        cooldowns: {},
-        hasApprentice: false,
         generationNumber: prev.generationNumber + 1,
         generationStartElements: [...prev.unlockedElements],
         playerHp: playerMaxHp({}, prev.unlockedElements),
-        sleepUntil: null,
-        shieldAmount: 0,
-        hasteUntil: null,
-        hasteReductionSeconds: 0,
       };
     });
   }, []);
