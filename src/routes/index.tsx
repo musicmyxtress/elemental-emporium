@@ -1198,23 +1198,20 @@ function EncounterPanel({
                     ))}
                   {(() => {
                     const built = encounter.def.isMagical ? builtMenagerie : builtStable;
+                    if (!built) return null;
                     const cost = encounter.def.rarity * 2 + encounter.def.level;
                     const available = crystals[encounter.def.elementId] ?? 0;
                     const canAfford = available >= cost;
+                    const elName =
+                      ELEMENTS.find((e) => e.id === encounter.def.elementId)?.name ??
+                      encounter.def.elementId;
                     return (
                       <Button
                         type="button"
                         onClick={() => onTame(encounter.def.id)}
-                        disabled={!built || !canAfford}
-                        title={
-                          !built
-                            ? `Build a ${encounter.def.isMagical ? "Menagerie" : "Stable"} first`
-                            : !canAfford
-                              ? `Need ${cost} ${encounter.def.elementId} crystals`
-                              : undefined
-                        }
+                        disabled={!canAfford}
                       >
-                        Tame ({cost} crystal{cost === 1 ? "" : "s"})
+                        Tame (Requires {cost} {elName} crystal{cost === 1 ? "" : "s"})
                       </Button>
                     );
                   })()}
