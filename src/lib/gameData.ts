@@ -58,6 +58,15 @@ export interface CreatureDef {
   producedElementId?: string;
 }
 
+export function creatureMaxHp(def: CreatureDef): number {
+  return def.level + def.rarity * 2;
+}
+
+export function playerMaxHp(elementXp: Record<string, number>, unlockedElements: string[]): number {
+  const levelSum = unlockedElements.reduce((sum, id) => sum + levelFromXp(elementXp[id] ?? 0), 0);
+  return 2 * levelSum;
+}
+
 export type PlaceKind = "elemental" | "forest" | "stone_mine";
 
 export interface PlaceDef {
@@ -84,12 +93,39 @@ export interface RandomEventDef {
 export type EventEffect =
   | { type: "fragments"; elementId: string; amount: number }
   | { type: "xp"; elementId: string; amount: number }
+  | { type: "heal"; amount: number }
   | { type: "nothing" };
 
 export interface TamedCreature {
   instanceId: string;
   defId: string;
   tamedAt: number;
+}
+
+export type SpellKind = "direct" | "dot" | "utility";
+
+export interface SpellDef {
+  id: string;
+  name: string;
+  emoji: string;
+  elementId: string;
+  kind: SpellKind;
+  unlockLevel: number;
+  power?: number;
+  durationRounds?: number;
+  effect?: EventEffect;
+  description: string;
+}
+
+export function isSpellUnlocked(
+  spell: SpellDef,
+  elementXp: Record<string, number>,
+  unlockedElements: string[],
+): boolean {
+  return (
+    unlockedElements.includes(spell.elementId) &&
+    levelFromXp(elementXp[spell.elementId] ?? 0) >= spell.unlockLevel
+  );
 }
 
 export function xpForLevel(level: number): number {

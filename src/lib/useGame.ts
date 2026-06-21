@@ -5,10 +5,12 @@ import {
   BASE_PASSIVE,
   PASSIVE_INTERVAL_MS,
   levelFromXp,
+  playerMaxHp,
+  isSpellUnlocked,
   type TamedCreature,
   type EventEffect,
 } from "./gameData";
-import { CREATURES, PLACES } from "./seedData";
+import { CREATURES, PLACES, SPELLS } from "./seedData";
 
 export interface GameState {
   element: string | null;
@@ -25,10 +27,14 @@ export interface GameState {
   hasApprentice: boolean;
   generationNumber: number;
   generationStartElements: string[];
+  playerHp: number;
+  sleepUntil: number | null;
 }
 
 const STORAGE_KEY = "elemental-emporium-v3";
 const BASE_ELEMENTS = ["fire", "water", "earth", "air"];
+const DEATH_SLEEP_MS = 60_000;
+const SLEEP_MS_PER_HP = 3000;
 
 function defaultState(): GameState {
   return {
@@ -46,6 +52,8 @@ function defaultState(): GameState {
     hasApprentice: false,
     generationNumber: 1,
     generationStartElements: [...BASE_ELEMENTS],
+    playerHp: playerMaxHp({}, BASE_ELEMENTS),
+    sleepUntil: null,
   };
 }
 
@@ -72,14 +80,16 @@ function loadState(): GameState {
     if (!raw) return defaultState();
     const p = JSON.parse(raw) as Record<string, unknown>;
     const d = defaultState();
+    const unlockedElements = Array.isArray(p.unlockedElements)
+      ? p.unlockedElements.filter((x): x is string => typeof x === "string")
+      : d.unlockedElements;
+    const elementXp = isRecord(p.elementXp) ? (p.elementXp as Record<string, number>) : {};
     return {
       element: typeof p.element === "string" ? p.element : null,
       resources: isRecord(p.resources) ? (p.resources as Record<string, number>) : {},
       crystals: isRecord(p.crystals) ? (p.crystals as Record<string, number>) : {},
-      unlockedElements: Array.isArray(p.unlockedElements)
-        ? p.unlockedElements.filter((x): x is string => typeof x === "string")
-        : d.unlockedElements,
-      elementXp: isRecord(p.elementXp) ? (p.elementXp as Record<string, number>) : {},
+      unlockedElements,
+      elementXp,
       builtStable: typeof p.builtStable === "boolean" ? p.builtStable : false,
       builtMenagerie: typeof p.builtMenagerie === "boolean" ? p.builtMenagerie : false,
       stable: isTamedArray(p.stable) ? p.stable : [],
@@ -93,10 +103,31 @@ function loadState(): GameState {
       generationStartElements: Array.isArray(p.generationStartElements)
         ? p.generationStartElements.filter((x): x is string => typeof x === "string")
         : d.generationStartElements,
+      playerHp:
+        typeof p.playerHp === "number" ? p.playerHp : playerMaxHp(elementXp, unlockedElements),
+      sleepUntil: typeof p.sleepUntil === "number" ? p.sleepUntil : null,
     };
   } catch {
     return defaultState();
   }
+}
+
+function applyEffect(effect: EventEffect, prev: GameState): GameState {
+  if (effect.type === "nothing") return prev;
+  if (effect.type === "fragments") {
+    const key = fragmentKey(effect.elementId);
+    return { ...prev, resources: { ...prev.resources, [key]: (prev.resources[key] ?? 0) + effect.amount } };
+  }
+  if (effect.type === "xp") {
+    const newXp = { ...prev.elementXp, [effect.elementId]: (prev.elementXp[effect.elementId] ?? 0) + effect.amount };
+    const masteryLevel = prev.element ? levelFromXp(newXp[prev.element] ?? 0) : 0;
+    return { ...prev, elementXp: newXp, hasApprentice: prev.hasApprentice || (prev.element !== null && masteryLevel >= 20) };
+  }
+  if (effect.type === "heal") {
+    const maxHp = playerMaxHp(prev.elementXp, prev.unlockedElements);
+    return { ...prev, playerHp: Math.min(maxHp, prev.playerHp + effect.amount) };
+  }
+  return prev;
 }
 
 function applyStudyCooldowns(
@@ -149,9 +180,11 @@ export function useGame() {
         const now = Date.now();
         const newResources = { ...prev.resources };
 
-        const baseAmount = BASE_PASSIVE;
-        const masteryKey = fragmentKey(masteryElement);
-        newResources[masteryKey] = (newResources[masteryKey] ?? 0) + baseAmount;
+        const asleep = prev.sleepUntil !== null && prev.sleepUntil > now;
+        if (!asleep) {
+          const masteryKey = fragmentKey(masteryElement);
+          newResources[masteryKey] = (newResources[masteryKey] ?? 0) + BASE_PASSIVE;
+        }
 
         for (const tamed of prev.stable) {
           const def = CREATURES.find((c) => c.id === tamed.defId);
@@ -181,6 +214,22 @@ export function useGame() {
     return () => clearInterval(id);
   }, [state.element]);
 
+  useEffect(() => {
+    if (state.sleepUntil === null) return;
+    const delay = Math.max(0, state.sleepUntil - Date.now());
+    const id = setTimeout(() => {
+      setState((prev) => {
+        if (prev.sleepUntil === null) return prev;
+        return {
+          ...prev,
+          sleepUntil: null,
+          playerHp: playerMaxHp(prev.elementXp, prev.unlockedElements),
+        };
+      });
+    }, delay);
+    return () => clearTimeout(id);
+  }, [state.sleepUntil]);
+
   const chooseElement = useCallback((elementId: string) => {
     setState((prev) => ({ ...prev, element: elementId }));
   }, []);
@@ -207,7 +256,7 @@ export function useGame() {
     return ok;
   }, []);
 
-  const fightCreature = useCallback((defId: string): { fragmentsGained: number; xpGained: number } => {
+  const winFight = useCallback((defId: string): { fragmentsGained: number; xpGained: number } => {
     const def = CREATURES.find((c) => c.id === defId);
     if (!def) return { fragmentsGained: 0, xpGained: 0 };
     const amount = def.level + def.rarity * 5;
@@ -251,6 +300,53 @@ export function useGame() {
     return ok;
   }, []);
 
+  const takeDamage = useCallback((amount: number): { died: boolean } => {
+    let died = false;
+    setState((prev) => {
+      const newHp = Math.max(0, prev.playerHp - amount);
+      if (newHp <= 0) {
+        died = true;
+        return { ...prev, playerHp: 0, sleepUntil: Date.now() + DEATH_SLEEP_MS };
+      }
+      return { ...prev, playerHp: newHp };
+    });
+    return { died };
+  }, []);
+
+  const startSleep = useCallback((): boolean => {
+    let ok = false;
+    setState((prev) => {
+      if (prev.sleepUntil !== null) return prev;
+      const maxHp = playerMaxHp(prev.elementXp, prev.unlockedElements);
+      if (prev.playerHp >= maxHp) return prev;
+      ok = true;
+      return { ...prev, sleepUntil: Date.now() + (maxHp - prev.playerHp) * SLEEP_MS_PER_HP };
+    });
+    return ok;
+  }, []);
+
+  const castSpell = useCallback((spellId: string): boolean => {
+    const spell = SPELLS.find((s) => s.id === spellId);
+    if (!spell) return false;
+    let ok = false;
+    setState((prev) => {
+      if (!isSpellUnlocked(spell, prev.elementXp, prev.unlockedElements)) return prev;
+      const cost = spell.power ?? 0;
+      const key = fragmentKey(spell.elementId);
+      if ((prev.resources[key] ?? 0) < cost) return prev;
+      ok = true;
+      const afterCost = {
+        ...prev,
+        resources: { ...prev.resources, [key]: (prev.resources[key] ?? 0) - cost },
+      };
+      if (spell.kind === "utility" && spell.effect) {
+        return applyEffect(spell.effect, afterCost);
+      }
+      return afterCost;
+    });
+    return ok;
+  }, []);
+
   const collectPlace = useCallback((placeId: string): { gained: number; resource: string } => {
     const def = PLACES.find((p) => p.id === placeId);
     if (!def) return { gained: 0, resource: "" };
@@ -282,19 +378,7 @@ export function useGame() {
   }, []);
 
   const resolveEvent = useCallback((effect: EventEffect) => {
-    setState((prev) => {
-      if (effect.type === "nothing") return prev;
-      if (effect.type === "fragments") {
-        const key = fragmentKey(effect.elementId);
-        return { ...prev, resources: { ...prev.resources, [key]: (prev.resources[key] ?? 0) + effect.amount } };
-      }
-      if (effect.type === "xp") {
-        const newXp = { ...prev.elementXp, [effect.elementId]: (prev.elementXp[effect.elementId] ?? 0) + effect.amount };
-        const masteryLevel = prev.element ? levelFromXp(newXp[prev.element] ?? 0) : 0;
-        return { ...prev, elementXp: newXp, hasApprentice: prev.hasApprentice || (prev.element !== null && masteryLevel >= 20) };
-      }
-      return prev;
-    });
+    setState((prev) => applyEffect(effect, prev));
   }, []);
 
   const studyEncounter = useCallback((itemId: string, elementId: string) => {
@@ -386,6 +470,8 @@ export function useGame() {
         hasApprentice: false,
         generationNumber: prev.generationNumber + 1,
         generationStartElements: [...prev.unlockedElements],
+        playerHp: playerMaxHp({}, prev.unlockedElements),
+        sleepUntil: null,
       };
     });
   }, []);
@@ -397,8 +483,11 @@ export function useGame() {
     hydrated,
     chooseElement,
     forgeCrystal,
-    fightCreature,
+    winFight,
     tameCreature,
+    takeDamage,
+    startSleep,
+    castSpell,
     collectPlace,
     resolveEvent,
     studyEncounter,

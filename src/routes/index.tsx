@@ -8,10 +8,15 @@ import {
   BASE_PASSIVE,
   levelFromXp,
   xpProgressInLevel,
+  playerMaxHp,
+  creatureMaxHp,
+  isSpellUnlocked,
   type ElementDef,
   type EventEffect,
+  type SpellDef,
 } from "@/lib/gameData";
-import { CREATURES, PLACES } from "@/lib/seedData";
+import { CREATURES, PLACES, SPELLS } from "@/lib/seedData";
+import { rollCreatureDamage, rollSpellDamage, type ActiveDot } from "@/lib/combat";
 import { buildEncounterPool, type EncounterItem } from "@/lib/explore";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
@@ -107,6 +112,7 @@ function GameScreen({ game }: { game: ReturnType<typeof useGame> }) {
   const [announcement, setAnnouncement] = useState("");
   const [activeTab, setActiveTab] = useState("home-base");
   const [currentEncounter, setCurrentEncounter] = useState<EncounterItem | null>(null);
+  const [encounterSeq, setEncounterSeq] = useState(0);
   const [encounterOpen, setEncounterOpen] = useState(false);
   const [graduateOpen, setGraduateOpen] = useState(false);
 
@@ -114,6 +120,7 @@ function GameScreen({ game }: { game: ReturnType<typeof useGame> }) {
   const passiveAmt = BASE_PASSIVE;
   const wood = Math.floor(game.state.resources["wood"] ?? 0);
   const stone = Math.floor(game.state.resources["stone"] ?? 0);
+  const maxHp = playerMaxHp(game.state.elementXp, game.state.unlockedElements);
 
   function handleExplore() {
     const pool = buildEncounterPool(game.state, Date.now());
@@ -122,16 +129,19 @@ function GameScreen({ game }: { game: ReturnType<typeof useGame> }) {
       return;
     }
     setCurrentEncounter(pool[0]);
+    setEncounterSeq((s) => s + 1);
     setEncounterOpen(true);
   }
 
-  function handleFight(defId: string) {
-    const { fragmentsGained, xpGained } = game.fightCreature(defId);
-    const def = CREATURES.find((c) => c.id === defId)!;
-    setAnnouncement(
-      `Fought ${def.name}. Gained ${fragmentsGained} ${def.elementId} fragments and ${xpGained} XP.`,
-    );
-    setEncounterOpen(false);
+  function handleSleep() {
+    const ok = game.startSleep();
+    setAnnouncement(ok ? "You lie down to rest." : "You are already at full health.");
+  }
+
+  function handleCastUtilitySpell(spellId: string) {
+    const spell = SPELLS.find((s) => s.id === spellId);
+    const ok = game.castSpell(spellId);
+    setAnnouncement(ok && spell ? `Cast ${spell.name}.` : "Unable to cast that spell.");
   }
 
   function handleTame(defId: string) {
@@ -237,10 +247,18 @@ function GameScreen({ game }: { game: ReturnType<typeof useGame> }) {
             genCrystals={game.state.crystals}
             hasApprentice={game.state.hasApprentice}
             masteryXp={game.state.elementXp[el.id] ?? 0}
+            playerHp={game.state.playerHp}
+            playerMaxHp={maxHp}
+            sleepUntil={game.state.sleepUntil}
+            elementXp={game.state.elementXp}
+            unlockedElements={game.state.unlockedElements}
+            resources={game.state.resources}
             onExplore={handleExplore}
             onBuildStable={handleBuildStable}
             onBuildMenagerie={handleBuildMenagerie}
             onGraduate={() => setGraduateOpen(true)}
+            onSleep={handleSleep}
+            onCastUtilitySpell={handleCastUtilitySpell}
           />
         </TabsContent>
 
@@ -319,6 +337,7 @@ function GameScreen({ game }: { game: ReturnType<typeof useGame> }) {
 
       {currentEncounter && (
         <EncounterPanel
+          key={encounterSeq}
           open={encounterOpen}
           encounter={currentEncounter}
           unlockedElements={game.state.unlockedElements}
@@ -326,11 +345,17 @@ function GameScreen({ game }: { game: ReturnType<typeof useGame> }) {
           builtMenagerie={game.state.builtMenagerie}
           crystals={game.state.crystals}
           cooldowns={game.state.cooldowns}
-          onFight={handleFight}
+          playerHp={game.state.playerHp}
+          playerMaxHp={maxHp}
+          elementXp={game.state.elementXp}
+          onCastSpell={game.castSpell}
+          onCreatureDamage={game.takeDamage}
+          onWinFight={game.winFight}
           onTame={handleTame}
           onCollect={handleCollect}
           onStudy={handleStudy}
           onEvent={handleEvent}
+          onAnnounce={setAnnouncement}
           onClose={() => setEncounterOpen(false)}
         />
       )}
@@ -360,10 +385,18 @@ function HomePanel({
   genCrystals,
   hasApprentice,
   masteryXp,
+  playerHp,
+  playerMaxHp,
+  sleepUntil,
+  elementXp,
+  unlockedElements,
+  resources,
   onExplore,
   onBuildStable,
   onBuildMenagerie,
   onGraduate,
+  onSleep,
+  onCastUtilitySpell,
 }: {
   elementName: string;
   passiveAmount: number;
@@ -375,16 +408,27 @@ function HomePanel({
   genCrystals: Record<string, number>;
   hasApprentice: boolean;
   masteryXp: number;
+  playerHp: number;
+  playerMaxHp: number;
+  sleepUntil: number | null;
+  elementXp: Record<string, number>;
+  unlockedElements: string[];
+  resources: Record<string, number>;
   onExplore: () => void;
   onBuildStable: () => void;
   onBuildMenagerie: () => void;
   onGraduate: () => void;
+  onSleep: () => void;
+  onCastUtilitySpell: (spellId: string) => void;
 }) {
   const masteryLevel = levelFromXp(masteryXp);
   const menagerieCrystalCost = generationStartElements.map((elId) => {
     const elDef = ELEMENTS.find((e) => e.id === elId);
     return `2 ${elDef?.name ?? elId} crystals`;
   });
+  const utilitySpells = SPELLS.filter(
+    (s) => s.kind === "utility" && isSpellUnlocked(s, elementXp, unlockedElements),
+  );
 
   return (
     <div className="grid gap-6">
@@ -392,6 +436,29 @@ function HomePanel({
         <Button type="button" size="lg" onClick={onExplore}>
           Explore
         </Button>
+
+        <h2 className="mt-6 text-lg font-semibold text-foreground">Health</h2>
+        <div className="mt-3">
+          <div className="flex justify-between text-xs text-muted-foreground">
+            <span>HP</span>
+            <span>
+              {playerHp} / {playerMaxHp}
+            </span>
+          </div>
+          <Progress
+            value={playerMaxHp > 0 ? (playerHp / playerMaxHp) * 100 : 0}
+            className="mt-1.5"
+            aria-label="Player HP"
+          />
+        </div>
+        <div className="mt-3">
+          <SleepControl
+            playerHp={playerHp}
+            playerMaxHp={playerMaxHp}
+            sleepUntil={sleepUntil}
+            onSleep={onSleep}
+          />
+        </div>
 
         <h2 className="mt-6 text-lg font-semibold text-foreground">Resources</h2>
         <dl className="mt-4 grid gap-2 text-sm">
@@ -410,6 +477,36 @@ function HomePanel({
             </dd>
           </div>
         </dl>
+      </section>
+
+      <section aria-label="Utility Spells" className="rounded-2xl border bg-card p-6">
+        <h2 className="text-base font-semibold text-foreground">Utility Spells</h2>
+        {utilitySpells.length === 0 ? (
+          <p className="mt-2 text-sm text-muted-foreground">No utility spells unlocked yet.</p>
+        ) : (
+          <ul className="mt-4 grid gap-2" role="list">
+            {utilitySpells.map((spell) => {
+              const cost = spell.power ?? 0;
+              const available = resources[fragmentKey(spell.elementId)] ?? 0;
+              const canAfford = available >= cost;
+              return (
+                <li key={spell.id}>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={() => onCastUtilitySpell(spell.id)}
+                    disabled={!canAfford}
+                    title={!canAfford ? `Need ${cost} ${spell.elementId} fragments` : undefined}
+                  >
+                    {spell.emoji} {spell.name}
+                    {cost > 0 ? ` (${cost} fragments)` : ""}
+                  </Button>
+                </li>
+              );
+            })}
+          </ul>
+        )}
       </section>
 
       {hasApprentice && (
@@ -674,6 +771,41 @@ function MenageriePanel({
   );
 }
 
+function SleepControl({
+  playerHp,
+  playerMaxHp,
+  sleepUntil,
+  onSleep,
+}: {
+  playerHp: number;
+  playerMaxHp: number;
+  sleepUntil: number | null;
+  onSleep: () => void;
+}) {
+  const [now, setNow] = useState(() => Date.now());
+  const asleep = sleepUntil !== null && sleepUntil > now;
+  useEffect(() => {
+    if (!asleep) return;
+    const id = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, [asleep]);
+
+  if (asleep && sleepUntil !== null) {
+    return (
+      <p className="text-sm text-muted-foreground">
+        Resting… <CooldownTimer expiresAt={sleepUntil} /> remaining.
+      </p>
+    );
+  }
+
+  const full = playerHp >= playerMaxHp;
+  return (
+    <Button type="button" size="sm" variant="outline" onClick={onSleep} disabled={full}>
+      {full ? "Fully rested" : "Sleep"}
+    </Button>
+  );
+}
+
 function CooldownTimer({ expiresAt }: { expiresAt: number }) {
   const [remaining, setRemaining] = useState(() => Math.max(0, expiresAt - Date.now()));
   useEffect(() => {
@@ -836,11 +968,17 @@ function EncounterPanel({
   builtMenagerie,
   crystals,
   cooldowns,
-  onFight,
+  playerHp,
+  playerMaxHp,
+  elementXp,
+  onCastSpell,
+  onCreatureDamage,
+  onWinFight,
   onTame,
   onCollect,
   onStudy,
   onEvent,
+  onAnnounce,
   onClose,
 }: {
   open: boolean;
@@ -850,13 +988,93 @@ function EncounterPanel({
   builtMenagerie: boolean;
   crystals: Record<string, number>;
   cooldowns: Record<string, number>;
-  onFight: (defId: string) => void;
+  playerHp: number;
+  playerMaxHp: number;
+  elementXp: Record<string, number>;
+  onCastSpell: (spellId: string) => boolean;
+  onCreatureDamage: (amount: number) => { died: boolean };
+  onWinFight: (defId: string) => { fragmentsGained: number; xpGained: number };
   onTame: (defId: string) => void;
   onCollect: (placeId: string) => void;
   onStudy: (itemId: string, elementId: string) => void;
   onEvent: (effect: EventEffect, label: string) => void;
+  onAnnounce: (message: string) => void;
   onClose: () => void;
 }) {
+  const creatureDef = encounter.kind === "creature" ? encounter.def : null;
+  const creatureMaxHpVal = creatureDef ? creatureMaxHp(creatureDef) : 0;
+  const [creatureHp, setCreatureHp] = useState(creatureMaxHpVal);
+  const [activeDots, setActiveDots] = useState<ActiveDot[]>([]);
+  const [combatLog, setCombatLog] = useState("");
+  const [combatEnded, setCombatEnded] = useState(false);
+
+  const availableSpells = SPELLS.filter(
+    (s) =>
+      (s.kind === "direct" || s.kind === "dot") && isSpellUnlocked(s, elementXp, unlockedElements),
+  );
+
+  function handleCastSpell(spell: SpellDef) {
+    if (!creatureDef || combatEnded) return;
+    const ok = onCastSpell(spell.id);
+    if (!ok) {
+      setCombatLog(`Not enough ${spell.elementId} fragments to cast ${spell.name}.`);
+      return;
+    }
+
+    let hp = creatureHp;
+    const messages: string[] = [];
+
+    let dotDamage = 0;
+    const survivingDots: ActiveDot[] = [];
+    for (const dot of activeDots) {
+      dotDamage += dot.damagePerTick;
+      const remaining = dot.remainingRounds - 1;
+      if (remaining > 0) survivingDots.push({ ...dot, remainingRounds: remaining });
+    }
+    if (dotDamage > 0) {
+      hp -= dotDamage;
+      messages.push(`Lingering effects deal ${dotDamage} damage.`);
+    }
+
+    const spellDamage = rollSpellDamage(spell, elementXp);
+    hp -= spellDamage;
+    messages.push(`You cast ${spell.name} for ${spellDamage} damage.`);
+    if (spell.kind === "dot") {
+      const remaining = (spell.durationRounds ?? 1) - 1;
+      if (remaining > 0) {
+        survivingDots.push({
+          spellId: spell.id,
+          elementId: spell.elementId,
+          remainingRounds: remaining,
+          damagePerTick: spellDamage,
+        });
+      }
+    }
+    setActiveDots(survivingDots);
+
+    if (hp <= 0) {
+      setCreatureHp(0);
+      setCombatEnded(true);
+      const { fragmentsGained, xpGained } = onWinFight(creatureDef.id);
+      const log = `${messages.join(" ")} ${creatureDef.name} is defeated! Gained ${fragmentsGained} ${creatureDef.elementId} fragments and ${xpGained} XP.`;
+      setCombatLog(log);
+      onAnnounce(log);
+      return;
+    }
+    setCreatureHp(hp);
+
+    const retaliation = rollCreatureDamage(creatureDef);
+    const { died } = onCreatureDamage(retaliation);
+    messages.push(`${creatureDef.name} hits you for ${retaliation} damage.`);
+    if (died) {
+      messages.push("You have fallen! Resting to recover...");
+      setCombatEnded(true);
+    }
+    const log = messages.join(" ");
+    setCombatLog(log);
+    onAnnounce(log);
+  }
+
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
       <DialogContent className="max-w-md">
@@ -867,7 +1085,7 @@ function EncounterPanel({
                 {encounter.def.emoji} {encounter.def.name}
               </DialogTitle>
             </DialogHeader>
-            <div className="py-2 text-sm text-muted-foreground">
+            <div className="py-2 text-sm text-muted-foreground space-y-3">
               {(() => {
                 const elDef = ELEMENTS.find((e) => e.id === encounter.def.elementId);
                 return (
@@ -878,6 +1096,41 @@ function EncounterPanel({
                   </p>
                 );
               })()}
+              {unlockedElements.includes(encounter.def.elementId) && (
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div>
+                    <div className="flex justify-between text-xs">
+                      <span>{encounter.def.name} HP</span>
+                      <span>
+                        {Math.max(0, creatureHp)} / {creatureMaxHpVal}
+                      </span>
+                    </div>
+                    <Progress
+                      value={
+                        creatureMaxHpVal > 0
+                          ? (Math.max(0, creatureHp) / creatureMaxHpVal) * 100
+                          : 0
+                      }
+                      className="mt-1"
+                      aria-label={`${encounter.def.name} HP`}
+                    />
+                  </div>
+                  <div>
+                    <div className="flex justify-between text-xs">
+                      <span>Your HP</span>
+                      <span>
+                        {playerHp} / {playerMaxHp}
+                      </span>
+                    </div>
+                    <Progress
+                      value={playerMaxHp > 0 ? (playerHp / playerMaxHp) * 100 : 0}
+                      className="mt-1"
+                      aria-label="Your HP"
+                    />
+                  </div>
+                </div>
+              )}
+              {combatLog && <p>{combatLog}</p>}
             </div>
             <DialogFooter className="flex-wrap gap-2">
               {!unlockedElements.includes(encounter.def.elementId) ? (
@@ -888,16 +1141,30 @@ function EncounterPanel({
                   Study {ELEMENTS.find((e) => e.id === encounter.def.elementId)?.name ?? encounter.def.elementId}
                 </Button>
               ) : (
-                (() => {
-                  const built = encounter.def.isMagical ? builtMenagerie : builtStable;
-                  const cost = encounter.def.rarity * 2 + encounter.def.level;
-                  const available = crystals[encounter.def.elementId] ?? 0;
-                  const canAfford = available >= cost;
-                  return (
-                    <>
-                      <Button type="button" variant="outline" onClick={() => onFight(encounter.def.id)}>
-                        Fight ({encounter.def.level + encounter.def.rarity * 5} fragments)
-                      </Button>
+                <>
+                  {!combatEnded &&
+                    (availableSpells.length === 0 ? (
+                      <p className="text-sm text-muted-foreground">
+                        No combat spells unlocked yet.
+                      </p>
+                    ) : (
+                      availableSpells.map((spell) => (
+                        <Button
+                          key={spell.id}
+                          type="button"
+                          variant="outline"
+                          onClick={() => handleCastSpell(spell)}
+                        >
+                          {spell.emoji} {spell.name}
+                        </Button>
+                      ))
+                    ))}
+                  {(() => {
+                    const built = encounter.def.isMagical ? builtMenagerie : builtStable;
+                    const cost = encounter.def.rarity * 2 + encounter.def.level;
+                    const available = crystals[encounter.def.elementId] ?? 0;
+                    const canAfford = available >= cost;
+                    return (
                       <Button
                         type="button"
                         onClick={() => onTame(encounter.def.id)}
@@ -912,9 +1179,9 @@ function EncounterPanel({
                       >
                         Tame ({cost} crystal{cost === 1 ? "" : "s"})
                       </Button>
-                    </>
-                  );
-                })()
+                    );
+                  })()}
+                </>
               )}
               <Button type="button" variant="ghost" onClick={onClose}>
                 Leave

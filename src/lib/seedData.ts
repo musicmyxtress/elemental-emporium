@@ -1,6 +1,8 @@
-import type { CreatureDef, PlaceDef, RandomEventDef } from "./gameData";
+import type { CreatureDef, PlaceDef, RandomEventDef, SpellDef } from "./gameData";
 
 export const CREATURES: CreatureDef[] = [];
+
+export const SPELLS: SpellDef[] = [];
 
 export const PLACES: PlaceDef[] = [
   {
