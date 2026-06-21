@@ -59,7 +59,7 @@ export interface CreatureDef {
 }
 
 export function creatureMaxHp(def: CreatureDef): number {
-  return def.level + def.rarity * 2;
+  return (def.level + def.rarity) * 2;
 }
 
 export function playerMaxHp(elementXp: Record<string, number>, unlockedElements: string[]): number {
