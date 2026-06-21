@@ -497,6 +497,7 @@ export function useGame() {
         ...defaultState(),
         resources: { [masteryKey]: allowance },
         unlockedElements: [...prev.unlockedElements],
+        discoveredPlaces: [...prev.discoveredPlaces],
         builtStable,
         builtMenagerie,
         stable: newStable,
