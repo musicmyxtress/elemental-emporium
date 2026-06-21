@@ -373,6 +373,14 @@ export function useGame() {
     return ok;
   }, []);
 
+  const discoverPlace = useCallback((placeId: string) => {
+    setState((prev) =>
+      prev.discoveredPlaces.includes(placeId)
+        ? prev
+        : { ...prev, discoveredPlaces: [...prev.discoveredPlaces, placeId] },
+    );
+  }, []);
+
   const collectPlace = useCallback((placeId: string): { gained: number; resource: string } => {
     const def = PLACES.find((p) => p.id === placeId);
     if (!def) return { gained: 0, resource: "" };
@@ -512,6 +520,7 @@ export function useGame() {
     takeDamage,
     startSleep,
     castSpell,
+    discoverPlace,
     collectPlace,
     resolveEvent,
     studyEncounter,

@@ -128,7 +128,11 @@ function GameScreen({ game }: { game: ReturnType<typeof useGame> }) {
       setAnnouncement("Nothing to explore right now. Try again later.");
       return;
     }
-    setCurrentEncounter(pool[0]);
+    const item = pool[0];
+    if (item.kind === "place") {
+      game.discoverPlace(item.def.id);
+    }
+    setCurrentEncounter(item);
     setEncounterSeq((s) => s + 1);
     setEncounterOpen(true);
   }
