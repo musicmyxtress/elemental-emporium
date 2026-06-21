@@ -8,6 +8,14 @@ are in `src/lib/useGame.ts`; the UI is in `src/routes/index.tsx`.
 
 Commands: `npm run dev`, `npm run build`, `npx tsc --noEmit`, `npm run lint`.
 
+## Deployment
+
+The user tests the game via a Netlify deployment that builds from `main`.
+Push finished, verified work directly to `main` (not a feature/task
+branch) so it shows up in the deployed build the user actually tests
+against. A fix that only exists on a side branch is invisible to them
+and will look like it "didn't work."
+
 ## Adding elements
 
 The user may introduce a new element while describing a creature or spell,
