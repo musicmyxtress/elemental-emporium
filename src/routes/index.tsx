@@ -1032,6 +1032,7 @@ function EncounterPanel({
   const [activeDots, setActiveDots] = useState<ActiveDot[]>([]);
   const [combatLog, setCombatLog] = useState("");
   const [combatEnded, setCombatEnded] = useState(false);
+  const [hasAttacked, setHasAttacked] = useState(false);
 
   const availableSpells = SPELLS.filter(
     (s) =>
@@ -1045,6 +1046,7 @@ function EncounterPanel({
       setCombatLog(`Not enough ${spell.elementId} fragments to cast ${spell.name}.`);
       return;
     }
+    setHasAttacked(true);
 
     let hp = creatureHp;
     const messages: string[] = [];
@@ -1198,7 +1200,7 @@ function EncounterPanel({
                     ))}
                   {(() => {
                     const built = encounter.def.isMagical ? builtMenagerie : builtStable;
-                    if (!built) return null;
+                    if (!built || hasAttacked) return null;
                     const cost = encounter.def.rarity * 2 + encounter.def.level;
                     const available = crystals[encounter.def.elementId] ?? 0;
                     const canAfford = available >= cost;
