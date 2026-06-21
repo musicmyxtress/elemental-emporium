@@ -111,9 +111,6 @@ function GameScreen({ game }: { game: ReturnType<typeof useGame> }) {
   const [graduateOpen, setGraduateOpen] = useState(false);
 
   const el = ELEMENTS.find((e) => e.id === game.state.element)!;
-  const fragKey = fragmentKey(el.id);
-  const fragments = Math.floor(game.state.resources[fragKey] ?? 0);
-  const crystals = game.state.crystals[el.id] ?? 0;
   const passiveAmt = BASE_PASSIVE;
   const wood = Math.floor(game.state.resources["wood"] ?? 0);
   const stone = Math.floor(game.state.resources["stone"] ?? 0);
@@ -189,15 +186,18 @@ function GameScreen({ game }: { game: ReturnType<typeof useGame> }) {
     }
   }
 
-  function handleForge() {
-    const ok = game.forgeCrystal(el.id);
+  function handleForge(elementId: string) {
+    const elDef = ELEMENTS.find((e) => e.id === elementId)!;
+    const currentFragments = Math.floor(game.state.resources[fragmentKey(elementId)] ?? 0);
+    const currentCrystals = game.state.crystals[elementId] ?? 0;
+    const ok = game.forgeCrystal(elementId);
     if (ok) {
       setAnnouncement(
-        `Forged 1 ${el.name.toLowerCase()} crystal from ${FRAGMENTS_PER_CRYSTAL} fragments. You have ${crystals + 1} crystal${crystals + 1 === 1 ? "" : "s"}.`,
+        `Forged 1 ${elDef.name.toLowerCase()} crystal from ${FRAGMENTS_PER_CRYSTAL} fragments. You have ${currentCrystals + 1} crystal${currentCrystals + 1 === 1 ? "" : "s"}.`,
       );
     } else {
       setAnnouncement(
-        `Not enough fragments to forge. You need ${FRAGMENTS_PER_CRYSTAL} but only have ${fragments}.`,
+        `Not enough fragments to forge. You need ${FRAGMENTS_PER_CRYSTAL} but only have ${currentFragments}.`,
       );
     }
   }
@@ -246,9 +246,10 @@ function GameScreen({ game }: { game: ReturnType<typeof useGame> }) {
 
         <TabsContent value="fragments">
           <ForgePanel
-            elementName={el.name}
-            fragments={fragments}
-            crystals={crystals}
+            elements={ELEMENTS.filter((e) => game.state.unlockedElements.includes(e.id))}
+            resources={game.state.resources}
+            crystals={game.state.crystals}
+            masteryElementId={el.id}
             onForge={handleForge}
           />
         </TabsContent>
@@ -480,17 +481,18 @@ function HomePanel({
 }
 
 function ForgePanel({
-  elementName,
-  fragments,
+  elements,
+  resources,
   crystals,
+  masteryElementId,
   onForge,
 }: {
-  elementName: string;
-  fragments: number;
-  crystals: number;
-  onForge: () => void;
+  elements: ElementDef[];
+  resources: Record<string, number>;
+  crystals: Record<string, number>;
+  masteryElementId: string;
+  onForge: (elementId: string) => void;
 }) {
-  const canForge = fragments >= FRAGMENTS_PER_CRYSTAL;
   return (
     <section aria-label="Forge" className="rounded-2xl border bg-card p-8">
       <h2 className="text-lg font-semibold text-foreground">Forge Crystals</h2>
@@ -498,30 +500,49 @@ function ForgePanel({
         Convert {FRAGMENTS_PER_CRYSTAL} fragments into 1 crystal. Crystals are used to build the
         Menagerie, where magical creatures are tamed.
       </p>
-      <dl className="mt-4 grid gap-2 text-sm">
-        <div className="flex justify-between">
-          <dt className="text-muted-foreground">{elementName} fragments</dt>
-          <dd className="font-medium tabular-nums text-foreground">{fragments}</dd>
-        </div>
-        <div className="flex justify-between">
-          <dt className="text-muted-foreground">{elementName} crystals</dt>
-          <dd className="font-medium tabular-nums text-foreground">{crystals}</dd>
-        </div>
-      </dl>
-      <div className="mt-6">
-        <Button
-          type="button"
-          onClick={onForge}
-          disabled={!canForge}
-          aria-label={
-            canForge
-              ? `Forge 1 ${elementName.toLowerCase()} crystal from ${FRAGMENTS_PER_CRYSTAL} fragments`
-              : `Need ${FRAGMENTS_PER_CRYSTAL} ${elementName.toLowerCase()} fragments to forge a crystal. You have ${fragments}.`
-          }
-        >
-          Forge crystal ({FRAGMENTS_PER_CRYSTAL} fragments)
-        </Button>
-      </div>
+      <ul className="mt-6 grid gap-4" role="list">
+        {elements.map((elDef) => {
+          const fragments = Math.floor(resources[fragmentKey(elDef.id)] ?? 0);
+          const elCrystals = crystals[elDef.id] ?? 0;
+          const canForge = fragments >= FRAGMENTS_PER_CRYSTAL;
+          const isMastery = elDef.id === masteryElementId;
+          return (
+            <li key={elDef.id} className="rounded-xl border bg-background p-4">
+              <h3 className="text-sm font-medium text-foreground">
+                {elDef.emoji} {elDef.name}
+                {isMastery && (
+                  <span className="ml-2 text-xs font-normal text-muted-foreground">(Mastery)</span>
+                )}
+              </h3>
+              <dl className="mt-3 grid gap-2 text-sm">
+                <div className="flex justify-between">
+                  <dt className="text-muted-foreground">{elDef.name} fragments</dt>
+                  <dd className="font-medium tabular-nums text-foreground">{fragments}</dd>
+                </div>
+                <div className="flex justify-between">
+                  <dt className="text-muted-foreground">{elDef.name} crystals</dt>
+                  <dd className="font-medium tabular-nums text-foreground">{elCrystals}</dd>
+                </div>
+              </dl>
+              <div className="mt-4">
+                <Button
+                  type="button"
+                  size="sm"
+                  onClick={() => onForge(elDef.id)}
+                  disabled={!canForge}
+                  aria-label={
+                    canForge
+                      ? `Forge 1 ${elDef.name.toLowerCase()} crystal from ${FRAGMENTS_PER_CRYSTAL} fragments`
+                      : `Need ${FRAGMENTS_PER_CRYSTAL} ${elDef.name.toLowerCase()} fragments to forge a crystal. You have ${fragments}.`
+                  }
+                >
+                  Forge crystal ({FRAGMENTS_PER_CRYSTAL} fragments)
+                </Button>
+              </div>
+            </li>
+          );
+        })}
+      </ul>
     </section>
   );
 }
