@@ -111,6 +111,8 @@ export interface TamedCreature {
 
 export type SpellKind = "direct" | "dot" | "utility";
 
+export type SpellUtilityKind = "shield" | "haste";
+
 export interface SpellDef {
   id: string;
   name: string;
@@ -121,6 +123,9 @@ export interface SpellDef {
   power?: number;
   durationRounds?: number;
   effect?: EventEffect;
+  utilityKind?: SpellUtilityKind;
+  hasteDurationMs?: number;
+  halvesRetaliation?: boolean;
   description: string;
 }
 

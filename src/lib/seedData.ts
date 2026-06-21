@@ -63,7 +63,67 @@ export const CREATURES: CreatureDef[] = [
   },
 ];
 
-export const SPELLS: SpellDef[] = [];
+export const SPELLS: SpellDef[] = [
+  {
+    id: "flaming-dart",
+    name: "Flaming Dart",
+    emoji: "🔥",
+    elementId: "fire",
+    kind: "direct",
+    unlockLevel: 1,
+    power: 3,
+    description: "A bolt of searing flame hurled at the foe, dealing immediate burn damage.",
+  },
+  {
+    id: "drown",
+    name: "Drown",
+    emoji: "🌊",
+    elementId: "water",
+    kind: "dot",
+    unlockLevel: 1,
+    power: 2,
+    durationRounds: 3,
+    description: "Water floods the target's lungs, damaging them now and for 2 more rounds.",
+  },
+  {
+    id: "eartharmor",
+    name: "Eartharmor",
+    emoji: "🛡️",
+    elementId: "earth",
+    kind: "utility",
+    unlockLevel: 1,
+    power: 2,
+    utilityKind: "shield",
+    description:
+      "Coats your skin in stone, reducing the next hit you take by power × level before crumbling away.",
+  },
+  {
+    id: "flight",
+    name: "Flight",
+    emoji: "🕊️",
+    elementId: "air",
+    kind: "utility",
+    unlockLevel: 1,
+    power: 3,
+    utilityKind: "haste",
+    hasteDurationMs: 600_000,
+    description:
+      "Lifts you on the wind for 10 minutes, shortening gathering cooldowns by element level × power seconds.",
+  },
+  {
+    id: "tangle",
+    name: "Tangle",
+    emoji: "🪢",
+    elementId: "plant",
+    kind: "dot",
+    unlockLevel: 1,
+    power: 3,
+    durationRounds: 3,
+    halvesRetaliation: true,
+    description:
+      "Creeping vines bind the target, damaging it over time and halving its strikes while entangled.",
+  },
+];
 
 export const PLACES: PlaceDef[] = [
   {

@@ -29,6 +29,9 @@ export interface GameState {
   generationStartElements: string[];
   playerHp: number;
   sleepUntil: number | null;
+  shieldAmount: number;
+  hasteUntil: number | null;
+  hasteReductionSeconds: number;
 }
 
 const STORAGE_KEY = "elemental-emporium-v3";
@@ -54,6 +57,9 @@ function defaultState(): GameState {
     generationStartElements: [...BASE_ELEMENTS],
     playerHp: playerMaxHp({}, BASE_ELEMENTS),
     sleepUntil: null,
+    shieldAmount: 0,
+    hasteUntil: null,
+    hasteReductionSeconds: 0,
   };
 }
 
@@ -106,6 +112,10 @@ function loadState(): GameState {
       playerHp:
         typeof p.playerHp === "number" ? p.playerHp : playerMaxHp(elementXp, unlockedElements),
       sleepUntil: typeof p.sleepUntil === "number" ? p.sleepUntil : null,
+      shieldAmount: typeof p.shieldAmount === "number" ? p.shieldAmount : 0,
+      hasteUntil: typeof p.hasteUntil === "number" ? p.hasteUntil : null,
+      hasteReductionSeconds:
+        typeof p.hasteReductionSeconds === "number" ? p.hasteReductionSeconds : 0,
     };
   } catch {
     return defaultState();
@@ -300,18 +310,23 @@ export function useGame() {
     return ok;
   }, []);
 
-  const takeDamage = useCallback((amount: number): { died: boolean } => {
-    let died = false;
-    setState((prev) => {
-      const newHp = Math.max(0, prev.playerHp - amount);
-      if (newHp <= 0) {
-        died = true;
-        return { ...prev, playerHp: 0, sleepUntil: Date.now() + DEATH_SLEEP_MS };
-      }
-      return { ...prev, playerHp: newHp };
-    });
-    return { died };
-  }, []);
+  const takeDamage = useCallback(
+    (amount: number): { died: boolean; dealt: number; blocked: number } => {
+      const blocked = Math.min(state.shieldAmount, amount);
+      const dealt = amount - blocked;
+      const shieldAmount = state.shieldAmount > 0 ? 0 : state.shieldAmount;
+      const newHp = Math.max(0, state.playerHp - dealt);
+      const died = newHp <= 0;
+      setState((prev) => ({
+        ...prev,
+        playerHp: newHp,
+        shieldAmount,
+        sleepUntil: died ? Date.now() + DEATH_SLEEP_MS : prev.sleepUntil,
+      }));
+      return { died, dealt, blocked };
+    },
+    [state.shieldAmount, state.playerHp],
+  );
 
   const startSleep = useCallback((): boolean => {
     let ok = false;
@@ -339,9 +354,20 @@ export function useGame() {
         ...prev,
         resources: { ...prev.resources, [key]: (prev.resources[key] ?? 0) - cost },
       };
-      if (spell.kind === "utility" && spell.effect) {
-        return applyEffect(spell.effect, afterCost);
+      if (spell.kind !== "utility") return afterCost;
+      if (spell.utilityKind === "shield") {
+        const level = levelFromXp(prev.elementXp[spell.elementId] ?? 0);
+        return { ...afterCost, shieldAmount: (spell.power ?? 0) * level };
       }
+      if (spell.utilityKind === "haste") {
+        const level = levelFromXp(prev.elementXp[spell.elementId] ?? 0);
+        return {
+          ...afterCost,
+          hasteUntil: Date.now() + (spell.hasteDurationMs ?? 0),
+          hasteReductionSeconds: (spell.power ?? 0) * level,
+        };
+      }
+      if (spell.effect) return applyEffect(spell.effect, afterCost);
       return afterCost;
     });
     return ok;
@@ -366,7 +392,9 @@ export function useGame() {
         const gained = def.rarity * 10;
         const key = fragmentKey(def.elementId!);
         newResources[key] = (newResources[key] ?? 0) + gained;
-        newCooldowns[placeId] = now + def.rarity * 5 * 1000;
+        const hasteActive = prev.hasteUntil !== null && prev.hasteUntil > now;
+        const reductionMs = hasteActive ? prev.hasteReductionSeconds * 1000 : 0;
+        newCooldowns[placeId] = now + Math.max(0, def.rarity * 5 * 1000 - reductionMs);
         result = { gained, resource: `${def.elementId} fragments` };
       }
       const newDiscovered = prev.discoveredPlaces.includes(placeId)
@@ -472,6 +500,9 @@ export function useGame() {
         generationStartElements: [...prev.unlockedElements],
         playerHp: playerMaxHp({}, prev.unlockedElements),
         sleepUntil: null,
+        shieldAmount: 0,
+        hasteUntil: null,
+        hasteReductionSeconds: 0,
       };
     });
   }, []);

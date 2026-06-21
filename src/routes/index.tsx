@@ -250,6 +250,9 @@ function GameScreen({ game }: { game: ReturnType<typeof useGame> }) {
             playerHp={game.state.playerHp}
             playerMaxHp={maxHp}
             sleepUntil={game.state.sleepUntil}
+            shieldAmount={game.state.shieldAmount}
+            hasteUntil={game.state.hasteUntil}
+            hasteReductionSeconds={game.state.hasteReductionSeconds}
             elementXp={game.state.elementXp}
             unlockedElements={game.state.unlockedElements}
             resources={game.state.resources}
@@ -388,6 +391,9 @@ function HomePanel({
   playerHp,
   playerMaxHp,
   sleepUntil,
+  shieldAmount,
+  hasteUntil,
+  hasteReductionSeconds,
   elementXp,
   unlockedElements,
   resources,
@@ -411,6 +417,9 @@ function HomePanel({
   playerHp: number;
   playerMaxHp: number;
   sleepUntil: number | null;
+  shieldAmount: number;
+  hasteUntil: number | null;
+  hasteReductionSeconds: number;
   elementXp: Record<string, number>;
   unlockedElements: string[];
   resources: Record<string, number>;
@@ -459,6 +468,18 @@ function HomePanel({
             onSleep={onSleep}
           />
         </div>
+
+        {(shieldAmount > 0 || (hasteUntil !== null && hasteUntil > Date.now())) && (
+          <ul className="mt-3 grid gap-1 text-xs text-muted-foreground" role="list">
+            {shieldAmount > 0 && <li>🛡️ Shielded — blocks the next {shieldAmount} damage.</li>}
+            {hasteUntil !== null && hasteUntil > Date.now() && (
+              <li>
+                🕊️ Flight active — cooldowns reduced by {hasteReductionSeconds}s for{" "}
+                <CooldownTimer expiresAt={hasteUntil} />.
+              </li>
+            )}
+          </ul>
+        )}
 
         <h2 className="mt-6 text-lg font-semibold text-foreground">Resources</h2>
         <dl className="mt-4 grid gap-2 text-sm">
@@ -992,7 +1013,7 @@ function EncounterPanel({
   playerMaxHp: number;
   elementXp: Record<string, number>;
   onCastSpell: (spellId: string) => boolean;
-  onCreatureDamage: (amount: number) => { died: boolean };
+  onCreatureDamage: (amount: number) => { died: boolean; dealt: number; blocked: number };
   onWinFight: (defId: string) => { fragmentsGained: number; xpGained: number };
   onTame: (defId: string) => void;
   onCollect: (placeId: string) => void;
@@ -1063,9 +1084,20 @@ function EncounterPanel({
     }
     setCreatureHp(hp);
 
-    const retaliation = rollCreatureDamage(creatureDef);
-    const { died } = onCreatureDamage(retaliation);
-    messages.push(`${creatureDef.name} hits you for ${retaliation} damage.`);
+    const entangled =
+      spell.halvesRetaliation === true ||
+      survivingDots.some((dot) => SPELLS.find((s) => s.id === dot.spellId)?.halvesRetaliation);
+    let retaliation = rollCreatureDamage(creatureDef);
+    if (entangled) {
+      retaliation = Math.floor(retaliation / 2);
+      messages.push(`${creatureDef.name} is entangled and strikes at half power!`);
+    }
+    const { died, dealt, blocked } = onCreatureDamage(retaliation);
+    messages.push(
+      blocked > 0
+        ? `${creatureDef.name} hits you for ${retaliation} damage, but your shield blocks ${blocked} of it.`
+        : `${creatureDef.name} hits you for ${dealt} damage.`,
+    );
     if (died) {
       messages.push("You have fallen! Resting to recover...");
       setCombatEnded(true);
