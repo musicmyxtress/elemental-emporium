@@ -36,6 +36,12 @@ export const ELEMENTS: ElementDef[] = [
     emoji: "🌱",
     description: "The quiet growth. Patient, persistent, and ever-spreading.",
   },
+  {
+    id: "mud",
+    name: "Mud",
+    emoji: "🟫",
+    description: "The mixing of earth and water. Sticky, grounding, and full of hidden life.",
+  },
 ];
 
 export const FRAGMENTS_PER_CRYSTAL = 100;
@@ -54,6 +60,7 @@ export interface CreatureDef {
   level: number;
   rarity: number;
   isMagical: boolean;
+  description: string;
   consumedElementId?: string;
   producedElementId?: string;
 }

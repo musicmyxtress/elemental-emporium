@@ -1096,6 +1096,7 @@ function EncounterPanel({
                   </p>
                 );
               })()}
+              <p>{encounter.def.description}</p>
               {unlockedElements.includes(encounter.def.elementId) && (
                 <div className="grid gap-3 sm:grid-cols-2">
                   <div>

@@ -1,6 +1,67 @@
 import type { CreatureDef, PlaceDef, RandomEventDef, SpellDef } from "./gameData";
 
-export const CREATURES: CreatureDef[] = [];
+export const CREATURES: CreatureDef[] = [
+  {
+    id: "mole",
+    name: "Mole",
+    emoji: "🦡",
+    elementId: "earth",
+    level: 1,
+    rarity: 1,
+    isMagical: false,
+    description: "A small burrower that tunnels through soil, surfacing only when disturbed.",
+  },
+  {
+    id: "salamander",
+    name: "Salamander",
+    emoji: "🦎",
+    elementId: "fire",
+    level: 1,
+    rarity: 1,
+    isMagical: false,
+    description: "A slick-skinned lizard that basks contentedly atop sun-warmed embers.",
+  },
+  {
+    id: "goldfish",
+    name: "Goldfish",
+    emoji: "🐠",
+    elementId: "water",
+    level: 1,
+    rarity: 1,
+    isMagical: false,
+    description: "A bright, darting fish that flashes orange beneath the current.",
+  },
+  {
+    id: "hawk",
+    name: "Hawk",
+    emoji: "🦅",
+    elementId: "air",
+    level: 1,
+    rarity: 1,
+    isMagical: false,
+    description: "A sharp-eyed hunter that rides the updrafts, watching the ground below.",
+  },
+  {
+    id: "bee",
+    name: "Bee",
+    emoji: "🐝",
+    elementId: "plant",
+    level: 1,
+    rarity: 1,
+    isMagical: false,
+    description: "A fuzzy forager humming between blossoms, never straying far from the hive.",
+  },
+  {
+    id: "pig",
+    name: "Pig",
+    emoji: "🐷",
+    elementId: "mud",
+    level: 1,
+    rarity: 1,
+    isMagical: false,
+    description: "A round, contented wallower that roots through the muck for anything edible.",
+  },
+];
 
 export const SPELLS: SpellDef[] = [];
 
@@ -65,6 +126,15 @@ export const PLACES: PlaceDef[] = [
     elementId: "plant",
     rarity: 1,
     description: "Rolling fields of wild grass stretching to the horizon.",
+  },
+  {
+    id: "muddy-bog",
+    name: "Muddy Bog",
+    emoji: "🟫",
+    kind: "elemental",
+    elementId: "mud",
+    rarity: 1,
+    description: "A waterlogged hollow thick with mud underfoot.",
   },
 ];
 
