@@ -270,9 +270,10 @@ export function useGame() {
     const def = CREATURES.find((c) => c.id === defId);
     if (!def) return { fragmentsGained: 0, xpGained: 0 };
     const amount = def.level + def.rarity * 5;
+    const xpGained = amount * 100;
     const key = fragmentKey(def.elementId);
     setState((prev) => {
-      const newXp = { ...prev.elementXp, [def.elementId]: (prev.elementXp[def.elementId] ?? 0) + amount };
+      const newXp = { ...prev.elementXp, [def.elementId]: (prev.elementXp[def.elementId] ?? 0) + xpGained };
       const masteryLevel = prev.element ? levelFromXp(newXp[prev.element] ?? 0) : 0;
       return {
         ...prev,
@@ -281,7 +282,7 @@ export function useGame() {
         hasApprentice: prev.hasApprentice || (prev.element !== null && masteryLevel >= 20),
       };
     });
-    return { fragmentsGained: amount, xpGained: amount };
+    return { fragmentsGained: amount, xpGained };
   }, []);
 
   const tameCreature = useCallback((defId: string): boolean => {
@@ -295,8 +296,8 @@ export function useGame() {
       if (available < cost) return prev;
       ok = true;
       const tamed: TamedCreature = { instanceId: crypto.randomUUID(), defId, tamedAt: Date.now() };
-      const amount = def.level + def.rarity * 5;
-      const newXp = { ...prev.elementXp, [def.elementId]: (prev.elementXp[def.elementId] ?? 0) + amount };
+      const xpGained = (def.level + def.rarity * 5) * 100;
+      const newXp = { ...prev.elementXp, [def.elementId]: (prev.elementXp[def.elementId] ?? 0) + xpGained };
       const masteryLevel = prev.element ? levelFromXp(newXp[prev.element] ?? 0) : 0;
       return {
         ...prev,
