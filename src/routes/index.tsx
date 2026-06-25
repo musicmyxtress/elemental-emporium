@@ -430,18 +430,21 @@ function RewardDialog({
         <div className="py-2 text-sm text-muted-foreground space-y-1">
           {reward?.kind === "victory" && (
             <>
-              <p>You defeated the {reward.creatureName}!</p>
-              <p>
-                +{reward.fragmentsGained} {reward.elementId} fragments
+              {/* One screen-reader item: a single text node, not many. */}
+              <p className="sr-only">
+                {`You defeated the ${reward.creatureName} and gained ${reward.fragmentsGained} ${reward.elementId} fragments and ${reward.xpGained} XP.`}
               </p>
-              <p>+{reward.xpGained} XP</p>
+              <div className="space-y-1" aria-hidden="true">
+                <p>You defeated the {reward.creatureName}!</p>
+                <p>
+                  +{reward.fragmentsGained} {reward.elementId} fragments
+                </p>
+                <p>+{reward.xpGained} XP</p>
+              </div>
             </>
           )}
           {reward?.kind === "tame" && (
-            <p>
-              {reward.creatureName} has been added to your{" "}
-              {reward.destination === "menagerie" ? "menagerie" : "stable"}.
-            </p>
+            <p>{`${reward.creatureName} has been added to your ${reward.destination}.`}</p>
           )}
         </div>
         <DialogFooter>
@@ -451,6 +454,38 @@ function RewardDialog({
         </DialogFooter>
       </DialogContent>
     </Dialog>
+  );
+}
+
+// A single HP bar that screen readers announce as one item ("HP, 12 of 12")
+// instead of three (label, value, and a percentage-announcing progress bar).
+// The visual label/value row and the bar are hidden from assistive tech; the
+// sr-only line carries the whole reading, so a changing value only moves the
+// VoiceOver cursor once.
+function HpBar({
+  label,
+  current,
+  max,
+  className,
+}: {
+  label: string;
+  current: number;
+  max: number;
+  className?: string;
+}) {
+  const safeCurrent = Math.max(0, current);
+  const pct = max > 0 ? (safeCurrent / max) * 100 : 0;
+  return (
+    <div className={className}>
+      <p className="sr-only">{`${label}, ${safeCurrent} of ${max}`}</p>
+      <div className="flex justify-between text-xs text-muted-foreground" aria-hidden="true">
+        <span>{label}</span>
+        <span>
+          {safeCurrent} / {max}
+        </span>
+      </div>
+      <Progress value={pct} className="mt-1" aria-hidden="true" />
+    </div>
   );
 }
 
@@ -524,19 +559,7 @@ function HomePanel({
         </Button>
 
         <h2 className="mt-6 text-lg font-semibold text-foreground">Health</h2>
-        <div className="mt-3">
-          <div className="flex justify-between text-xs text-muted-foreground">
-            <span>HP</span>
-            <span>
-              {playerHp} / {playerMaxHp}
-            </span>
-          </div>
-          <Progress
-            value={playerMaxHp > 0 ? (playerHp / playerMaxHp) * 100 : 0}
-            className="mt-1.5"
-            aria-label="Player HP"
-          />
-        </div>
+        <HpBar label="HP" current={playerHp} max={playerMaxHp} className="mt-3" />
         <div className="mt-3">
           <SleepControl
             playerHp={playerHp}
@@ -1219,36 +1242,12 @@ function EncounterPanel({
               <p>{encounter.def.description}</p>
               {unlockedElements.includes(encounter.def.elementId) && (
                 <div className="grid gap-3 sm:grid-cols-2">
-                  <div>
-                    <div className="flex justify-between text-xs">
-                      <span>{encounter.def.name} HP</span>
-                      <span>
-                        {Math.max(0, creatureHp)} / {creatureMaxHpVal}
-                      </span>
-                    </div>
-                    <Progress
-                      value={
-                        creatureMaxHpVal > 0
-                          ? (Math.max(0, creatureHp) / creatureMaxHpVal) * 100
-                          : 0
-                      }
-                      className="mt-1"
-                      aria-label={`${encounter.def.name} HP`}
-                    />
-                  </div>
-                  <div>
-                    <div className="flex justify-between text-xs">
-                      <span>Your HP</span>
-                      <span>
-                        {playerHp} / {playerMaxHp}
-                      </span>
-                    </div>
-                    <Progress
-                      value={playerMaxHp > 0 ? (playerHp / playerMaxHp) * 100 : 0}
-                      className="mt-1"
-                      aria-label="Your HP"
-                    />
-                  </div>
+                  <HpBar
+                    label={`${encounter.def.name} HP`}
+                    current={creatureHp}
+                    max={creatureMaxHpVal}
+                  />
+                  <HpBar label="Your HP" current={playerHp} max={playerMaxHp} />
                 </div>
               )}
               {combatLog && <p>{combatLog}</p>}
