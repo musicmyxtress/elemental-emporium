@@ -278,8 +278,8 @@ export function useGame() {
   const winFight = useCallback((defId: string): { fragmentsGained: number; xpGained: number } => {
     const def = CREATURES.find((c) => c.id === defId);
     if (!def) return { fragmentsGained: 0, xpGained: 0 };
-    const amount = def.level + def.rarity * 5;
-    const xpGained = amount * 100;
+    const amount = (def.level + def.rarity) * 2;
+    const xpGained = amount * 10;
     const key = fragmentKey(def.elementId);
     setState((prev) => {
       const newXp = { ...prev.elementXp, [def.elementId]: (prev.elementXp[def.elementId] ?? 0) + xpGained };
@@ -305,7 +305,7 @@ export function useGame() {
       if (available < cost) return prev;
       ok = true;
       const tamed: TamedCreature = { instanceId: crypto.randomUUID(), defId, tamedAt: Date.now() };
-      const xpGained = (def.level + def.rarity * 5) * 100;
+      const xpGained = (def.level + def.rarity) * 2 * 10;
       const newXp = { ...prev.elementXp, [def.elementId]: (prev.elementXp[def.elementId] ?? 0) + xpGained };
       const masteryLevel = prev.element ? levelFromXp(newXp[prev.element] ?? 0) : 0;
       return {
@@ -366,9 +366,14 @@ export function useGame() {
       const key = fragmentKey(spell.elementId);
       if ((prev.resources[key] ?? 0) < cost) return prev;
       ok = true;
+      const xpGained = spell.unlockLevel;
+      const newXp = { ...prev.elementXp, [spell.elementId]: (prev.elementXp[spell.elementId] ?? 0) + xpGained };
+      const masteryLevel = prev.element ? levelFromXp(newXp[prev.element] ?? 0) : 0;
       const afterCost = {
         ...prev,
         resources: { ...prev.resources, [key]: (prev.resources[key] ?? 0) - cost },
+        elementXp: newXp,
+        hasApprentice: prev.hasApprentice || (prev.element !== null && masteryLevel >= 20),
       };
       if (spell.kind !== "utility") return afterCost;
       if (spell.utilityKind === "shield") {
