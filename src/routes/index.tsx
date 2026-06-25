@@ -489,6 +489,23 @@ function HpBar({
   );
 }
 
+// A labeled value ("Wood, 12") that screen readers announce as one item rather
+// than two (the term and the value as separate swipe stops). The visual term
+// and value are hidden from assistive tech; the sr-only line carries both.
+function StatRow({ label, value }: { label: string; value: string | number }) {
+  return (
+    <div className="flex justify-between">
+      <span className="sr-only">{`${label}, ${value}`}</span>
+      <dt className="text-muted-foreground" aria-hidden="true">
+        {label}
+      </dt>
+      <dd className="font-medium tabular-nums text-foreground" aria-hidden="true">
+        {value}
+      </dd>
+    </div>
+  );
+}
+
 function HomePanel({
   elementName,
   passiveAmount,
@@ -574,14 +591,20 @@ function HomePanel({
             {shieldAmount > 0 && (
               <li>
                 <span aria-hidden="true">🛡️ </span>
-                Shielded — blocks the next {shieldAmount} damage.
+                {`Shielded — blocks the next ${shieldAmount} damage.`}
               </li>
             )}
             {hasteUntil !== null && hasteUntil > Date.now() && (
               <li>
                 <span aria-hidden="true">🕊️ </span>
-                Flight active — cooldowns reduced by {hasteReductionSeconds}s for{" "}
-                <CooldownTimer expiresAt={hasteUntil} />.
+                {/* SR gets one static item; the live countdown is visual only. */}
+                <span className="sr-only">
+                  {`Flight active — cooldowns reduced by ${hasteReductionSeconds} seconds.`}
+                </span>
+                <span aria-hidden="true">
+                  Flight active — cooldowns reduced by {hasteReductionSeconds}s for{" "}
+                  <CooldownTimer expiresAt={hasteUntil} />.
+                </span>
               </li>
             )}
           </ul>
@@ -589,20 +612,12 @@ function HomePanel({
 
         <h2 className="mt-6 text-lg font-semibold text-foreground">Resources</h2>
         <dl className="mt-4 grid gap-2 text-sm">
-          <div className="flex justify-between">
-            <dt className="text-muted-foreground">Wood</dt>
-            <dd className="font-medium tabular-nums text-foreground">{wood}</dd>
-          </div>
-          <div className="flex justify-between">
-            <dt className="text-muted-foreground">Stone</dt>
-            <dd className="font-medium tabular-nums text-foreground">{stone}</dd>
-          </div>
-          <div className="flex justify-between">
-            <dt className="text-muted-foreground">Passive income</dt>
-            <dd className="font-medium tabular-nums text-foreground">
-              {passiveAmount} fragment{passiveAmount === 1 ? "" : "s"} / 5s
-            </dd>
-          </div>
+          <StatRow label="Wood" value={wood} />
+          <StatRow label="Stone" value={stone} />
+          <StatRow
+            label="Passive income"
+            value={`${passiveAmount} fragment${passiveAmount === 1 ? "" : "s"} / 5s`}
+          />
         </dl>
       </section>
 
@@ -643,9 +658,7 @@ function HomePanel({
         >
           <h2 className="text-lg font-semibold text-foreground">An Apprentice Has Arrived</h2>
           <p className="mt-2 text-sm text-muted-foreground">
-            A young mage has come to learn from you. You may graduate them when you are ready.
-            They will receive {masteryLevel * 5} {elementName} fragments and one creature of your
-            choosing.
+            {`A young mage has come to learn from you. You may graduate them when you are ready. They will receive ${masteryLevel * 5} ${elementName} fragments and one creature of your choosing.`}
           </p>
           <div className="mt-4">
             <Button type="button" onClick={onGraduate}>
@@ -662,7 +675,7 @@ function HomePanel({
             House non-magical creatures. Costs 50 wood + 50 stone.
           </p>
           <p className="mt-1 text-xs text-muted-foreground">
-            You have {wood} wood and {stone} stone.
+            {`You have ${wood} wood and ${stone} stone.`}
           </p>
           <div className="mt-4">
             <Button
@@ -681,8 +694,7 @@ function HomePanel({
         <section aria-label="Build Menagerie" className="rounded-2xl border bg-card p-6">
           <h2 className="text-base font-semibold text-foreground">Build a Menagerie</h2>
           <p className="mt-1 text-sm text-muted-foreground">
-            House magical creatures. Costs 200 wood + 200 stone +{" "}
-            {menagerieCrystalCost.join(", ")}.
+            {`House magical creatures. Costs 200 wood + 200 stone + ${menagerieCrystalCost.join(", ")}.`}
           </p>
           <div className="mt-4">
             <Button
@@ -721,8 +733,7 @@ function ForgePanel({
     <section aria-label="Forge" className="rounded-2xl border bg-card p-8">
       <h2 className="text-lg font-semibold text-foreground">Forge Crystals</h2>
       <p className="mt-2 text-sm text-muted-foreground">
-        Convert {FRAGMENTS_PER_CRYSTAL} fragments into 1 crystal. Crystals are used to build the
-        Menagerie, where magical creatures are tamed.
+        {`Convert ${FRAGMENTS_PER_CRYSTAL} fragments into 1 crystal. Crystals are used to build the Menagerie, where magical creatures are tamed.`}
       </p>
       <ul className="mt-6 grid gap-4" role="list">
         {elements.map((elDef) => {
@@ -733,20 +744,19 @@ function ForgePanel({
           return (
             <li key={elDef.id} className="rounded-xl border bg-background p-4">
               <h3 className="text-sm font-medium text-foreground">
-                <span aria-hidden="true">{elDef.emoji}</span> {elDef.name}
-                {isMastery && (
-                  <span className="ml-2 text-xs font-normal text-muted-foreground">(Mastery)</span>
-                )}
+                <span className="sr-only">{`${elDef.name}${isMastery ? " (Mastery)" : ""}`}</span>
+                <span aria-hidden="true">
+                  <span>{elDef.emoji}</span> {elDef.name}
+                  {isMastery && (
+                    <span className="ml-2 text-xs font-normal text-muted-foreground">
+                      (Mastery)
+                    </span>
+                  )}
+                </span>
               </h3>
               <dl className="mt-3 grid gap-2 text-sm">
-                <div className="flex justify-between">
-                  <dt className="text-muted-foreground">{elDef.name} fragments</dt>
-                  <dd className="font-medium tabular-nums text-foreground">{fragments}</dd>
-                </div>
-                <div className="flex justify-between">
-                  <dt className="text-muted-foreground">{elDef.name} crystals</dt>
-                  <dd className="font-medium tabular-nums text-foreground">{elCrystals}</dd>
-                </div>
+                <StatRow label={`${elDef.name} fragments`} value={fragments} />
+                <StatRow label={`${elDef.name} crystals`} value={elCrystals} />
               </dl>
               <div className="mt-4">
                 <Button
@@ -816,13 +826,18 @@ function StablePanel({
                 <div>
                   <h3 className="text-sm font-medium text-foreground">{def.name}</h3>
                   <p className="mt-0.5 text-xs text-muted-foreground">
-                    <span aria-hidden="true">{elDef?.emoji}</span> {elDef?.name} · Level {def.level}{" "}
-                    · <span aria-hidden="true">{"★".repeat(def.rarity)}</span>
-                    <span className="sr-only">Rarity {def.rarity}</span>
+                    <span className="sr-only">
+                      {`${elDef?.name}, level ${def.level}, rarity ${def.rarity}`}
+                    </span>
+                    <span aria-hidden="true">
+                      <span>{elDef?.emoji}</span> {elDef?.name} · Level {def.level} ·{" "}
+                      {"★".repeat(def.rarity)}
+                    </span>
                   </p>
                   <p className="mt-1 text-xs text-muted-foreground">
-                    Produces {output} {def.elementId} fragment{output === 1 ? "" : "s"} / 5s
-                    {def.elementId === masteryElement && " (mastery ×2)"}
+                    {`Produces ${output} ${def.elementId} fragment${output === 1 ? "" : "s"} / 5s${
+                      def.elementId === masteryElement ? " (mastery ×2)" : ""
+                    }`}
                   </p>
                 </div>
               </div>
@@ -881,15 +896,20 @@ function MenageriePanel({
                 <div>
                   <h3 className="text-sm font-medium text-foreground">{def.name}</h3>
                   <p className="mt-0.5 text-xs text-muted-foreground">
-                    Level {def.level} · <span aria-hidden="true">{"★".repeat(def.rarity)}</span>
-                    <span className="sr-only">Rarity {def.rarity}</span> · Magical
+                    <span className="sr-only">
+                      {`Level ${def.level}, rarity ${def.rarity}, magical`}
+                    </span>
+                    <span aria-hidden="true">
+                      Level {def.level} · {"★".repeat(def.rarity)} · Magical
+                    </span>
                   </p>
                   <p className="mt-1 text-xs text-muted-foreground">
-                    Consumes {consumed} {consumedElDef?.name ?? def.consumedElementId} fragments / 5s
+                    {`Consumes ${consumed} ${consumedElDef?.name ?? def.consumedElementId} fragments / 5s`}
                   </p>
                   <p className="text-xs text-muted-foreground">
-                    Produces {produced} {producedElDef?.name ?? def.producedElementId} fragments / 5s
-                    {def.producedElementId === masteryElement && " (mastery ×2)"}
+                    {`Produces ${produced} ${producedElDef?.name ?? def.producedElementId} fragments / 5s${
+                      def.producedElementId === masteryElement ? " (mastery ×2)" : ""
+                    }`}
                   </p>
                 </div>
               </div>
@@ -1025,7 +1045,7 @@ function PlacesPanel({
                   <div>
                     <h3 className="text-sm font-medium text-foreground">{def.name}</h3>
                     <p className="mt-0.5 text-xs text-muted-foreground">{def.description}</p>
-                    <p className="mt-0.5 text-xs text-muted-foreground">Yields: {yieldLabel}</p>
+                    <p className="mt-0.5 text-xs text-muted-foreground">{`Yields: ${yieldLabel}`}</p>
                   </div>
                 </div>
                 <div className="shrink-0 text-right">
@@ -1059,7 +1079,7 @@ function StatsPanel({
     <section aria-label="Stats" className="rounded-2xl border bg-card p-8">
       <div className="flex items-baseline justify-between">
         <h2 className="text-lg font-semibold text-foreground">Elemental Mastery</h2>
-        <span className="text-sm text-muted-foreground">Gen {generationNumber}</span>
+        <span className="text-sm text-muted-foreground">{`Gen ${generationNumber}`}</span>
       </div>
       {unlocked.length === 0 ? (
         <p className="mt-4 text-sm text-muted-foreground">No elements unlocked yet.</p>
@@ -1071,14 +1091,17 @@ function StatsPanel({
             const pct = neededXp > 0 ? Math.round((currentXp / neededXp) * 100) : 100;
             return (
               <li key={el.id}>
-                <div className="flex items-baseline justify-between text-sm">
+                <span className="sr-only">
+                  {`${el.name}, level ${level}, ${currentXp.toLocaleString()} of ${neededXp.toLocaleString()} XP`}
+                </span>
+                <div className="flex items-baseline justify-between text-sm" aria-hidden="true">
                   <span className="font-medium text-foreground">
-                    <span aria-hidden="true">{el.emoji}</span> {el.name}
+                    <span>{el.emoji}</span> {el.name}
                   </span>
                   <span className="text-muted-foreground">Level {level}</span>
                 </div>
-                <Progress value={pct} className="mt-1.5" aria-label={`${el.name} XP progress`} />
-                <p className="mt-1 text-xs text-muted-foreground">
+                <Progress value={pct} className="mt-1.5" aria-hidden="true" />
+                <p className="mt-1 text-xs text-muted-foreground" aria-hidden="true">
                   {currentXp.toLocaleString()} / {neededXp.toLocaleString()} XP
                 </p>
               </li>
@@ -1231,11 +1254,16 @@ function EncounterPanel({
                 const elDef = ELEMENTS.find((e) => e.id === encounter.def.elementId);
                 return (
                   <p>
-                    <span aria-hidden="true">{elDef?.emoji}</span> {elDef?.name} · Level{" "}
-                    {encounter.def.level} ·{" "}
-                    <span aria-hidden="true">{"★".repeat(encounter.def.rarity)}</span>
-                    <span className="sr-only">Rarity {encounter.def.rarity}</span> ·{" "}
-                    {encounter.def.isMagical ? "Magical" : "Non-magical"}
+                    <span className="sr-only">
+                      {`${elDef?.name}, level ${encounter.def.level}, rarity ${encounter.def.rarity}, ${
+                        encounter.def.isMagical ? "magical" : "non-magical"
+                      }`}
+                    </span>
+                    <span aria-hidden="true">
+                      <span>{elDef?.emoji}</span> {elDef?.name} · Level {encounter.def.level} ·{" "}
+                      {"★".repeat(encounter.def.rarity)} ·{" "}
+                      {encounter.def.isMagical ? "Magical" : "Non-magical"}
+                    </span>
                   </p>
                 );
               })()}
@@ -1414,7 +1442,7 @@ function GraduateDialog({
         </DialogHeader>
         <div className="py-2 space-y-3">
           <p className="text-sm text-muted-foreground">
-            The apprentice will receive {allowance} {masteryElement} fragments as an allowance.
+            {`The apprentice will receive ${allowance} ${masteryElement} fragments as an allowance.`}
           </p>
           {allCreatures.length > 0 ? (
             <>
