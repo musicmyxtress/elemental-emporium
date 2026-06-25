@@ -475,10 +475,16 @@ function HomePanel({
 
         {(shieldAmount > 0 || (hasteUntil !== null && hasteUntil > Date.now())) && (
           <ul className="mt-3 grid gap-1 text-xs text-muted-foreground" role="list">
-            {shieldAmount > 0 && <li>🛡️ Shielded — blocks the next {shieldAmount} damage.</li>}
+            {shieldAmount > 0 && (
+              <li>
+                <span aria-hidden="true">🛡️ </span>
+                Shielded — blocks the next {shieldAmount} damage.
+              </li>
+            )}
             {hasteUntil !== null && hasteUntil > Date.now() && (
               <li>
-                🕊️ Flight active — cooldowns reduced by {hasteReductionSeconds}s for{" "}
+                <span aria-hidden="true">🕊️ </span>
+                Flight active — cooldowns reduced by {hasteReductionSeconds}s for{" "}
                 <CooldownTimer expiresAt={hasteUntil} />.
               </li>
             )}
@@ -524,7 +530,7 @@ function HomePanel({
                     disabled={!canAfford}
                     title={!canAfford ? `Need ${cost} ${spell.elementId} fragments` : undefined}
                   >
-                    {spell.emoji} {spell.name}
+                    <span aria-hidden="true">{spell.emoji}</span> {spell.name}
                     {cost > 0 ? ` (${cost} fragments)` : ""}
                   </Button>
                 </li>
@@ -631,7 +637,7 @@ function ForgePanel({
           return (
             <li key={elDef.id} className="rounded-xl border bg-background p-4">
               <h3 className="text-sm font-medium text-foreground">
-                {elDef.emoji} {elDef.name}
+                <span aria-hidden="true">{elDef.emoji}</span> {elDef.name}
                 {isMastery && (
                   <span className="ml-2 text-xs font-normal text-muted-foreground">(Mastery)</span>
                 )}
@@ -714,7 +720,9 @@ function StablePanel({
                 <div>
                   <h3 className="text-sm font-medium text-foreground">{def.name}</h3>
                   <p className="mt-0.5 text-xs text-muted-foreground">
-                    {elDef?.emoji} {elDef?.name} · Level {def.level} · {"★".repeat(def.rarity)}
+                    <span aria-hidden="true">{elDef?.emoji}</span> {elDef?.name} · Level {def.level}{" "}
+                    · <span aria-hidden="true">{"★".repeat(def.rarity)}</span>
+                    <span className="sr-only">Rarity {def.rarity}</span>
                   </p>
                   <p className="mt-1 text-xs text-muted-foreground">
                     Produces {output} {def.elementId} fragment{output === 1 ? "" : "s"} / 5s
@@ -777,7 +785,8 @@ function MenageriePanel({
                 <div>
                   <h3 className="text-sm font-medium text-foreground">{def.name}</h3>
                   <p className="mt-0.5 text-xs text-muted-foreground">
-                    Level {def.level} · {"★".repeat(def.rarity)} · Magical
+                    Level {def.level} · <span aria-hidden="true">{"★".repeat(def.rarity)}</span>
+                    <span className="sr-only">Rarity {def.rarity}</span> · Magical
                   </p>
                   <p className="mt-1 text-xs text-muted-foreground">
                     Consumes {consumed} {consumedElDef?.name ?? def.consumedElementId} fragments / 5s
@@ -968,7 +977,7 @@ function StatsPanel({
               <li key={el.id}>
                 <div className="flex items-baseline justify-between text-sm">
                   <span className="font-medium text-foreground">
-                    {el.emoji} {el.name}
+                    <span aria-hidden="true">{el.emoji}</span> {el.name}
                   </span>
                   <span className="text-muted-foreground">Level {level}</span>
                 </div>
@@ -1120,7 +1129,7 @@ function EncounterPanel({
           <>
             <DialogHeader>
               <DialogTitle>
-                {encounter.def.emoji} {encounter.def.name}
+                <span aria-hidden="true">{encounter.def.emoji}</span> {encounter.def.name}
               </DialogTitle>
             </DialogHeader>
             <div className="py-2 text-sm text-muted-foreground space-y-3">
@@ -1128,8 +1137,10 @@ function EncounterPanel({
                 const elDef = ELEMENTS.find((e) => e.id === encounter.def.elementId);
                 return (
                   <p>
-                    {elDef?.emoji} {elDef?.name} · Level {encounter.def.level} ·{" "}
-                    {"★".repeat(encounter.def.rarity)} ·{" "}
+                    <span aria-hidden="true">{elDef?.emoji}</span> {elDef?.name} · Level{" "}
+                    {encounter.def.level} ·{" "}
+                    <span aria-hidden="true">{"★".repeat(encounter.def.rarity)}</span>
+                    <span className="sr-only">Rarity {encounter.def.rarity}</span> ·{" "}
                     {encounter.def.isMagical ? "Magical" : "Non-magical"}
                   </p>
                 );
@@ -1194,7 +1205,7 @@ function EncounterPanel({
                           variant="outline"
                           onClick={() => handleCastSpell(spell)}
                         >
-                          {spell.emoji} {spell.name}
+                          <span aria-hidden="true">{spell.emoji}</span> {spell.name}
                         </Button>
                       ))
                     ))}
@@ -1230,14 +1241,16 @@ function EncounterPanel({
           <>
             <DialogHeader>
               <DialogTitle>
-                {encounter.def.emoji} {encounter.def.name}
+                <span aria-hidden="true">{encounter.def.emoji}</span> {encounter.def.name}
               </DialogTitle>
             </DialogHeader>
             <div className="py-2 text-sm text-muted-foreground">
               <p>{encounter.def.description}</p>
               {encounter.def.elementId && (
                 <p className="mt-1">
-                  {ELEMENTS.find((e) => e.id === encounter.def.elementId)?.emoji}{" "}
+                  <span aria-hidden="true">
+                    {ELEMENTS.find((e) => e.id === encounter.def.elementId)?.emoji}
+                  </span>{" "}
                   {ELEMENTS.find((e) => e.id === encounter.def.elementId)?.name}
                 </p>
               )}
@@ -1352,7 +1365,8 @@ function GraduateDialog({
                             : "hover:bg-muted"
                         }`}
                       >
-                        {def.emoji} {def.name} — {def.isMagical ? "Magical" : "Non-magical"}
+                        <span aria-hidden="true">{def.emoji}</span> {def.name} —{" "}
+                        {def.isMagical ? "Magical" : "Non-magical"}
                       </button>
                     </li>
                   );
