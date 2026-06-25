@@ -320,22 +320,50 @@ export function useGame() {
     return ok;
   }, []);
 
-  const takeDamage = useCallback(
-    (amount: number): { died: boolean; dealt: number; blocked: number } => {
-      let result = { died: false, dealt: 0, blocked: 0 };
+  const castCombatSpell = useCallback(
+    (
+      spellId: string,
+      retaliation: number | null,
+    ): { cast: boolean; dealt: number; blocked: number; died: boolean } => {
+      const spell = SPELLS.find((s) => s.id === spellId);
+      let result = { cast: false, dealt: 0, blocked: 0, died: false };
+      if (!spell) return result;
       setState((prev) => {
+        if (!isSpellUnlocked(spell, prev.elementXp, prev.unlockedElements)) return prev;
+        const cost = spell.power ?? 0;
+        const key = fragmentKey(spell.elementId);
+        if ((prev.resources[key] ?? 0) < cost) return prev;
+
         const current = settleSleep(prev, Date.now());
-        const blocked = Math.min(current.shieldAmount, amount);
-        const dealt = amount - blocked;
-        const shieldAmount = current.shieldAmount > 0 ? 0 : current.shieldAmount;
-        const newHp = Math.max(0, current.playerHp - dealt);
-        const died = newHp <= 0;
-        result = { died, dealt, blocked };
-        return {
+        const xpGained = spell.unlockLevel;
+        const newXp = {
+          ...current.elementXp,
+          [spell.elementId]: (current.elementXp[spell.elementId] ?? 0) + xpGained,
+        };
+        const masteryLevel = current.element ? levelFromXp(newXp[current.element] ?? 0) : 0;
+        const afterCost = {
           ...current,
+          resources: { ...current.resources, [key]: (current.resources[key] ?? 0) - cost },
+          elementXp: newXp,
+          hasApprentice: current.hasApprentice || (current.element !== null && masteryLevel >= 20),
+        };
+
+        if (retaliation === null) {
+          result = { cast: true, dealt: 0, blocked: 0, died: false };
+          return afterCost;
+        }
+
+        const blocked = Math.min(afterCost.shieldAmount, retaliation);
+        const dealt = retaliation - blocked;
+        const shieldAmount = afterCost.shieldAmount > 0 ? 0 : afterCost.shieldAmount;
+        const newHp = Math.max(0, afterCost.playerHp - dealt);
+        const died = newHp <= 0;
+        result = { cast: true, dealt, blocked, died };
+        return {
+          ...afterCost,
           playerHp: newHp,
           shieldAmount,
-          sleepUntil: died ? Date.now() + DEATH_SLEEP_MS : current.sleepUntil,
+          sleepUntil: died ? Date.now() + DEATH_SLEEP_MS : afterCost.sleepUntil,
         };
       });
       return result;
@@ -538,7 +566,7 @@ export function useGame() {
     forgeCrystal,
     winFight,
     tameCreature,
-    takeDamage,
+    castCombatSpell,
     startSleep,
     castSpell,
     discoverPlace,

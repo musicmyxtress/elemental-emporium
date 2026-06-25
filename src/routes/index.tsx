@@ -372,8 +372,7 @@ function GameScreen({ game }: { game: ReturnType<typeof useGame> }) {
           playerHp={game.state.playerHp}
           playerMaxHp={maxHp}
           elementXp={game.state.elementXp}
-          onCastSpell={game.castSpell}
-          onCreatureDamage={game.takeDamage}
+          onCastCombatSpell={game.castCombatSpell}
           onWinFight={handleWinFight}
           onTame={handleTame}
           onCollect={handleCollect}
@@ -1126,8 +1125,7 @@ function EncounterPanel({
   playerHp,
   playerMaxHp,
   elementXp,
-  onCastSpell,
-  onCreatureDamage,
+  onCastCombatSpell,
   onWinFight,
   onTame,
   onCollect,
@@ -1146,8 +1144,10 @@ function EncounterPanel({
   playerHp: number;
   playerMaxHp: number;
   elementXp: Record<string, number>;
-  onCastSpell: (spellId: string) => boolean;
-  onCreatureDamage: (amount: number) => { died: boolean; dealt: number; blocked: number };
+  onCastCombatSpell: (
+    spellId: string,
+    retaliation: number | null,
+  ) => { cast: boolean; dealt: number; blocked: number; died: boolean };
   onWinFight: (defId: string) => void;
   onTame: (defId: string) => void;
   onCollect: (placeId: string) => void;
@@ -1171,12 +1171,6 @@ function EncounterPanel({
 
   function handleCastSpell(spell: SpellDef) {
     if (!creatureDef || combatEnded) return;
-    const ok = onCastSpell(spell.id);
-    if (!ok) {
-      setCombatLog(`Not enough ${spell.elementId} fragments to cast ${spell.name}.`);
-      return;
-    }
-    setHasAttacked(true);
 
     let hp = creatureHp;
     const messages: string[] = [];
@@ -1207,9 +1201,28 @@ function EncounterPanel({
         });
       }
     }
+
+    const creatureDied = hp <= 0;
+    const entangled =
+      spell.halvesRetaliation === true ||
+      survivingDots.some((dot) => SPELLS.find((s) => s.id === dot.spellId)?.halvesRetaliation);
+    let retaliation = rollCreatureDamage(creatureDef);
+    if (entangled) {
+      retaliation = Math.floor(retaliation / 2);
+    }
+
+    const { cast, died, dealt, blocked } = onCastCombatSpell(
+      spell.id,
+      creatureDied ? null : retaliation,
+    );
+    if (!cast) {
+      setCombatLog(`Not enough ${spell.elementId} fragments to cast ${spell.name}.`);
+      return;
+    }
+    setHasAttacked(true);
     setActiveDots(survivingDots);
 
-    if (hp <= 0) {
+    if (creatureDied) {
       setCreatureHp(0);
       setCombatEnded(true);
       onWinFight(creatureDef.id);
@@ -1218,15 +1231,9 @@ function EncounterPanel({
     }
     setCreatureHp(hp);
 
-    const entangled =
-      spell.halvesRetaliation === true ||
-      survivingDots.some((dot) => SPELLS.find((s) => s.id === dot.spellId)?.halvesRetaliation);
-    let retaliation = rollCreatureDamage(creatureDef);
     if (entangled) {
-      retaliation = Math.floor(retaliation / 2);
       messages.push(`${creatureDef.name} is entangled and strikes at half power!`);
     }
-    const { died, dealt, blocked } = onCreatureDamage(retaliation);
     messages.push(
       blocked > 0
         ? `${creatureDef.name} hits you for ${retaliation} damage, but your shield blocks ${blocked} of it.`
