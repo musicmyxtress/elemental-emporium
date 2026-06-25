@@ -140,6 +140,15 @@ function applyEffect(effect: EventEffect, prev: GameState): GameState {
   return prev;
 }
 
+function settleSleep(state: GameState, now: number): GameState {
+  if (state.sleepUntil === null || state.sleepUntil > now) return state;
+  return {
+    ...state,
+    sleepUntil: null,
+    playerHp: playerMaxHp(state.elementXp, state.unlockedElements),
+  };
+}
+
 function applyStudyCooldowns(
   cooldowns: Record<string, number>,
   unlockedElements: string[],
@@ -313,30 +322,36 @@ export function useGame() {
 
   const takeDamage = useCallback(
     (amount: number): { died: boolean; dealt: number; blocked: number } => {
-      const blocked = Math.min(state.shieldAmount, amount);
-      const dealt = amount - blocked;
-      const shieldAmount = state.shieldAmount > 0 ? 0 : state.shieldAmount;
-      const newHp = Math.max(0, state.playerHp - dealt);
-      const died = newHp <= 0;
-      setState((prev) => ({
-        ...prev,
-        playerHp: newHp,
-        shieldAmount,
-        sleepUntil: died ? Date.now() + DEATH_SLEEP_MS : prev.sleepUntil,
-      }));
-      return { died, dealt, blocked };
+      let result = { died: false, dealt: 0, blocked: 0 };
+      setState((prev) => {
+        const current = settleSleep(prev, Date.now());
+        const blocked = Math.min(current.shieldAmount, amount);
+        const dealt = amount - blocked;
+        const shieldAmount = current.shieldAmount > 0 ? 0 : current.shieldAmount;
+        const newHp = Math.max(0, current.playerHp - dealt);
+        const died = newHp <= 0;
+        result = { died, dealt, blocked };
+        return {
+          ...current,
+          playerHp: newHp,
+          shieldAmount,
+          sleepUntil: died ? Date.now() + DEATH_SLEEP_MS : current.sleepUntil,
+        };
+      });
+      return result;
     },
-    [state.shieldAmount, state.playerHp],
+    [],
   );
 
   const startSleep = useCallback((): boolean => {
     let ok = false;
     setState((prev) => {
-      if (prev.sleepUntil !== null) return prev;
-      const maxHp = playerMaxHp(prev.elementXp, prev.unlockedElements);
-      if (prev.playerHp >= maxHp) return prev;
+      const current = settleSleep(prev, Date.now());
+      if (current.sleepUntil !== null) return current;
+      const maxHp = playerMaxHp(current.elementXp, current.unlockedElements);
+      if (current.playerHp >= maxHp) return current;
       ok = true;
-      return { ...prev, sleepUntil: Date.now() + (maxHp - prev.playerHp) * SLEEP_MS_PER_HP };
+      return { ...current, sleepUntil: Date.now() + (maxHp - current.playerHp) * SLEEP_MS_PER_HP };
     });
     return ok;
   }, []);
@@ -512,7 +527,7 @@ export function useGame() {
   const reset = useCallback(() => setState(defaultState()), []);
 
   return {
-    state,
+    state: settleSleep(state, Date.now()),
     hydrated,
     chooseElement,
     forgeCrystal,
