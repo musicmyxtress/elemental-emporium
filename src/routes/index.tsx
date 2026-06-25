@@ -115,6 +115,7 @@ function GameScreen({ game }: { game: ReturnType<typeof useGame> }) {
   const [encounterSeq, setEncounterSeq] = useState(0);
   const [encounterOpen, setEncounterOpen] = useState(false);
   const [graduateOpen, setGraduateOpen] = useState(false);
+  const [rewardPopup, setRewardPopup] = useState<RewardPopupInfo | null>(null);
 
   const el = ELEMENTS.find((e) => e.id === game.state.element)!;
   const passiveAmt = BASE_PASSIVE;
@@ -148,11 +149,27 @@ function GameScreen({ game }: { game: ReturnType<typeof useGame> }) {
     setAnnouncement(ok && spell ? `Cast ${spell.name}.` : "Unable to cast that spell.");
   }
 
+  function handleWinFight(defId: string) {
+    const { fragmentsGained, xpGained } = game.winFight(defId);
+    const def = CREATURES.find((c) => c.id === defId)!;
+    setRewardPopup({
+      kind: "victory",
+      creatureName: def.name,
+      elementId: def.elementId,
+      fragmentsGained,
+      xpGained,
+    });
+  }
+
   function handleTame(defId: string) {
     const ok = game.tameCreature(defId);
     const def = CREATURES.find((c) => c.id === defId)!;
     if (ok) {
-      setAnnouncement(`Tamed ${def.name}. It has been added to your ${def.isMagical ? "menagerie" : "stable"}.`);
+      setRewardPopup({
+        kind: "tame",
+        creatureName: def.name,
+        destination: def.isMagical ? "menagerie" : "stable",
+      });
     } else if (def.isMagical ? !game.state.builtMenagerie : !game.state.builtStable) {
       setAnnouncement(`You need to build a ${def.isMagical ? "menagerie" : "stable"} first.`);
     } else {
@@ -357,7 +374,7 @@ function GameScreen({ game }: { game: ReturnType<typeof useGame> }) {
           elementXp={game.state.elementXp}
           onCastSpell={game.castSpell}
           onCreatureDamage={game.takeDamage}
-          onWinFight={game.winFight}
+          onWinFight={handleWinFight}
           onTame={handleTame}
           onCollect={handleCollect}
           onStudy={handleStudy}
@@ -377,7 +394,63 @@ function GameScreen({ game }: { game: ReturnType<typeof useGame> }) {
         onGraduate={handleGraduate}
         onClose={() => setGraduateOpen(false)}
       />
+
+      <RewardDialog reward={rewardPopup} onClose={() => setRewardPopup(null)} />
     </main>
+  );
+}
+
+type RewardPopupInfo =
+  | {
+      kind: "victory";
+      creatureName: string;
+      elementId: string;
+      fragmentsGained: number;
+      xpGained: number;
+    }
+  | {
+      kind: "tame";
+      creatureName: string;
+      destination: "stable" | "menagerie";
+    };
+
+function RewardDialog({
+  reward,
+  onClose,
+}: {
+  reward: RewardPopupInfo | null;
+  onClose: () => void;
+}) {
+  return (
+    <Dialog open={reward !== null} onOpenChange={(v) => !v && onClose()}>
+      <DialogContent className="max-w-sm">
+        <DialogHeader>
+          <DialogTitle>{reward?.kind === "tame" ? "Creature Tamed!" : "Victory!"}</DialogTitle>
+        </DialogHeader>
+        <div className="py-2 text-sm text-muted-foreground space-y-1">
+          {reward?.kind === "victory" && (
+            <>
+              <p>You defeated the {reward.creatureName}!</p>
+              <p>
+                +{reward.fragmentsGained} {reward.elementId} fragments
+              </p>
+              <p>+{reward.xpGained} XP</p>
+            </>
+          )}
+          {reward?.kind === "tame" && (
+            <p>
+              {reward.creatureName} has been added to your{" "}
+              {reward.destination === "menagerie" ? "menagerie" : "stable"}.
+            </p>
+          )}
+        </div>
+        <DialogFooter>
+          <Button type="button" onClick={onClose}>
+            Okay
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -1027,7 +1100,7 @@ function EncounterPanel({
   elementXp: Record<string, number>;
   onCastSpell: (spellId: string) => boolean;
   onCreatureDamage: (amount: number) => { died: boolean; dealt: number; blocked: number };
-  onWinFight: (defId: string) => { fragmentsGained: number; xpGained: number };
+  onWinFight: (defId: string) => void;
   onTame: (defId: string) => void;
   onCollect: (placeId: string) => void;
   onStudy: (itemId: string, elementId: string) => void;
@@ -1091,10 +1164,8 @@ function EncounterPanel({
     if (hp <= 0) {
       setCreatureHp(0);
       setCombatEnded(true);
-      const { fragmentsGained, xpGained } = onWinFight(creatureDef.id);
-      const log = `${messages.join(" ")} ${creatureDef.name} is defeated! Gained ${fragmentsGained} ${creatureDef.elementId} fragments and ${xpGained} XP.`;
-      setCombatLog(log);
-      onAnnounce(log);
+      onWinFight(creatureDef.id);
+      onClose();
       return;
     }
     setCreatureHp(hp);
