@@ -631,6 +631,8 @@ function HomePanel({
               const cost = spell.power ?? 0;
               const available = resources[fragmentKey(spell.elementId)] ?? 0;
               const canAfford = available >= cost;
+              const elName =
+                ELEMENTS.find((e) => e.id === spell.elementId)?.name ?? spell.elementId;
               return (
                 <li key={spell.id}>
                   <Button
@@ -641,8 +643,8 @@ function HomePanel({
                     disabled={!canAfford}
                     title={!canAfford ? `Need ${cost} ${spell.elementId} fragments` : undefined}
                   >
-                    <span aria-hidden="true">{spell.emoji}</span> {spell.name}
-                    {cost > 0 ? ` (${cost} fragments)` : ""}
+                    <span aria-hidden="true">{spell.emoji}</span>{" "}
+                    {`${spell.name}: ${elName}. -${cost} fragments, +${spell.unlockLevel} xp.`}
                   </Button>
                 </li>
               );
@@ -1296,16 +1298,21 @@ function EncounterPanel({
                         No combat spells unlocked yet.
                       </p>
                     ) : (
-                      availableSpells.map((spell) => (
-                        <Button
-                          key={spell.id}
-                          type="button"
-                          variant="outline"
-                          onClick={() => handleCastSpell(spell)}
-                        >
-                          <span aria-hidden="true">{spell.emoji}</span> {spell.name}
-                        </Button>
-                      ))
+                      availableSpells.map((spell) => {
+                        const elName =
+                          ELEMENTS.find((e) => e.id === spell.elementId)?.name ?? spell.elementId;
+                        return (
+                          <Button
+                            key={spell.id}
+                            type="button"
+                            variant="outline"
+                            onClick={() => handleCastSpell(spell)}
+                          >
+                            <span aria-hidden="true">{spell.emoji}</span>{" "}
+                            {`${spell.name}: ${elName}. -${spell.power ?? 0} fragments, +${spell.unlockLevel} xp.`}
+                          </Button>
+                        );
+                      })
                     ))}
                   {(() => {
                     const built = encounter.def.isMagical ? builtMenagerie : builtStable;
