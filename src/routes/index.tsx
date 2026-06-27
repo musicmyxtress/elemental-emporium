@@ -190,9 +190,21 @@ function GameScreen({ game }: { game: ReturnType<typeof useGame> }) {
   }
 
   function handleStudy(itemId: string, elementId: string) {
-    game.studyEncounter(itemId, elementId);
-    setAnnouncement(`Began studying ${elementId}. It will be unlocked in 1 hour.`);
-    setEncounterOpen(false);
+    const elName = ELEMENTS.find((e) => e.id === elementId)?.name ?? elementId;
+    const ok = game.studyEncounter(itemId, elementId);
+    if (ok) {
+      setAnnouncement(`Began studying ${elName}. It will be unlocked in 1 hour.`);
+      setEncounterOpen(false);
+      return;
+    }
+    const studyKey = Object.keys(game.state.cooldowns).find(
+      (k) => k.startsWith("study:") && game.state.cooldowns[k] > Date.now(),
+    );
+    const studyingId = studyKey?.slice(6);
+    const studyingName = ELEMENTS.find((e) => e.id === studyingId)?.name ?? "another element";
+    setAnnouncement(
+      `You can only study one element at a time. Finish studying ${studyingName} first.`,
+    );
   }
 
   function handleEvent(effect: EventEffect, choiceLabel: string) {

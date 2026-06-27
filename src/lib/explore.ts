@@ -19,6 +19,18 @@ export function encounterWeight(rarity: number): number {
   return 1 / Math.max(1, rarity);
 }
 
+// Building-material places (wood, stone) get an outsized weight so they turn up
+// almost immediately. They drop out of the pool once discovered, so this just
+// makes the basics trivially easy to find without touching the creature curve.
+const MATERIAL_WEIGHT = 50;
+
+function itemWeight(item: EncounterItem): number {
+  if (item.kind === "place" && item.def.kind !== "elemental") {
+    return MATERIAL_WEIGHT;
+  }
+  return encounterWeight(itemRarity(item));
+}
+
 // Weighted shuffle (Efraimidis-Spirakis): each item gets a key of
 // random^(1/weight); sorting by descending key makes the first item a
 // weighted random draw, so the caller can just take pool[0].
@@ -26,7 +38,7 @@ function weightedShuffle(items: EncounterItem[]): EncounterItem[] {
   return items
     .map((item) => ({
       item,
-      key: Math.pow(Math.random(), 1 / encounterWeight(itemRarity(item))),
+      key: Math.pow(Math.random(), 1 / itemWeight(item)),
     }))
     .sort((a, b) => b.key - a.key)
     .map((x) => x.item);

@@ -470,12 +470,25 @@ export function useGame() {
     setState((prev) => applyEffect(effect, prev));
   }, []);
 
-  const studyEncounter = useCallback((itemId: string, elementId: string) => {
-    const expiry = Date.now() + 3_600_000;
-    setState((prev) => ({
-      ...prev,
-      cooldowns: { ...prev.cooldowns, [itemId]: expiry, [`study:${elementId}`]: expiry },
-    }));
+  const studyEncounter = useCallback((itemId: string, elementId: string): boolean => {
+    let ok = false;
+    setState((prev) => {
+      const now = Date.now();
+      // Only one element may be studied at a time. Block if a different
+      // element's study is still in progress.
+      const studyingAnother = Object.entries(prev.cooldowns).some(
+        ([key, expiry]) =>
+          key.startsWith("study:") && key !== `study:${elementId}` && expiry > now,
+      );
+      if (studyingAnother) return prev;
+      ok = true;
+      const expiry = now + 3_600_000;
+      return {
+        ...prev,
+        cooldowns: { ...prev.cooldowns, [itemId]: expiry, [`study:${elementId}`]: expiry },
+      };
+    });
+    return ok;
   }, []);
 
   const buildStable = useCallback((): boolean => {
