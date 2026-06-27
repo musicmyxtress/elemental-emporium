@@ -42,6 +42,90 @@ export const ELEMENTS: ElementDef[] = [
     emoji: "🟫",
     description: "The mixing of earth and water. Sticky, grounding, and full of hidden life.",
   },
+  {
+    id: "ice",
+    name: "Ice",
+    emoji: "❄️",
+    description: "The frozen stillness. Sharp, patient, and slow to yield its grip.",
+  },
+  {
+    id: "lightning",
+    name: "Lightning",
+    emoji: "⚡",
+    description: "The sudden spark. Blinding, fast, and gone before the thunder.",
+  },
+  {
+    id: "sand",
+    name: "Sand",
+    emoji: "🏜️",
+    description: "The shifting grains. Countless, restless, and shaped by every wind.",
+  },
+  {
+    id: "light",
+    name: "Light",
+    emoji: "☀️",
+    description: "The first radiance. It reveals all and hides nothing.",
+  },
+  {
+    id: "darkness",
+    name: "Darkness",
+    emoji: "🌑",
+    description: "The deep shade. Quiet, vast, and full of what the light forgot.",
+  },
+  {
+    id: "poison",
+    name: "Poison",
+    emoji: "🧪",
+    description: "The creeping venom. Subtle at first, relentless once it takes hold.",
+  },
+  {
+    id: "sound",
+    name: "Sound",
+    emoji: "🔊",
+    description: "The traveling vibration. Unseen, yet it moves everything it touches.",
+  },
+  {
+    id: "force",
+    name: "Force",
+    emoji: "💥",
+    description: "The raw push. Blunt, certain, and impossible to argue with.",
+  },
+  {
+    id: "time",
+    name: "Time",
+    emoji: "⏳",
+    description: "The endless current. It carries all things forward, sparing none.",
+  },
+  {
+    id: "space",
+    name: "Space",
+    emoji: "🌌",
+    description: "The boundless expanse. Empty, infinite, and quietly holding everything.",
+  },
+  {
+    id: "love",
+    name: "Love",
+    emoji: "❤️",
+    description: "The binding warmth. Gentle, stubborn, and stronger than it looks.",
+  },
+  {
+    id: "life",
+    name: "Life",
+    emoji: "🌟",
+    description: "The stirring spark. Fragile, insistent, and forever beginning again.",
+  },
+  {
+    id: "magic",
+    name: "Magic",
+    emoji: "✨",
+    description: "The woven mystery. Bending the rules the other elements obey.",
+  },
+  {
+    id: "death",
+    name: "Death",
+    emoji: "💀",
+    description: "The final quiet. Patient beyond measure, and certain to arrive.",
+  },
 ];
 
 export const FRAGMENTS_PER_CRYSTAL = 100;
