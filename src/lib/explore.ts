@@ -12,11 +12,13 @@ function itemRarity(item: EncounterItem): number {
   return item.kind === "event" ? 1 : item.def.rarity;
 }
 
-// Encounter chance scales as 1 / rarity, so a rarity-1 creature is ten times
-// as likely to appear as a rarity-10 one (and twice as likely as a rarity-2).
-// To steepen or flatten that curve later, change this single weight function.
+// Encounter chance scales as 1 / rarity^2 — a curve steep enough that higher
+// rarities feel genuinely scarce: a rarity-1 is 4x as likely as a rarity-2,
+// 9x a rarity-3, and 100x a rarity-10. Change the exponent to make the whole
+// curve steeper (higher) or flatter (lower).
 export function encounterWeight(rarity: number): number {
-  return 1 / Math.max(1, rarity);
+  const r = Math.max(1, rarity);
+  return 1 / (r * r);
 }
 
 // Building-material places (wood, stone) get an outsized weight so they turn up
