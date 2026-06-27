@@ -235,16 +235,18 @@ function GameScreen({ game }: { game: ReturnType<typeof useGame> }) {
     const elDef = ELEMENTS.find((e) => e.id === elementId)!;
     const currentFragments = Math.floor(game.state.resources[fragmentKey(elementId)] ?? 0);
     const currentCrystals = game.state.crystals[elementId] ?? 0;
-    const ok = game.forgeCrystal(elementId);
-    if (ok) {
+    if (currentFragments < FRAGMENTS_PER_CRYSTAL) {
       setAnnouncement(
-        `Forged 1 ${elDef.name.toLowerCase()} crystal from ${FRAGMENTS_PER_CRYSTAL} fragments. You have ${currentCrystals + 1} crystal${currentCrystals + 1 === 1 ? "" : "s"}.`,
+        `Not enough ${elDef.name.toLowerCase()} fragments to forge. You need ${FRAGMENTS_PER_CRYSTAL} but only have ${currentFragments}.`,
       );
-    } else {
-      setAnnouncement(
-        `Not enough fragments to forge. You need ${FRAGMENTS_PER_CRYSTAL} but only have ${currentFragments}.`,
-      );
+      return;
     }
+
+    game.forgeCrystal(elementId);
+    const remainingFragments = currentFragments - FRAGMENTS_PER_CRYSTAL;
+    setAnnouncement(
+      `Forged 1 ${elDef.name.toLowerCase()} crystal from ${FRAGMENTS_PER_CRYSTAL} fragments. You have ${currentCrystals + 1} crystal${currentCrystals + 1 === 1 ? "" : "s"} and ${remainingFragments} ${elDef.name.toLowerCase()} fragments left.`,
+    );
   }
 
   function handleGraduate(giftedCreatureDefId: string | null) {

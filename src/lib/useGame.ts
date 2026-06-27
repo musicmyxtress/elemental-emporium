@@ -30,6 +30,7 @@ export interface GameState {
   generationStartElements: string[];
   playerHp: number;
   sleepUntil: number | null;
+  lastPassiveAt: number | null;
   shieldAmount: number;
   hasteUntil: number | null;
   hasteReductionSeconds: number;
@@ -39,6 +40,9 @@ const STORAGE_KEY = "elemental-emporium-v3";
 const BASE_ELEMENTS = ["fire", "water", "earth", "air"];
 const DEATH_SLEEP_MS = 60_000;
 const SLEEP_MS_PER_HP = 3000;
+// Cap how much elapsed real time we pay out in one catch-up, so returning to a
+// long-backgrounded tab awards a sane amount instead of an enormous lump sum.
+const MAX_CATCHUP_TICKS = 720; // 1 hour at a 5s interval
 
 function defaultState(): GameState {
   return {
@@ -58,6 +62,7 @@ function defaultState(): GameState {
     generationStartElements: [...BASE_ELEMENTS],
     playerHp: playerMaxHp({}, BASE_ELEMENTS),
     sleepUntil: null,
+    lastPassiveAt: null,
     shieldAmount: 0,
     hasteUntil: null,
     hasteReductionSeconds: 0,
@@ -94,8 +99,9 @@ function loadState(): GameState {
       ? p.unlockedElements.filter((x): x is string => typeof x === "string")
       : d.unlockedElements;
     const elementXp = isRecord(p.elementXp) ? (p.elementXp as Record<string, number>) : {};
+    const element = typeof p.element === "string" ? p.element : null;
     return {
-      element: typeof p.element === "string" ? p.element : null,
+      element,
       resources: isRecord(p.resources) ? (p.resources as Record<string, number>) : {},
       crystals: isRecord(p.crystals) ? (p.crystals as Record<string, number>) : {},
       unlockedElements,
@@ -116,6 +122,7 @@ function loadState(): GameState {
       playerHp:
         typeof p.playerHp === "number" ? p.playerHp : playerMaxHp(elementXp, unlockedElements),
       sleepUntil: typeof p.sleepUntil === "number" ? p.sleepUntil : null,
+      lastPassiveAt: typeof p.lastPassiveAt === "number" ? p.lastPassiveAt : element ? Date.now() : null,
       shieldAmount: typeof p.shieldAmount === "number" ? p.shieldAmount : 0,
       hasteUntil: typeof p.hasteUntil === "number" ? p.hasteUntil : null,
       hasteReductionSeconds:
@@ -175,6 +182,46 @@ function applyStudyCooldowns(
   return changed ? { cooldowns: newCooldowns, unlockedElements: newUnlocked } : null;
 }
 
+// One 5-second passive income step. Extracted so we can replay it N times to
+// catch up real time that elapsed while the browser throttled or paused our
+// timer (background tabs freeze setInterval). Behavior of a single tick is
+// identical to before.
+function passiveTick(prev: GameState, now: number): GameState {
+  if (!prev.element) return prev;
+  const masteryElement = prev.element;
+  const newResources = { ...prev.resources };
+
+  const asleep = prev.sleepUntil !== null && prev.sleepUntil > now;
+  if (!asleep) {
+    const masteryKey = fragmentKey(masteryElement);
+    newResources[masteryKey] = (newResources[masteryKey] ?? 0) + BASE_PASSIVE;
+  }
+
+  for (const tamed of prev.stable) {
+    const def = CREATURES.find((c) => c.id === tamed.defId);
+    if (!def) continue;
+    const output = def.rarity * (def.elementId === masteryElement ? 2 : 1);
+    const key = fragmentKey(def.elementId);
+    newResources[key] = (newResources[key] ?? 0) + output;
+  }
+
+  for (const tamed of prev.menagerie) {
+    const def = CREATURES.find((c) => c.id === tamed.defId);
+    if (!def?.consumedElementId || !def.producedElementId) continue;
+    const consumeKey = fragmentKey(def.consumedElementId);
+    const produceKey = fragmentKey(def.producedElementId);
+    const consumed = def.rarity;
+    const produced = def.rarity * 3 * (def.producedElementId === masteryElement ? 2 : 1);
+    if ((newResources[consumeKey] ?? 0) >= consumed) {
+      newResources[consumeKey] -= consumed;
+      newResources[produceKey] = (newResources[produceKey] ?? 0) + produced;
+    }
+  }
+
+  const cooldownUpdate = applyStudyCooldowns(prev.cooldowns, prev.unlockedElements, now);
+  return { ...prev, resources: newResources, ...(cooldownUpdate ?? {}) };
+}
+
 export function useGame() {
   const [state, setState] = useState<GameState>(defaultState);
   const [hydrated, setHydrated] = useState(false);
@@ -195,47 +242,40 @@ export function useGame() {
     }
   }, [state, hydrated]);
 
+  // Pay out passive income based on the real time that has actually elapsed
+  // since the last payout, replaying whole 5s ticks. This survives background
+  // tabs: browsers throttle/pause setInterval when the game is not the focused
+  // tab, so a naive per-tick counter silently stops earning. Driven by a timer
+  // AND by focus/visibility regain so income catches up the instant you return.
+  const accruePassive = useCallback(() => {
+    setState((prev) => {
+      if (!prev.element) return prev;
+      const now = Date.now();
+      if (prev.lastPassiveAt === null) return { ...prev, lastPassiveAt: now };
+      const last = prev.lastPassiveAt;
+      const elapsed = now - last;
+      const ticks = Math.min(Math.floor(elapsed / PASSIVE_INTERVAL_MS), MAX_CATCHUP_TICKS);
+      if (ticks <= 0) return prev;
+      let next = prev;
+      for (let i = 0; i < ticks; i++) next = passiveTick(next, now);
+      return { ...next, lastPassiveAt: last + ticks * PASSIVE_INTERVAL_MS };
+    });
+  }, []);
+
   useEffect(() => {
     if (!state.element) return;
-    const masteryElement = state.element;
-    const id = setInterval(() => {
-      setState((prev) => {
-        const now = Date.now();
-        const newResources = { ...prev.resources };
-
-        const asleep = prev.sleepUntil !== null && prev.sleepUntil > now;
-        if (!asleep) {
-          const masteryKey = fragmentKey(masteryElement);
-          newResources[masteryKey] = (newResources[masteryKey] ?? 0) + BASE_PASSIVE;
-        }
-
-        for (const tamed of prev.stable) {
-          const def = CREATURES.find((c) => c.id === tamed.defId);
-          if (!def) continue;
-          const output = def.rarity * (def.elementId === masteryElement ? 2 : 1);
-          const key = fragmentKey(def.elementId);
-          newResources[key] = (newResources[key] ?? 0) + output;
-        }
-
-        for (const tamed of prev.menagerie) {
-          const def = CREATURES.find((c) => c.id === tamed.defId);
-          if (!def?.consumedElementId || !def.producedElementId) continue;
-          const consumeKey = fragmentKey(def.consumedElementId);
-          const produceKey = fragmentKey(def.producedElementId);
-          const consumed = def.rarity;
-          const produced = def.rarity * 3 * (def.producedElementId === masteryElement ? 2 : 1);
-          if ((newResources[consumeKey] ?? 0) >= consumed) {
-            newResources[consumeKey] -= consumed;
-            newResources[produceKey] = (newResources[produceKey] ?? 0) + produced;
-          }
-        }
-
-        const cooldownUpdate = applyStudyCooldowns(prev.cooldowns, prev.unlockedElements, now);
-        return { ...prev, resources: newResources, ...(cooldownUpdate ?? {}) };
-      });
-    }, PASSIVE_INTERVAL_MS);
-    return () => clearInterval(id);
-  }, [state.element]);
+    const id = setInterval(accruePassive, PASSIVE_INTERVAL_MS);
+    const onVisible = () => {
+      if (!document.hidden) accruePassive();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    window.addEventListener("focus", accruePassive);
+    return () => {
+      clearInterval(id);
+      document.removeEventListener("visibilitychange", onVisible);
+      window.removeEventListener("focus", accruePassive);
+    };
+  }, [state.element, accruePassive]);
 
   useEffect(() => {
     if (state.sleepUntil === null) return;
@@ -254,7 +294,7 @@ export function useGame() {
   }, [state.sleepUntil]);
 
   const chooseElement = useCallback((elementId: string) => {
-    setState((prev) => ({ ...prev, element: elementId }));
+    setState((prev) => ({ ...prev, element: elementId, lastPassiveAt: Date.now() }));
   }, []);
 
   const forgeCrystal = useCallback((elementId: string): boolean => {
