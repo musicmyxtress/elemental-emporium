@@ -263,6 +263,27 @@ export const SPELLS: SpellDef[] = [
     description:
       "Creeping vines bind the target, damaging it over time and halving its strikes while entangled.",
   },
+  {
+    id: "zap",
+    name: "Zap",
+    emoji: "⚡",
+    elementId: "lightning",
+    kind: "direct",
+    unlockLevel: 1,
+    power: 3,
+    description: "A sharp jolt of lightning that strikes the foe instantly for immediate damage.",
+  },
+  {
+    id: "poison-spray",
+    name: "Poison Spray",
+    emoji: "🧪",
+    elementId: "poison",
+    kind: "dot",
+    unlockLevel: 1,
+    power: 2,
+    durationRounds: 3,
+    description: "A noxious mist that sickens the target, damaging it now and for 2 more rounds.",
+  },
 ];
 
 export const PLACES: PlaceDef[] = [
