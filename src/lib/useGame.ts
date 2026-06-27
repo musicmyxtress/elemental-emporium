@@ -9,6 +9,7 @@ import {
   isSpellUnlocked,
   type TamedCreature,
   type EventEffect,
+  type Gender,
 } from "./gameData";
 import { CREATURES, PLACES, SPELLS } from "./seedData";
 
@@ -75,7 +76,10 @@ function isTamedArray(v: unknown): v is TamedCreature[] {
       typeof x === "object" &&
       typeof (x as TamedCreature).instanceId === "string" &&
       typeof (x as TamedCreature).defId === "string" &&
-      typeof (x as TamedCreature).tamedAt === "number",
+      typeof (x as TamedCreature).tamedAt === "number" &&
+      ((x as TamedCreature).gender === undefined ||
+        (x as TamedCreature).gender === "male" ||
+        (x as TamedCreature).gender === "female"),
   );
 }
 
@@ -294,7 +298,7 @@ export function useGame() {
     return { fragmentsGained: amount, xpGained };
   }, []);
 
-  const tameCreature = useCallback((defId: string): boolean => {
+  const tameCreature = useCallback((defId: string, gender?: Gender): boolean => {
     const def = CREATURES.find((c) => c.id === defId);
     if (!def) return false;
     let ok = false;
@@ -304,7 +308,7 @@ export function useGame() {
       const available = prev.crystals[def.elementId] ?? 0;
       if (available < cost) return prev;
       ok = true;
-      const tamed: TamedCreature = { instanceId: crypto.randomUUID(), defId, tamedAt: Date.now() };
+      const tamed: TamedCreature = { instanceId: crypto.randomUUID(), defId, gender, tamedAt: Date.now() };
       const xpGained = (def.level + def.rarity) * 2 * 10;
       const newXp = { ...prev.elementXp, [def.elementId]: (prev.elementXp[def.elementId] ?? 0) + xpGained };
       const masteryLevel = prev.element ? levelFromXp(newXp[prev.element] ?? 0) : 0;

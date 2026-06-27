@@ -1,9 +1,10 @@
-import type { CreatureDef, PlaceDef, RandomEventDef } from "./gameData";
+import type { CreatureDef, Gender, PlaceDef, RandomEventDef } from "./gameData";
+import { randomGender } from "./gameData";
 import type { GameState } from "./useGame";
 import { CREATURES, PLACES, RANDOM_EVENTS } from "./seedData";
 
 export type EncounterItem =
-  | { kind: "creature"; def: CreatureDef }
+  | { kind: "creature"; def: CreatureDef; gender: Gender }
   | { kind: "place"; def: PlaceDef }
   | { kind: "event"; def: RandomEventDef };
 
@@ -18,7 +19,7 @@ function shuffle<T>(arr: T[]): T[] {
 
 export function buildEncounterPool(state: GameState, now: number): EncounterItem[] {
   const items: EncounterItem[] = [
-    ...CREATURES.map((def) => ({ kind: "creature" as const, def })),
+    ...CREATURES.map((def) => ({ kind: "creature" as const, def, gender: randomGender() })),
     ...PLACES.filter((def) => !state.discoveredPlaces.includes(def.id)).map((def) => ({
       kind: "place" as const,
       def,

@@ -11,8 +11,10 @@ import {
   playerMaxHp,
   creatureMaxHp,
   isSpellUnlocked,
+  genderLabel,
   type ElementDef,
   type EventEffect,
+  type Gender,
   type SpellDef,
 } from "@/lib/gameData";
 import { CREATURES, PLACES, SPELLS } from "@/lib/seedData";
@@ -161,13 +163,13 @@ function GameScreen({ game }: { game: ReturnType<typeof useGame> }) {
     });
   }
 
-  function handleTame(defId: string) {
-    const ok = game.tameCreature(defId);
+  function handleTame(defId: string, gender?: Gender) {
+    const ok = game.tameCreature(defId, gender);
     const def = CREATURES.find((c) => c.id === defId)!;
     if (ok) {
       setRewardPopup({
         kind: "tame",
-        creatureName: def.name,
+        creatureName: gender ? `${genderLabel(gender)} ${def.name}` : def.name,
         destination: def.isMagical ? "menagerie" : "stable",
       });
     } else if (def.isMagical ? !game.state.builtMenagerie : !game.state.builtStable) {
@@ -825,13 +827,17 @@ function StablePanel({
                   {def.emoji}
                 </span>
                 <div>
-                  <h3 className="text-sm font-medium text-foreground">{def.name}</h3>
+                  <h3 className="text-sm font-medium text-foreground">
+                    {tamed.gender ? `${genderLabel(tamed.gender)} ${def.name}` : def.name}
+                  </h3>
                   <p className="mt-0.5 text-xs text-muted-foreground">
                     <span className="sr-only">
-                      {`${elDef?.name}, level ${def.level}, rarity ${def.rarity}`}
+                      {`${tamed.gender ? `${genderLabel(tamed.gender)}, ` : ""}${elDef?.name}, level ${def.level}, rarity ${def.rarity}`}
                     </span>
                     <span aria-hidden="true">
-                      <span>{elDef?.emoji}</span> {elDef?.name} · Level {def.level} ·{" "}
+                      <span>{elDef?.emoji}</span>{" "}
+                      {tamed.gender ? `${genderLabel(tamed.gender)} · ` : ""}
+                      {elDef?.name} · Level {def.level} ·{" "}
                       {"★".repeat(def.rarity)}
                     </span>
                   </p>
@@ -895,12 +901,15 @@ function MenageriePanel({
                   {def.emoji}
                 </span>
                 <div>
-                  <h3 className="text-sm font-medium text-foreground">{def.name}</h3>
+                  <h3 className="text-sm font-medium text-foreground">
+                    {tamed.gender ? `${genderLabel(tamed.gender)} ${def.name}` : def.name}
+                  </h3>
                   <p className="mt-0.5 text-xs text-muted-foreground">
                     <span className="sr-only">
-                      {`Level ${def.level}, rarity ${def.rarity}, magical`}
+                      {`${tamed.gender ? `${genderLabel(tamed.gender)}, ` : ""}Level ${def.level}, rarity ${def.rarity}, magical`}
                     </span>
                     <span aria-hidden="true">
+                      {tamed.gender ? `${genderLabel(tamed.gender)} · ` : ""}
                       Level {def.level} · {"★".repeat(def.rarity)} · Magical
                     </span>
                   </p>
@@ -1149,7 +1158,7 @@ function EncounterPanel({
     retaliation: number | null,
   ) => { cast: boolean; dealt: number; blocked: number; died: boolean };
   onWinFight: (defId: string) => void;
-  onTame: (defId: string) => void;
+  onTame: (defId: string, gender?: Gender) => void;
   onCollect: (placeId: string) => void;
   onStudy: (itemId: string, elementId: string) => void;
   onEvent: (effect: EventEffect, label: string) => void;
@@ -1255,7 +1264,8 @@ function EncounterPanel({
           <>
             <DialogHeader>
               <DialogTitle>
-                <span aria-hidden="true">{encounter.def.emoji}</span> {encounter.def.name}
+                <span aria-hidden="true">{encounter.def.emoji}</span>{" "}
+                {genderLabel(encounter.gender)} {encounter.def.name}
               </DialogTitle>
             </DialogHeader>
             <div className="py-2 text-sm text-muted-foreground space-y-3">
@@ -1264,12 +1274,13 @@ function EncounterPanel({
                 return (
                   <p>
                     <span className="sr-only">
-                      {`${elDef?.name}, level ${encounter.def.level}, rarity ${encounter.def.rarity}, ${
+                      {`${genderLabel(encounter.gender)}, ${elDef?.name}, level ${encounter.def.level}, rarity ${encounter.def.rarity}, ${
                         encounter.def.isMagical ? "magical" : "non-magical"
                       }`}
                     </span>
                     <span aria-hidden="true">
-                      <span>{elDef?.emoji}</span> {elDef?.name} · Level {encounter.def.level} ·{" "}
+                      <span>{elDef?.emoji}</span> {genderLabel(encounter.gender)} ·{" "}
+                      {elDef?.name} · Level {encounter.def.level} ·{" "}
                       {"★".repeat(encounter.def.rarity)} ·{" "}
                       {encounter.def.isMagical ? "Magical" : "Non-magical"}
                     </span>
@@ -1333,7 +1344,7 @@ function EncounterPanel({
                     return (
                       <Button
                         type="button"
-                        onClick={() => onTame(encounter.def.id)}
+                        onClick={() => onTame(encounter.def.id, encounter.gender)}
                         disabled={!canAfford}
                       >
                         Tame (Requires {cost} {elName} crystal{cost === 1 ? "" : "s"})

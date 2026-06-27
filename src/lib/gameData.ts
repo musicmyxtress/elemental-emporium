@@ -65,6 +65,16 @@ export interface CreatureDef {
   producedElementId?: string;
 }
 
+export type Gender = "male" | "female";
+
+export function randomGender(): Gender {
+  return Math.random() < 0.5 ? "male" : "female";
+}
+
+export function genderLabel(gender: Gender): string {
+  return gender === "male" ? "Male" : "Female";
+}
+
 export function creatureMaxHp(def: CreatureDef): number {
   return (def.level + def.rarity) * 2;
 }
@@ -106,6 +116,7 @@ export type EventEffect =
 export interface TamedCreature {
   instanceId: string;
   defId: string;
+  gender?: Gender;
   tamedAt: number;
 }
 
