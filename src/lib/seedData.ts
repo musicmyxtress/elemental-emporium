@@ -288,7 +288,7 @@ export const PLACES: PlaceDef[] = [
     emoji: "🔥",
     kind: "elemental",
     elementId: "fire",
-    rarity: 1,
+    rarity: 2,
     description: "A grove where embers smolder in the underbrush.",
   },
   {
@@ -297,7 +297,7 @@ export const PLACES: PlaceDef[] = [
     emoji: "💧",
     kind: "elemental",
     elementId: "water",
-    rarity: 1,
+    rarity: 2,
     description: "A clear stream winding through the land.",
   },
   {
@@ -306,7 +306,7 @@ export const PLACES: PlaceDef[] = [
     emoji: "⛰️",
     kind: "elemental",
     elementId: "earth",
-    rarity: 1,
+    rarity: 2,
     description: "A towering peak of solid rock.",
   },
   {
@@ -315,7 +315,7 @@ export const PLACES: PlaceDef[] = [
     emoji: "🌳",
     kind: "elemental",
     elementId: "air",
-    rarity: 1,
+    rarity: 2,
     description: "A perch high above the ground, open to the wind.",
   },
   {
@@ -324,7 +324,7 @@ export const PLACES: PlaceDef[] = [
     emoji: "🌾",
     kind: "elemental",
     elementId: "plant",
-    rarity: 1,
+    rarity: 2,
     description: "Rolling fields of wild grass stretching to the horizon.",
   },
   {
@@ -333,7 +333,7 @@ export const PLACES: PlaceDef[] = [
     emoji: "🟫",
     kind: "elemental",
     elementId: "mud",
-    rarity: 1,
+    rarity: 2,
     description: "A waterlogged hollow thick with mud underfoot.",
   },
   {
