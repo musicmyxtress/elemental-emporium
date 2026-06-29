@@ -69,7 +69,8 @@ export const CREATURES: CreatureDef[] = [
     level: 1,
     rarity: 2,
     isMagical: false,
-    description: "A tuxedoed waddler that shrugs off the cold and belly-slides across the ice for fun.",
+    description:
+      "A tuxedoed waddler that shrugs off the cold and belly-slides across the ice for fun.",
   },
   {
     id: "eel",
@@ -79,7 +80,8 @@ export const CREATURES: CreatureDef[] = [
     level: 1,
     rarity: 2,
     isMagical: false,
-    description: "A sinuous swimmer that crackles with a charge, stunning anything foolish enough to touch it.",
+    description:
+      "A sinuous swimmer that crackles with a charge, stunning anything foolish enough to touch it.",
   },
   {
     id: "crab",
@@ -89,7 +91,8 @@ export const CREATURES: CreatureDef[] = [
     level: 1,
     rarity: 2,
     isMagical: false,
-    description: "A sideways scuttler that buries itself in warm grit, claws poised just below the surface.",
+    description:
+      "A sideways scuttler that buries itself in warm grit, claws poised just below the surface.",
   },
   {
     id: "firefly",
@@ -99,7 +102,8 @@ export const CREATURES: CreatureDef[] = [
     level: 1,
     rarity: 3,
     isMagical: false,
-    description: "A drifting glow that blinks its soft lantern through the dark, speaking in flashes.",
+    description:
+      "A drifting glow that blinks its soft lantern through the dark, speaking in flashes.",
   },
   {
     id: "cat",
@@ -119,7 +123,8 @@ export const CREATURES: CreatureDef[] = [
     level: 1,
     rarity: 3,
     isMagical: false,
-    description: "A bold little forager that ambles without fear, trusting the warning of its noxious spray.",
+    description:
+      "A bold little forager that ambles without fear, trusting the warning of its noxious spray.",
   },
   {
     id: "cricket",
@@ -139,7 +144,8 @@ export const CREATURES: CreatureDef[] = [
     level: 1,
     rarity: 5,
     isMagical: false,
-    description: "A loyal powerhouse that bowls over anything in its path, tail wagging the whole time.",
+    description:
+      "A loyal powerhouse that bowls over anything in its path, tail wagging the whole time.",
   },
   {
     id: "dragonfly",
@@ -149,7 +155,8 @@ export const CREATURES: CreatureDef[] = [
     level: 1,
     rarity: 5,
     isMagical: false,
-    description: "A shimmering darter that seems to hover between moments, wings a blur of borrowed seconds.",
+    description:
+      "A shimmering darter that seems to hover between moments, wings a blur of borrowed seconds.",
   },
   {
     id: "seaturtle",
@@ -159,7 +166,8 @@ export const CREATURES: CreatureDef[] = [
     level: 1,
     rarity: 5,
     isMagical: false,
-    description: "An ancient drifter that glides through open water as if swimming among the stars.",
+    description:
+      "An ancient drifter that glides through open water as if swimming among the stars.",
   },
   {
     id: "rabbit",
@@ -169,7 +177,8 @@ export const CREATURES: CreatureDef[] = [
     level: 1,
     rarity: 6,
     isMagical: false,
-    description: "A soft-hearted hopper that gathers others close, multiplying warmth wherever it nests.",
+    description:
+      "A soft-hearted hopper that gathers others close, multiplying warmth wherever it nests.",
   },
   {
     id: "chicken",
@@ -179,7 +188,8 @@ export const CREATURES: CreatureDef[] = [
     level: 1,
     rarity: 7,
     isMagical: false,
-    description: "A humble layer whose every egg holds a small, stubborn promise of new beginnings.",
+    description:
+      "A humble layer whose every egg holds a small, stubborn promise of new beginnings.",
   },
   {
     id: "fox",
@@ -200,6 +210,69 @@ export const CREATURES: CreatureDef[] = [
     rarity: 7,
     isMagical: false,
     description: "A glossy watcher that gathers at endings, carrying off what others leave behind.",
+  },
+  {
+    id: "cinderling",
+    name: "Cinderling",
+    emoji: "🔥",
+    elementId: "fire",
+    level: 2,
+    rarity: 3,
+    isMagical: true,
+    consumedElementId: "plant",
+    producedElementId: "fire",
+    description: "A tiny ember spirit that eats dry leaves and coughs up glittering sparks.",
+  },
+  {
+    id: "sylf",
+    name: "Sylf",
+    emoji: "💨",
+    elementId: "air",
+    level: 2,
+    rarity: 3,
+    isMagical: true,
+    consumedElementId: "water",
+    producedElementId: "air",
+    description: "A quick-winged air spirit that drinks mist and leaves restless breezes behind.",
+  },
+  {
+    id: "dryad",
+    name: "Dryad",
+    emoji: "🌿",
+    elementId: "plant",
+    level: 2,
+    rarity: 3,
+    isMagical: true,
+    consumedElementId: "earth",
+    producedElementId: "plant",
+    description:
+      "A young grove spirit that draws strength from soil and coaxes fresh growth from it.",
+  },
+  {
+    id: "troll",
+    name: "Troll",
+    emoji: "🧌",
+    elementId: "earth",
+    level: 4,
+    rarity: 3,
+    isMagical: true,
+    consumedElementId: "plant",
+    producedElementId: "earth",
+    description:
+      "A hulking moss-backed brute that chews through bramble and packs the ground hard beneath its tread.",
+  },
+  {
+    id: "nyad",
+    name: "Nyad",
+    emoji: "🧜",
+    elementId: "water",
+    level: 2,
+    rarity: 3,
+    isMagical: true,
+    consumedElementId: "air",
+    producedElementId: "water",
+    description:
+      "A shy spring spirit that breathes in the morning mist and lets it trickle back as clear water.",
   },
 ];
 

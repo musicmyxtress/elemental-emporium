@@ -1,5 +1,5 @@
 import type { CreatureDef, Gender, PlaceDef, RandomEventDef } from "./gameData";
-import { randomGender } from "./gameData";
+import { encounterWeight, randomGender } from "./gameData";
 import type { GameState } from "./useGame";
 import { CREATURES, PLACES, RANDOM_EVENTS } from "./seedData";
 
@@ -10,15 +10,6 @@ export type EncounterItem =
 
 function itemRarity(item: EncounterItem): number {
   return item.kind === "event" ? 1 : item.def.rarity;
-}
-
-// Encounter chance scales as 1 / rarity^2 — a curve steep enough that higher
-// rarities feel genuinely scarce: a rarity-1 is 4x as likely as a rarity-2,
-// 9x a rarity-3, and 100x a rarity-10. Change the exponent to make the whole
-// curve steeper (higher) or flatter (lower).
-export function encounterWeight(rarity: number): number {
-  const r = Math.max(1, rarity);
-  return 1 / (r * r);
 }
 
 // Building-material places (wood, stone) get an outsized weight so they turn up

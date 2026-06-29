@@ -4,9 +4,11 @@ import {
   FRAGMENTS_PER_CRYSTAL,
   BASE_PASSIVE,
   PASSIVE_INTERVAL_MS,
+  encounterWeight,
   levelFromXp,
   playerMaxHp,
   isSpellUnlocked,
+  randomGender,
   type TamedCreature,
   type EventEffect,
   type Gender,
@@ -43,6 +45,13 @@ const SLEEP_MS_PER_HP = 3000;
 // Cap how much elapsed real time we pay out in one catch-up, so returning to a
 // long-backgrounded tab awards a sane amount instead of an enormous lump sum.
 const MAX_CATCHUP_TICKS = 720; // 1 hour at a 5s interval
+
+export interface BreedResult {
+  attemptedPairs: number;
+  offspring: number;
+  successChance: number;
+  home: "stable" | "menagerie";
+}
 
 function defaultState(): GameState {
   return {
@@ -122,7 +131,8 @@ function loadState(): GameState {
       playerHp:
         typeof p.playerHp === "number" ? p.playerHp : playerMaxHp(elementXp, unlockedElements),
       sleepUntil: typeof p.sleepUntil === "number" ? p.sleepUntil : null,
-      lastPassiveAt: typeof p.lastPassiveAt === "number" ? p.lastPassiveAt : element ? Date.now() : null,
+      lastPassiveAt:
+        typeof p.lastPassiveAt === "number" ? p.lastPassiveAt : element ? Date.now() : null,
       shieldAmount: typeof p.shieldAmount === "number" ? p.shieldAmount : 0,
       hasteUntil: typeof p.hasteUntil === "number" ? p.hasteUntil : null,
       hasteReductionSeconds:
@@ -137,12 +147,22 @@ function applyEffect(effect: EventEffect, prev: GameState): GameState {
   if (effect.type === "nothing") return prev;
   if (effect.type === "fragments") {
     const key = fragmentKey(effect.elementId);
-    return { ...prev, resources: { ...prev.resources, [key]: (prev.resources[key] ?? 0) + effect.amount } };
+    return {
+      ...prev,
+      resources: { ...prev.resources, [key]: (prev.resources[key] ?? 0) + effect.amount },
+    };
   }
   if (effect.type === "xp") {
-    const newXp = { ...prev.elementXp, [effect.elementId]: (prev.elementXp[effect.elementId] ?? 0) + effect.amount };
+    const newXp = {
+      ...prev.elementXp,
+      [effect.elementId]: (prev.elementXp[effect.elementId] ?? 0) + effect.amount,
+    };
     const masteryLevel = prev.element ? levelFromXp(newXp[prev.element] ?? 0) : 0;
-    return { ...prev, elementXp: newXp, hasApprentice: prev.hasApprentice || (prev.element !== null && masteryLevel >= 20) };
+    return {
+      ...prev,
+      elementXp: newXp,
+      hasApprentice: prev.hasApprentice || (prev.element !== null && masteryLevel >= 20),
+    };
   }
   if (effect.type === "heal") {
     const maxHp = playerMaxHp(prev.elementXp, prev.unlockedElements);
@@ -326,7 +346,10 @@ export function useGame() {
     const xpGained = amount * 10;
     const key = fragmentKey(def.elementId);
     setState((prev) => {
-      const newXp = { ...prev.elementXp, [def.elementId]: (prev.elementXp[def.elementId] ?? 0) + xpGained };
+      const newXp = {
+        ...prev.elementXp,
+        [def.elementId]: (prev.elementXp[def.elementId] ?? 0) + xpGained,
+      };
       const masteryLevel = prev.element ? levelFromXp(newXp[prev.element] ?? 0) : 0;
       return {
         ...prev,
@@ -348,9 +371,17 @@ export function useGame() {
       const available = prev.crystals[def.elementId] ?? 0;
       if (available < cost) return prev;
       ok = true;
-      const tamed: TamedCreature = { instanceId: crypto.randomUUID(), defId, gender, tamedAt: Date.now() };
+      const tamed: TamedCreature = {
+        instanceId: crypto.randomUUID(),
+        defId,
+        gender,
+        tamedAt: Date.now(),
+      };
       const xpGained = (def.level + def.rarity) * 2 * 10;
-      const newXp = { ...prev.elementXp, [def.elementId]: (prev.elementXp[def.elementId] ?? 0) + xpGained };
+      const newXp = {
+        ...prev.elementXp,
+        [def.elementId]: (prev.elementXp[def.elementId] ?? 0) + xpGained,
+      };
       const masteryLevel = prev.element ? levelFromXp(newXp[prev.element] ?? 0) : 0;
       return {
         ...prev,
@@ -362,6 +393,47 @@ export function useGame() {
       };
     });
     return ok;
+  }, []);
+
+  const breedCreature = useCallback((defId: string): BreedResult => {
+    const def = CREATURES.find((c) => c.id === defId);
+    const home = def?.isMagical ? "menagerie" : "stable";
+    const successChance = def ? encounterWeight(def.rarity) : 0;
+    let result: BreedResult = { attemptedPairs: 0, offspring: 0, successChance, home };
+    if (!def) return result;
+
+    setState((prev) => {
+      const creatures = def.isMagical ? prev.menagerie : prev.stable;
+      const sameSpecies = creatures.filter((c) => c.defId === defId);
+      const males = sameSpecies.filter((c) => c.gender === "male").length;
+      const females = sameSpecies.filter((c) => c.gender === "female").length;
+      const attemptedPairs = Math.min(males, females);
+      if (attemptedPairs <= 0) {
+        result = { attemptedPairs, offspring: 0, successChance, home };
+        return prev;
+      }
+
+      const now = Date.now();
+      const offspring: TamedCreature[] = [];
+      for (let i = 0; i < attemptedPairs; i++) {
+        if (Math.random() < successChance) {
+          offspring.push({
+            instanceId: crypto.randomUUID(),
+            defId,
+            gender: randomGender(),
+            tamedAt: now,
+          });
+        }
+      }
+
+      result = { attemptedPairs, offspring: offspring.length, successChance, home };
+      if (offspring.length === 0) return prev;
+      return def.isMagical
+        ? { ...prev, menagerie: [...prev.menagerie, ...offspring] }
+        : { ...prev, stable: [...prev.stable, ...offspring] };
+    });
+
+    return result;
   }, []);
 
   const castCombatSpell = useCallback(
@@ -439,7 +511,10 @@ export function useGame() {
       if ((prev.resources[key] ?? 0) < cost) return prev;
       ok = true;
       const xpGained = spell.unlockLevel;
-      const newXp = { ...prev.elementXp, [spell.elementId]: (prev.elementXp[spell.elementId] ?? 0) + xpGained };
+      const newXp = {
+        ...prev.elementXp,
+        [spell.elementId]: (prev.elementXp[spell.elementId] ?? 0) + xpGained,
+      };
       const masteryLevel = prev.element ? levelFromXp(newXp[prev.element] ?? 0) : 0;
       const afterCost = {
         ...prev,
@@ -501,7 +576,12 @@ export function useGame() {
       const newDiscovered = prev.discoveredPlaces.includes(placeId)
         ? prev.discoveredPlaces
         : [...prev.discoveredPlaces, placeId];
-      return { ...prev, resources: newResources, cooldowns: newCooldowns, discoveredPlaces: newDiscovered };
+      return {
+        ...prev,
+        resources: newResources,
+        cooldowns: newCooldowns,
+        discoveredPlaces: newDiscovered,
+      };
     });
     return result;
   }, []);
@@ -517,14 +597,18 @@ export function useGame() {
       // Only one element may be studied at a time. Block if a different
       // element's study is still in progress.
       const studyingAnother = Object.entries(prev.cooldowns).some(
-        ([key, expiry]) =>
-          key.startsWith("study:") && key !== `study:${elementId}` && expiry > now,
+        ([key, expiry]) => key.startsWith("study:") && key !== `study:${elementId}` && expiry > now,
       );
       if (studyingAnother) return prev;
       ok = true;
       const expiry = now + 3_600_000;
       return {
         ...prev,
+        // Studying a place must NOT leave it parked in the Places list. Drop it
+        // from discoveredPlaces so it isn't saved, and let the cooldown below
+        // keep it out of the explore shuffle until the 1-hour study finishes —
+        // after which it re-enters the shuffle (now with its element unlocked).
+        discoveredPlaces: prev.discoveredPlaces.filter((id) => id !== itemId),
         cooldowns: { ...prev.cooldowns, [itemId]: expiry, [`study:${elementId}`]: expiry },
       };
     });
@@ -540,7 +624,11 @@ export function useGame() {
       return {
         ...prev,
         builtStable: true,
-        resources: { ...prev.resources, wood: (prev.resources["wood"] ?? 0) - 50, stone: (prev.resources["stone"] ?? 0) - 50 },
+        resources: {
+          ...prev.resources,
+          wood: (prev.resources["wood"] ?? 0) - 50,
+          stone: (prev.resources["stone"] ?? 0) - 50,
+        },
       };
     });
     return ok;
@@ -562,7 +650,11 @@ export function useGame() {
       return {
         ...prev,
         builtMenagerie: true,
-        resources: { ...prev.resources, wood: (prev.resources["wood"] ?? 0) - 200, stone: (prev.resources["stone"] ?? 0) - 200 },
+        resources: {
+          ...prev.resources,
+          wood: (prev.resources["wood"] ?? 0) - 200,
+          stone: (prev.resources["stone"] ?? 0) - 200,
+        },
         crystals: newCrystals,
       };
     });
@@ -623,6 +715,7 @@ export function useGame() {
     forgeCrystal,
     winFight,
     tameCreature,
+    breedCreature,
     castCombatSpell,
     startSleep,
     castSpell,

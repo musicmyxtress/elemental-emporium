@@ -6,16 +6,19 @@ import {
   FRAGMENTS_PER_CRYSTAL,
   fragmentKey,
   BASE_PASSIVE,
+  encounterWeight,
   levelFromXp,
   xpProgressInLevel,
   playerMaxHp,
   creatureMaxHp,
   isSpellUnlocked,
   genderLabel,
+  type CreatureDef,
   type ElementDef,
   type EventEffect,
   type Gender,
   type SpellDef,
+  type TamedCreature,
 } from "@/lib/gameData";
 import { CREATURES, PLACES, SPELLS } from "@/lib/seedData";
 import { rollCreatureDamage, rollSpellDamage, type ActiveDot } from "@/lib/combat";
@@ -176,9 +179,24 @@ function GameScreen({ game }: { game: ReturnType<typeof useGame> }) {
       setAnnouncement(`You need to build a ${def.isMagical ? "menagerie" : "stable"} first.`);
     } else {
       const cost = def.rarity * 2 + def.level;
-      setAnnouncement(`Not enough ${def.elementId} crystals to tame ${def.name}. You need ${cost}.`);
+      setAnnouncement(
+        `Not enough ${def.elementId} crystals to tame ${def.name}. You need ${cost}.`,
+      );
     }
     setEncounterOpen(false);
+  }
+
+  function handleBreed(defId: string) {
+    const def = CREATURES.find((c) => c.id === defId);
+    if (!def) return;
+    const result = game.breedCreature(defId);
+    setRewardPopup({
+      kind: "breed",
+      creatureName: def.name,
+      attemptedPairs: result.attemptedPairs,
+      offspring: result.offspring,
+      successChance: result.successChance,
+    });
   }
 
   function handleCollect(placeId: string) {
@@ -266,12 +284,7 @@ function GameScreen({ game }: { game: ReturnType<typeof useGame> }) {
         </h1>
       </header>
 
-      <Tabs
-        value={activeTab}
-        onValueChange={setActiveTab}
-        activationMode="manual"
-        className="mt-6"
-      >
+      <Tabs value={activeTab} onValueChange={setActiveTab} activationMode="manual" className="mt-6">
         <TabsContent value="home-base">
           <HomePanel
             elementName={el.name}
@@ -317,6 +330,7 @@ function GameScreen({ game }: { game: ReturnType<typeof useGame> }) {
             stable={game.state.stable}
             builtStable={game.state.builtStable}
             masteryElement={el.id}
+            onBreed={handleBreed}
           />
         </TabsContent>
 
@@ -325,6 +339,7 @@ function GameScreen({ game }: { game: ReturnType<typeof useGame> }) {
             menagerie={game.state.menagerie}
             builtMenagerie={game.state.builtMenagerie}
             masteryElement={el.id}
+            onBreed={handleBreed}
           />
         </TabsContent>
 
@@ -427,6 +442,13 @@ type RewardPopupInfo =
       kind: "tame";
       creatureName: string;
       destination: "stable" | "menagerie";
+    }
+  | {
+      kind: "breed";
+      creatureName: string;
+      attemptedPairs: number;
+      offspring: number;
+      successChance: number;
     };
 
 function RewardDialog({
@@ -440,7 +462,13 @@ function RewardDialog({
     <Dialog open={reward !== null} onOpenChange={(v) => !v && onClose()}>
       <DialogContent className="max-w-sm">
         <DialogHeader>
-          <DialogTitle>{reward?.kind === "tame" ? "Creature Tamed!" : "Victory!"}</DialogTitle>
+          <DialogTitle>
+            {reward?.kind === "tame"
+              ? "Creature Tamed!"
+              : reward?.kind === "breed"
+                ? "Breeding Results"
+                : "Victory!"}
+          </DialogTitle>
         </DialogHeader>
         <div className="py-2 text-sm text-muted-foreground space-y-1">
           {reward?.kind === "victory" && (
@@ -460,6 +488,13 @@ function RewardDialog({
           )}
           {reward?.kind === "tame" && (
             <p>{`${reward.creatureName} has been added to your ${reward.destination}.`}</p>
+          )}
+          {reward?.kind === "breed" && (
+            <p>
+              {reward.attemptedPairs === 0
+                ? `${reward.creatureName} needs at least one male and one female to breed.`
+                : `${reward.creatureName} breeding rolled ${reward.attemptedPairs} pair${reward.attemptedPairs === 1 ? "" : "s"} at ${formatPercent(reward.successChance)} each and produced ${reward.offspring} offspring.`}
+            </p>
           )}
         </div>
         <DialogFooter>
@@ -519,6 +554,11 @@ function StatRow({ label, value }: { label: string; value: string | number }) {
       </dd>
     </div>
   );
+}
+
+function formatPercent(value: number): string {
+  const pct = value * 100;
+  return `${Number.isInteger(pct) ? pct.toFixed(0) : pct.toFixed(1)}%`;
 }
 
 function HomePanel({
@@ -802,11 +842,17 @@ function StablePanel({
   stable,
   builtStable,
   masteryElement,
+  onBreed,
 }: {
   stable: ReturnType<typeof useGame>["state"]["stable"];
   builtStable: boolean;
   masteryElement: string;
+  onBreed: (defId: string) => void;
 }) {
+  const [selectedDefId, setSelectedDefId] = useState<string | null>(null);
+  const groups = groupCreaturesBySpecies(stable);
+  const selected = groups.find((g) => g.def.id === selectedDefId) ?? groups[0] ?? null;
+
   if (!builtStable) {
     return (
       <section aria-label="Stable" className="rounded-2xl border bg-card p-8 text-center">
@@ -828,44 +874,19 @@ function StablePanel({
   return (
     <section aria-label="Stable" className="rounded-2xl border bg-card p-8">
       <h2 className="text-lg font-semibold text-foreground">Stable</h2>
-      <ul className="mt-4 grid gap-3" role="list">
-        {stable.map((tamed) => {
-          const def = CREATURES.find((c) => c.id === tamed.defId);
-          if (!def) return null;
-          const output = def.rarity * (def.elementId === masteryElement ? 2 : 1);
-          const elDef = ELEMENTS.find((e) => e.id === def.elementId);
-          return (
-            <li key={tamed.instanceId} className="rounded-xl border bg-background p-4">
-              <div className="flex items-start gap-3">
-                <span className="text-2xl" aria-hidden="true">
-                  {def.emoji}
-                </span>
-                <div>
-                  <h3 className="text-sm font-medium text-foreground">
-                    {tamed.gender ? `${genderLabel(tamed.gender)} ${def.name}` : def.name}
-                  </h3>
-                  <p className="mt-0.5 text-xs text-muted-foreground">
-                    <span className="sr-only">
-                      {`${tamed.gender ? `${genderLabel(tamed.gender)}, ` : ""}${elDef?.name}, level ${def.level}, rarity ${def.rarity}`}
-                    </span>
-                    <span aria-hidden="true">
-                      <span>{elDef?.emoji}</span>{" "}
-                      {tamed.gender ? `${genderLabel(tamed.gender)} · ` : ""}
-                      {elDef?.name} · Level {def.level} ·{" "}
-                      {"★".repeat(def.rarity)}
-                    </span>
-                  </p>
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    {`Produces ${output} ${def.elementId} fragment${output === 1 ? "" : "s"} / 5s${
-                      def.elementId === masteryElement ? " (mastery ×2)" : ""
-                    }`}
-                  </p>
-                </div>
-              </div>
-            </li>
-          );
-        })}
-      </ul>
+      <CreatureSpeciesList
+        groups={groups}
+        selectedDefId={selected?.def.id ?? null}
+        onSelect={setSelectedDefId}
+      />
+      {selected && (
+        <CreatureSpeciesDetail
+          group={selected}
+          home="stable"
+          masteryElement={masteryElement}
+          onBreed={onBreed}
+        />
+      )}
     </section>
   );
 }
@@ -874,11 +895,17 @@ function MenageriePanel({
   menagerie,
   builtMenagerie,
   masteryElement,
+  onBreed,
 }: {
   menagerie: ReturnType<typeof useGame>["state"]["menagerie"];
   builtMenagerie: boolean;
   masteryElement: string;
+  onBreed: (defId: string) => void;
 }) {
+  const [selectedDefId, setSelectedDefId] = useState<string | null>(null);
+  const groups = groupCreaturesBySpecies(menagerie);
+  const selected = groups.find((g) => g.def.id === selectedDefId) ?? groups[0] ?? null;
+
   if (!builtMenagerie) {
     return (
       <section aria-label="Menagerie" className="rounded-2xl border bg-card p-8 text-center">
@@ -900,47 +927,176 @@ function MenageriePanel({
   return (
     <section aria-label="Menagerie" className="rounded-2xl border bg-card p-8">
       <h2 className="text-lg font-semibold text-foreground">Menagerie</h2>
-      <ul className="mt-4 grid gap-3" role="list">
-        {menagerie.map((tamed) => {
-          const def = CREATURES.find((c) => c.id === tamed.defId);
-          if (!def) return null;
-          const consumed = def.rarity;
-          const produced = def.rarity * 3 * (def.producedElementId === masteryElement ? 2 : 1);
-          const consumedElDef = ELEMENTS.find((e) => e.id === def.consumedElementId);
-          const producedElDef = ELEMENTS.find((e) => e.id === def.producedElementId);
-          return (
-            <li key={tamed.instanceId} className="rounded-xl border bg-background p-4">
-              <div className="flex items-start gap-3">
+      <CreatureSpeciesList
+        groups={groups}
+        selectedDefId={selected?.def.id ?? null}
+        onSelect={setSelectedDefId}
+      />
+      {selected && (
+        <CreatureSpeciesDetail
+          group={selected}
+          home="menagerie"
+          masteryElement={masteryElement}
+          onBreed={onBreed}
+        />
+      )}
+    </section>
+  );
+}
+
+interface CreatureGroup {
+  def: CreatureDef;
+  creatures: TamedCreature[];
+  males: number;
+  females: number;
+  unknown: number;
+}
+
+function groupCreaturesBySpecies(creatures: TamedCreature[]): CreatureGroup[] {
+  const groups = new Map<string, CreatureGroup>();
+  for (const creature of creatures) {
+    const def = CREATURES.find((c) => c.id === creature.defId);
+    if (!def) continue;
+    const group =
+      groups.get(def.id) ??
+      ({
+        def,
+        creatures: [],
+        males: 0,
+        females: 0,
+        unknown: 0,
+      } satisfies CreatureGroup);
+    group.creatures.push(creature);
+    if (creature.gender === "male") group.males += 1;
+    else if (creature.gender === "female") group.females += 1;
+    else group.unknown += 1;
+    groups.set(def.id, group);
+  }
+  return Array.from(groups.values()).sort((a, b) => a.def.name.localeCompare(b.def.name));
+}
+
+function CreatureSpeciesList({
+  groups,
+  selectedDefId,
+  onSelect,
+}: {
+  groups: CreatureGroup[];
+  selectedDefId: string | null;
+  onSelect: (defId: string) => void;
+}) {
+  return (
+    <ul className="mt-4 grid gap-3" role="list">
+      {groups.map((group) => {
+        const isSelected = group.def.id === selectedDefId;
+        return (
+          <li key={group.def.id}>
+            <button
+              type="button"
+              onClick={() => onSelect(group.def.id)}
+              className={`flex w-full items-center justify-between gap-3 rounded-xl border bg-background p-4 text-left text-sm transition-colors ${
+                isSelected ? "border-primary bg-primary/10" : "hover:bg-muted"
+              }`}
+              aria-pressed={isSelected}
+              aria-label={`${group.def.name}: ${group.creatures.length}. Population: ${group.males} male, ${group.females} female.`}
+            >
+              <span className="flex min-w-0 items-center gap-3">
                 <span className="text-2xl" aria-hidden="true">
-                  {def.emoji}
+                  {group.def.emoji}
                 </span>
-                <div>
-                  <h3 className="text-sm font-medium text-foreground">
-                    {tamed.gender ? `${genderLabel(tamed.gender)} ${def.name}` : def.name}
-                  </h3>
-                  <p className="mt-0.5 text-xs text-muted-foreground">
-                    <span className="sr-only">
-                      {`${tamed.gender ? `${genderLabel(tamed.gender)}, ` : ""}Level ${def.level}, rarity ${def.rarity}, magical`}
-                    </span>
-                    <span aria-hidden="true">
-                      {tamed.gender ? `${genderLabel(tamed.gender)} · ` : ""}
-                      Level {def.level} · {"★".repeat(def.rarity)} · Magical
-                    </span>
-                  </p>
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    {`Consumes ${consumed} ${consumedElDef?.name ?? def.consumedElementId} fragments / 5s`}
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    {`Produces ${produced} ${producedElDef?.name ?? def.producedElementId} fragments / 5s${
-                      def.producedElementId === masteryElement ? " (mastery ×2)" : ""
-                    }`}
-                  </p>
-                </div>
-              </div>
-            </li>
-          );
-        })}
-      </ul>
+                <span className="font-medium text-foreground">{group.def.name}</span>
+              </span>
+              <span className="shrink-0 tabular-nums text-muted-foreground">
+                {group.creatures.length}
+              </span>
+            </button>
+          </li>
+        );
+      })}
+    </ul>
+  );
+}
+
+function CreatureSpeciesDetail({
+  group,
+  home,
+  masteryElement,
+  onBreed,
+}: {
+  group: CreatureGroup;
+  home: "stable" | "menagerie";
+  masteryElement: string;
+  onBreed: (defId: string) => void;
+}) {
+  const count = group.creatures.length;
+  const pairs = Math.min(group.males, group.females);
+  const successChance = encounterWeight(group.def.rarity);
+  const producedElementId =
+    home === "menagerie"
+      ? (group.def.producedElementId ?? group.def.elementId)
+      : group.def.elementId;
+  const producedElDef = ELEMENTS.find((e) => e.id === producedElementId);
+  const perCreatureOutput =
+    home === "menagerie"
+      ? group.def.rarity * 3 * (producedElementId === masteryElement ? 2 : 1)
+      : group.def.rarity * (producedElementId === masteryElement ? 2 : 1);
+  const totalOutput = count * perCreatureOutput;
+  const consumedElDef = ELEMENTS.find((e) => e.id === group.def.consumedElementId);
+  const totalConsumed =
+    home === "menagerie" && group.def.consumedElementId ? count * group.def.rarity : null;
+
+  return (
+    <section
+      aria-label={`${group.def.name} details`}
+      className="mt-6 rounded-xl border bg-background p-4"
+    >
+      <div className="flex items-start gap-3">
+        <span className="text-3xl" aria-hidden="true">
+          {group.def.emoji}
+        </span>
+        <div className="min-w-0 flex-1">
+          <h3 className="text-base font-semibold text-foreground">{group.def.name}</h3>
+          <p className="mt-0.5 text-xs text-muted-foreground">
+            <span className="sr-only">
+              {`${producedElDef?.name ?? producedElementId}, level ${group.def.level}, rarity ${group.def.rarity}${home === "menagerie" ? ", magical" : ""}`}
+            </span>
+            <span aria-hidden="true">
+              <span>{producedElDef?.emoji}</span> {producedElDef?.name ?? producedElementId} · Level{" "}
+              {group.def.level} · {"★".repeat(group.def.rarity)}
+              {home === "menagerie" ? " · Magical" : ""}
+            </span>
+          </p>
+        </div>
+      </div>
+
+      <dl className="mt-4 grid gap-2 text-sm">
+        <StatRow
+          label="Total produced fragments"
+          value={`${totalOutput} ${producedElDef?.name ?? producedElementId} / 5s`}
+        />
+        {totalConsumed !== null && (
+          <StatRow
+            label="Total consumed fragments"
+            value={`${totalConsumed} ${consumedElDef?.name ?? group.def.consumedElementId} / 5s`}
+          />
+        )}
+        <StatRow
+          label="Population"
+          value={`${group.males} male, ${group.females} female${group.unknown > 0 ? `, ${group.unknown} unknown` : ""}`}
+        />
+        <StatRow label="Breeding pairs" value={pairs} />
+        <StatRow label="Breeding chance per pair" value={formatPercent(successChance)} />
+      </dl>
+
+      <div className="mt-4">
+        <Button
+          type="button"
+          size="sm"
+          onClick={() => onBreed(group.def.id)}
+          disabled={pairs === 0}
+        >
+          Breed
+        </Button>
+      </div>
     </section>
   );
 }
@@ -994,9 +1150,8 @@ function CooldownTimer({ expiresAt }: { expiresAt: number }) {
   const h = Math.floor(secs / 3600);
   const m = Math.floor((secs % 3600) / 60);
   const s = secs % 60;
-  const label = h > 0
-    ? `${h}h ${String(m).padStart(2, "0")}m`
-    : `${m}:${String(s).padStart(2, "0")}`;
+  const label =
+    h > 0 ? `${h}h ${String(m).padStart(2, "0")}m` : `${m}:${String(s).padStart(2, "0")}`;
   return <span className="text-xs text-muted-foreground">{label}</span>;
 }
 
@@ -1051,7 +1206,7 @@ function PlacesPanel({
         {discoveredPlaces.map((placeId) => {
           const def = PLACES.find((p) => p.id === placeId);
           if (!def) return null;
-          const cooldownExpiry = def.kind === "elemental" ? cooldowns[placeId] ?? 0 : 0;
+          const cooldownExpiry = def.kind === "elemental" ? (cooldowns[placeId] ?? 0) : 0;
           const elDef = def.elementId ? ELEMENTS.find((e) => e.id === def.elementId) : null;
           const yieldLabel =
             def.kind === "forest"
@@ -1293,9 +1448,8 @@ function EncounterPanel({
                       }`}
                     </span>
                     <span aria-hidden="true">
-                      <span>{elDef?.emoji}</span> {genderLabel(encounter.gender)} ·{" "}
-                      {elDef?.name} · Level {encounter.def.level} ·{" "}
-                      {"★".repeat(encounter.def.rarity)} ·{" "}
+                      <span>{elDef?.emoji}</span> {genderLabel(encounter.gender)} · {elDef?.name} ·
+                      Level {encounter.def.level} · {"★".repeat(encounter.def.rarity)} ·{" "}
                       {encounter.def.isMagical ? "Magical" : "Non-magical"}
                     </span>
                   </p>
@@ -1320,7 +1474,9 @@ function EncounterPanel({
                   type="button"
                   onClick={() => onStudy(encounter.def.id, encounter.def.elementId)}
                 >
-                  Study {ELEMENTS.find((e) => e.id === encounter.def.elementId)?.name ?? encounter.def.elementId}
+                  Study{" "}
+                  {ELEMENTS.find((e) => e.id === encounter.def.elementId)?.name ??
+                    encounter.def.elementId}
                 </Button>
               ) : (
                 <>
@@ -1393,18 +1549,21 @@ function EncounterPanel({
               )}
             </div>
             <DialogFooter className="flex-wrap items-center gap-2">
-              {encounter.def.elementId &&
-              !unlockedElements.includes(encounter.def.elementId) ? (
+              {encounter.def.elementId && !unlockedElements.includes(encounter.def.elementId) ? (
                 <Button
                   type="button"
                   onClick={() => onStudy(encounter.def.id, encounter.def.elementId!)}
                 >
-                  Study {ELEMENTS.find((e) => e.id === encounter.def.elementId)?.name ?? encounter.def.elementId}
+                  Study{" "}
+                  {ELEMENTS.find((e) => e.id === encounter.def.elementId)?.name ??
+                    encounter.def.elementId}
                 </Button>
               ) : (
                 <PlaceCollectControl
                   placeId={encounter.def.id}
-                  cooldownExpiry={encounter.def.kind === "elemental" ? cooldowns[encounter.def.id] ?? 0 : 0}
+                  cooldownExpiry={
+                    encounter.def.kind === "elemental" ? (cooldowns[encounter.def.id] ?? 0) : 0
+                  }
                   onCollect={onCollect}
                 />
               )}
@@ -1497,9 +1656,7 @@ function GraduateDialog({
                         type="button"
                         onClick={() => setSelected(isSelected ? null : tamed.defId)}
                         className={`w-full rounded-lg border p-3 text-left text-sm transition-colors ${
-                          isSelected
-                            ? "border-primary bg-primary/10"
-                            : "hover:bg-muted"
+                          isSelected ? "border-primary bg-primary/10" : "hover:bg-muted"
                         }`}
                       >
                         <span aria-hidden="true">{def.emoji}</span> {def.name} —{" "}
@@ -1518,10 +1675,7 @@ function GraduateDialog({
           <Button type="button" variant="ghost" onClick={onClose}>
             Cancel
           </Button>
-          <Button
-            type="button"
-            onClick={() => onGraduate(selected)}
-          >
+          <Button type="button" onClick={() => onGraduate(selected)}>
             Graduate
           </Button>
         </DialogFooter>

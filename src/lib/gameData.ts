@@ -155,6 +155,13 @@ export function randomGender(): Gender {
   return Math.random() < 0.5 ? "male" : "female";
 }
 
+// Encounter and breeding odds both use this curve, so rarity feels consistent
+// whether you are finding a creature or trying to raise more of it.
+export function encounterWeight(rarity: number): number {
+  const r = Math.max(1, rarity);
+  return 1 / (r * r);
+}
+
 export function genderLabel(gender: Gender): string {
   return gender === "male" ? "Male" : "Female";
 }
@@ -236,7 +243,7 @@ export function isSpellUnlocked(
 }
 
 export function xpForLevel(level: number): number {
-  return (level * (level - 1) / 2) * 1000;
+  return ((level * (level - 1)) / 2) * 1000;
 }
 
 export function levelFromXp(totalXp: number): number {
@@ -245,7 +252,11 @@ export function levelFromXp(totalXp: number): number {
   return Math.floor((1 + Math.sqrt(1 + 8 * k)) / 2);
 }
 
-export function xpProgressInLevel(totalXp: number): { level: number; currentXp: number; neededXp: number } {
+export function xpProgressInLevel(totalXp: number): {
+  level: number;
+  currentXp: number;
+  neededXp: number;
+} {
   const level = levelFromXp(totalXp);
   return {
     level,
