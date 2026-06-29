@@ -2,6 +2,11 @@
 
 _Newest first. Browse in AIDE with Ctrl+I._
 
+## 2026-06-29 — Troll and Nyad magical creatures
+Two new magical creatures that fit the produce/consume chains alongside Cinderling, Sylf, and Dryad. Troll (earth, level 4, rarity 3) eats plant and makes earth; Nyad (water, level 2, rarity 3) eats air and makes water — so Nyad feeds plant-makers and Troll consumes their plant, closing a loop.
+- Files: src/lib/seedData.ts
+- Commit: 7a8eaf1
+
 ## 2026-06-27 — Creature roster expansion and rarity-tuned exploring
 A big content-and-balance pass on the exploring/taming loop. Added a whole new tier of creatures, the elements and gathering places to support them, randomized creature gender, two new spells, and reworked how often things appear so rarity actually matters.
 - Random creature gender: every creature you find is randomly male or female (rolled per encounter, not per species), announced in the encounter dialog and kept on tamed creatures in the Stable and Menagerie.
