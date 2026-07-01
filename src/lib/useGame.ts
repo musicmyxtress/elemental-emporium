@@ -317,26 +317,28 @@ export function useGame() {
     setState((prev) => ({ ...prev, element: elementId, lastPassiveAt: Date.now() }));
   }, []);
 
-  const forgeCrystal = useCallback((elementId: string): boolean => {
+  const forgeCrystal = useCallback((elementId: string, requestedAmount = 1): number => {
     const key = fragmentKey(elementId);
-    let ok = false;
+    let forged = 0;
     setState((prev) => {
       const have = prev.resources[key] ?? 0;
-      if (have < FRAGMENTS_PER_CRYSTAL) return prev;
-      ok = true;
+      const maxAffordable = Math.floor(have / FRAGMENTS_PER_CRYSTAL);
+      const amount = Math.max(1, Math.floor(requestedAmount));
+      forged = Math.min(amount, maxAffordable);
+      if (forged <= 0) return prev;
       const level = levelFromXp(prev.elementXp[elementId] ?? 0);
-      const xpGained = 100 * level;
+      const xpGained = 100 * level * forged;
       const newXp = { ...prev.elementXp, [elementId]: (prev.elementXp[elementId] ?? 0) + xpGained };
       const masteryLevel = prev.element ? levelFromXp(newXp[prev.element] ?? 0) : 0;
       return {
         ...prev,
-        resources: { ...prev.resources, [key]: have - FRAGMENTS_PER_CRYSTAL },
-        crystals: { ...prev.crystals, [elementId]: (prev.crystals[elementId] ?? 0) + 1 },
+        resources: { ...prev.resources, [key]: have - FRAGMENTS_PER_CRYSTAL * forged },
+        crystals: { ...prev.crystals, [elementId]: (prev.crystals[elementId] ?? 0) + forged },
         elementXp: newXp,
         hasApprentice: prev.hasApprentice || (prev.element !== null && masteryLevel >= 20),
       };
     });
-    return ok;
+    return forged;
   }, []);
 
   const winFight = useCallback((defId: string): { fragmentsGained: number; xpGained: number } => {

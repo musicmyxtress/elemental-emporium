@@ -249,21 +249,23 @@ function GameScreen({ game }: { game: ReturnType<typeof useGame> }) {
     }
   }
 
-  function handleForge(elementId: string) {
+  function handleForge(elementId: string, amount: number) {
     const elDef = ELEMENTS.find((e) => e.id === elementId)!;
     const currentFragments = Math.floor(game.state.resources[fragmentKey(elementId)] ?? 0);
     const currentCrystals = game.state.crystals[elementId] ?? 0;
-    if (currentFragments < FRAGMENTS_PER_CRYSTAL) {
+    const maxForgeable = Math.floor(currentFragments / FRAGMENTS_PER_CRYSTAL);
+    if (maxForgeable <= 0) {
       setAnnouncement(
         `Not enough ${elDef.name.toLowerCase()} fragments to forge. You need ${FRAGMENTS_PER_CRYSTAL} but only have ${currentFragments}.`,
       );
       return;
     }
 
-    game.forgeCrystal(elementId);
-    const remainingFragments = currentFragments - FRAGMENTS_PER_CRYSTAL;
+    const forged = game.forgeCrystal(elementId, amount);
+    const remainingFragments = currentFragments - FRAGMENTS_PER_CRYSTAL * forged;
+    const newCrystalCount = currentCrystals + forged;
     setAnnouncement(
-      `Forged 1 ${elDef.name.toLowerCase()} crystal from ${FRAGMENTS_PER_CRYSTAL} fragments. You have ${currentCrystals + 1} crystal${currentCrystals + 1 === 1 ? "" : "s"} and ${remainingFragments} ${elDef.name.toLowerCase()} fragments left.`,
+      `Forged ${forged} ${elDef.name.toLowerCase()} crystal${forged === 1 ? "" : "s"} from ${FRAGMENTS_PER_CRYSTAL * forged} fragments. You have ${newCrystalCount} crystal${newCrystalCount === 1 ? "" : "s"} and ${remainingFragments} ${elDef.name.toLowerCase()} fragments left.`,
     );
   }
 
@@ -784,7 +786,7 @@ function ForgePanel({
   resources: Record<string, number>;
   crystals: Record<string, number>;
   masteryElementId: string;
-  onForge: (elementId: string) => void;
+  onForge: (elementId: string, amount: number) => void;
 }) {
   return (
     <section aria-label="Forge" className="rounded-2xl border bg-card p-8">
@@ -796,8 +798,13 @@ function ForgePanel({
         {elements.map((elDef) => {
           const fragments = Math.floor(resources[fragmentKey(elDef.id)] ?? 0);
           const elCrystals = crystals[elDef.id] ?? 0;
-          const canForge = fragments >= FRAGMENTS_PER_CRYSTAL;
+          const maxForgeable = Math.floor(fragments / FRAGMENTS_PER_CRYSTAL);
           const isMastery = elDef.id === masteryElementId;
+          const forgeOptions = [
+            { label: "Forge 1", amount: 1 },
+            { label: "Forge 10", amount: 10 },
+            { label: `Forge max (${maxForgeable})`, amount: maxForgeable },
+          ];
           return (
             <li key={elDef.id} className="rounded-xl border bg-background p-4">
               <h3 className="text-sm font-medium text-foreground">
@@ -815,20 +822,26 @@ function ForgePanel({
                 <StatRow label={`${elDef.name} fragments`} value={fragments} />
                 <StatRow label={`${elDef.name} crystals`} value={elCrystals} />
               </dl>
-              <div className="mt-4">
-                <Button
-                  type="button"
-                  size="sm"
-                  onClick={() => onForge(elDef.id)}
-                  disabled={!canForge}
-                  aria-label={
-                    canForge
-                      ? `Forge 1 ${elDef.name.toLowerCase()} crystal from ${FRAGMENTS_PER_CRYSTAL} fragments`
-                      : `Need ${FRAGMENTS_PER_CRYSTAL} ${elDef.name.toLowerCase()} fragments to forge a crystal. You have ${fragments}.`
-                  }
-                >
-                  Forge crystal ({FRAGMENTS_PER_CRYSTAL} fragments)
-                </Button>
+              <div className="mt-4 flex flex-wrap gap-2">
+                {forgeOptions.map(({ label, amount }) => {
+                  const disabled = amount <= 0 || maxForgeable < amount;
+                  return (
+                    <Button
+                      key={label}
+                      type="button"
+                      size="sm"
+                      onClick={() => onForge(elDef.id, amount)}
+                      disabled={disabled}
+                      aria-label={
+                        disabled
+                          ? `Need ${FRAGMENTS_PER_CRYSTAL * Math.max(amount, 1)} ${elDef.name.toLowerCase()} fragments to ${label.toLowerCase()}. You have ${fragments}.`
+                          : `${label} ${elDef.name.toLowerCase()} crystal${amount === 1 ? "" : "s"} from ${FRAGMENTS_PER_CRYSTAL * amount} fragments`
+                      }
+                    >
+                      {label}
+                    </Button>
+                  );
+                })}
               </div>
             </li>
           );
