@@ -33,6 +33,7 @@ export interface GameState {
   playerHp: number;
   sleepUntil: number | null;
   lastPassiveAt: number | null;
+  lastInteractionAt: number;
   shieldAmount: number;
   hasteUntil: number | null;
   hasteReductionSeconds: number;
@@ -45,6 +46,7 @@ const SLEEP_MS_PER_HP = 3000;
 // Cap how much elapsed real time we pay out in one catch-up, so returning to a
 // long-backgrounded tab awards a sane amount instead of an enormous lump sum.
 const MAX_CATCHUP_TICKS = 720; // 1 hour at a 5s interval
+const IDLE_CUTOFF_MS = 3_600_000;
 
 export interface BreedResult {
   attemptedPairs: number;
@@ -72,6 +74,7 @@ function defaultState(): GameState {
     playerHp: playerMaxHp({}, BASE_ELEMENTS),
     sleepUntil: null,
     lastPassiveAt: null,
+    lastInteractionAt: Date.now(),
     shieldAmount: 0,
     hasteUntil: null,
     hasteReductionSeconds: 0,
@@ -133,6 +136,7 @@ function loadState(): GameState {
       sleepUntil: typeof p.sleepUntil === "number" ? p.sleepUntil : null,
       lastPassiveAt:
         typeof p.lastPassiveAt === "number" ? p.lastPassiveAt : element ? Date.now() : null,
+      lastInteractionAt: typeof p.lastInteractionAt === "number" ? p.lastInteractionAt : Date.now(),
       shieldAmount: typeof p.shieldAmount === "number" ? p.shieldAmount : 0,
       hasteUntil: typeof p.hasteUntil === "number" ? p.hasteUntil : null,
       hasteReductionSeconds:
@@ -262,26 +266,40 @@ export function useGame() {
     }
   }, [state, hydrated]);
 
-  // Pay out passive income based on the real time that has actually elapsed
-  // since the last payout, replaying whole 5s ticks. This survives background
-  // tabs: browsers throttle/pause setInterval when the game is not the focused
-  // tab, so a naive per-tick counter silently stops earning. Driven by a timer
-  // AND by focus/visibility regain so income catches up the instant you return.
+  // Pay out passive income based on real elapsed time, but only through the
+  // first idle hour. Beyond that, production pauses until the player interacts.
   const accruePassive = useCallback(() => {
     setState((prev) => {
       if (!prev.element) return prev;
       const now = Date.now();
       if (prev.lastPassiveAt === null) return { ...prev, lastPassiveAt: now };
       const last = prev.lastPassiveAt;
-      const elapsed = now - last;
-      const ticks = Math.min(Math.floor(elapsed / PASSIVE_INTERVAL_MS), MAX_CATCHUP_TICKS);
+      const idleCutoffAt = prev.lastInteractionAt + IDLE_CUTOFF_MS;
+      const earningThrough = Math.min(now, idleCutoffAt);
+      if (earningThrough <= last) return prev;
+      const elapsed = earningThrough - last;
+      const availableTicks = Math.floor(elapsed / PASSIVE_INTERVAL_MS);
+      const ticks = Math.min(availableTicks, MAX_CATCHUP_TICKS);
       if (ticks <= 0) return prev;
       let next = prev;
       for (let i = 0; i < ticks; i++) next = passiveTick(next, now);
-      const wasCapped = elapsed >= MAX_CATCHUP_TICKS * PASSIVE_INTERVAL_MS;
+      const wasCapped = availableTicks > ticks || now > earningThrough;
       return {
         ...next,
-        lastPassiveAt: wasCapped ? now : last + ticks * PASSIVE_INTERVAL_MS,
+        lastPassiveAt: wasCapped ? earningThrough : last + ticks * PASSIVE_INTERVAL_MS,
+      };
+    });
+  }, []);
+
+  const markPlayerActivity = useCallback(() => {
+    const now = Date.now();
+    setState((prev) => {
+      if (!prev.element || now - prev.lastInteractionAt < 1000) return prev;
+      const wasIdle = now - prev.lastInteractionAt >= IDLE_CUTOFF_MS;
+      return {
+        ...prev,
+        lastInteractionAt: now,
+        lastPassiveAt: wasIdle ? now : prev.lastPassiveAt,
       };
     });
   }, []);
@@ -302,6 +320,25 @@ export function useGame() {
   }, [state.element, accruePassive]);
 
   useEffect(() => {
+    if (!state.element) return;
+    const options = { passive: true };
+    window.addEventListener("click", markPlayerActivity, options);
+    window.addEventListener("keydown", markPlayerActivity);
+    window.addEventListener("pointerdown", markPlayerActivity, options);
+    window.addEventListener("scroll", markPlayerActivity, options);
+    window.addEventListener("touchstart", markPlayerActivity, options);
+    window.addEventListener("wheel", markPlayerActivity, options);
+    return () => {
+      window.removeEventListener("click", markPlayerActivity);
+      window.removeEventListener("keydown", markPlayerActivity);
+      window.removeEventListener("pointerdown", markPlayerActivity);
+      window.removeEventListener("scroll", markPlayerActivity);
+      window.removeEventListener("touchstart", markPlayerActivity);
+      window.removeEventListener("wheel", markPlayerActivity);
+    };
+  }, [state.element, markPlayerActivity]);
+
+  useEffect(() => {
     if (state.sleepUntil === null) return;
     const delay = Math.max(0, state.sleepUntil - Date.now());
     const id = setTimeout(() => {
@@ -318,7 +355,13 @@ export function useGame() {
   }, [state.sleepUntil]);
 
   const chooseElement = useCallback((elementId: string) => {
-    setState((prev) => ({ ...prev, element: elementId, lastPassiveAt: Date.now() }));
+    const now = Date.now();
+    setState((prev) => ({
+      ...prev,
+      element: elementId,
+      lastPassiveAt: now,
+      lastInteractionAt: now,
+    }));
   }, []);
 
   const forgeCrystal = useCallback((elementId: string, requestedAmount = 1): number => {
@@ -708,6 +751,7 @@ export function useGame() {
         generationNumber: prev.generationNumber + 1,
         generationStartElements: [...prev.unlockedElements],
         playerHp: playerMaxHp({}, prev.unlockedElements),
+        lastInteractionAt: Date.now(),
       };
     });
   }, []);
