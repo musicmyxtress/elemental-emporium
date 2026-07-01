@@ -851,7 +851,7 @@ function StablePanel({
 }) {
   const [selectedDefId, setSelectedDefId] = useState<string | null>(null);
   const groups = groupCreaturesBySpecies(stable);
-  const selected = groups.find((g) => g.def.id === selectedDefId) ?? groups[0] ?? null;
+  const selected = groups.find((g) => g.def.id === selectedDefId) ?? null;
 
   if (!builtStable) {
     return (
@@ -877,7 +877,7 @@ function StablePanel({
       <CreatureSpeciesList
         groups={groups}
         selectedDefId={selected?.def.id ?? null}
-        onSelect={setSelectedDefId}
+        onSelect={(defId) => setSelectedDefId((current) => (current === defId ? null : defId))}
       />
       {selected && (
         <CreatureSpeciesDetail
@@ -904,7 +904,7 @@ function MenageriePanel({
 }) {
   const [selectedDefId, setSelectedDefId] = useState<string | null>(null);
   const groups = groupCreaturesBySpecies(menagerie);
-  const selected = groups.find((g) => g.def.id === selectedDefId) ?? groups[0] ?? null;
+  const selected = groups.find((g) => g.def.id === selectedDefId) ?? null;
 
   if (!builtMenagerie) {
     return (
@@ -930,7 +930,7 @@ function MenageriePanel({
       <CreatureSpeciesList
         groups={groups}
         selectedDefId={selected?.def.id ?? null}
-        onSelect={setSelectedDefId}
+        onSelect={(defId) => setSelectedDefId((current) => (current === defId ? null : defId))}
       />
       {selected && (
         <CreatureSpeciesDetail
@@ -996,17 +996,19 @@ function CreatureSpeciesList({
               className={`flex w-full items-center justify-between gap-3 rounded-xl border bg-background p-4 text-left text-sm transition-colors ${
                 isSelected ? "border-primary bg-primary/10" : "hover:bg-muted"
               }`}
-              aria-pressed={isSelected}
-              aria-label={`${group.def.name}: ${group.creatures.length}. Population: ${group.males} male, ${group.females} female.`}
+              aria-expanded={isSelected}
+              aria-label={`${group.def.name}: ${group.creatures.length}`}
             >
               <span className="flex min-w-0 items-center gap-3">
                 <span className="text-2xl" aria-hidden="true">
                   {group.def.emoji}
                 </span>
-                <span className="font-medium text-foreground">{group.def.name}</span>
+                <span className="font-medium text-foreground">
+                  {`${group.def.name}: ${group.creatures.length}`}
+                </span>
               </span>
-              <span className="shrink-0 tabular-nums text-muted-foreground">
-                {group.creatures.length}
+              <span className="shrink-0 text-xs text-muted-foreground" aria-hidden="true">
+                {isSelected ? "Collapse" : "Expand"}
               </span>
             </button>
           </li>
