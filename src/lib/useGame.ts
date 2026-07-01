@@ -278,7 +278,11 @@ export function useGame() {
       if (ticks <= 0) return prev;
       let next = prev;
       for (let i = 0; i < ticks; i++) next = passiveTick(next, now);
-      return { ...next, lastPassiveAt: last + ticks * PASSIVE_INTERVAL_MS };
+      const wasCapped = elapsed >= MAX_CATCHUP_TICKS * PASSIVE_INTERVAL_MS;
+      return {
+        ...next,
+        lastPassiveAt: wasCapped ? now : last + ticks * PASSIVE_INTERVAL_MS,
+      };
     });
   }, []);
 
